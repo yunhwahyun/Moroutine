@@ -145,16 +145,17 @@ function ReviewIntervalsRow({
   }
 
   return (
-    <div className="px-4 py-3.5">
-      <p className="text-sm text-gray-800 mb-3">복습 주기</p>
-      <div className="flex flex-wrap gap-2">
+    <>
+    <div className="flex items-center justify-between px-4 py-3.5 min-h-[52px]">
+      <p className="text-sm text-gray-800">복습 주기</p>
+      <div className="flex items-center gap-0.5">
         {REVIEW_INTERVAL_OPTIONS.map((opt) => {
           const checked = value.includes(opt.value)
           return (
             <button
               key={opt.value}
               onClick={() => toggle(opt.value)}
-              className={`px-3.5 py-1.5 rounded-lg text-sm border transition-colors ${
+              className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
                 checked
                   ? 'bg-gray-900 text-white border-gray-900'
                   : 'bg-white text-gray-500 border-gray-200'
@@ -165,10 +166,13 @@ function ReviewIntervalsRow({
           )
         })}
       </div>
-      <p className="text-xs text-gray-400 mt-2">
+    </div>
+    <div className="px-4 py-3">
+      <p className="text-xs text-gray-400 leading-relaxed">
         선택 순서대로 복습 단계가 됩니다 · 현재 {value.length}단계
       </p>
     </div>
+    </>
   )
 }
 
