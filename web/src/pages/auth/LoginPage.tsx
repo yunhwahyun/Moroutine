@@ -46,9 +46,9 @@ export default function LoginPage() {
     <div className="flex flex-col items-center justify-center min-h-dvh px-6 bg-white">
       <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="text-center mb-10">
-          <h1 className="text-2xl font-bold text-gray-900">Moroutine</h1>
-          <p className="text-gray-400 text-sm mt-1">루틴으로 만드는 어휘 학습</p>
+        <div className="flex flex-col items-center mb-10">
+          <img src="/logo.svg" alt="Moroutine" className="h-14 w-auto" />
+          <p className="text-gray-400 text-sm mt-3">루틴으로 만드는 어휘 학습</p>
         </div>
 
         {/* Mode tabs */}
@@ -58,7 +58,7 @@ export default function LoginPage() {
               <button
                 key={m}
                 onClick={() => { setMode(m); setError(''); setMessage('') }}
-                className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all ${
+                className={`flex-1 min-h-[38px] py-2 text-xs font-medium rounded-lg transition-all ${
                   mode === m ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
                 }`}
               >
