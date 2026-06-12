@@ -1,0 +1,72 @@
+# Moroutine — Claude Code 작업 규칙
+
+## 문서 구조
+
+모든 설계 문서는 `docs/` 디렉토리에 있다. 루트 `DESIGN.md`는 인덱스 파일이다.
+
+| 파일 | 역할 |
+|------|------|
+| `docs/DESIGN.md` | **SSOT** — 아키텍처, 알고리즘, 폴더 구조 |
+| `docs/PROJECT_STATUS.md` | 완료/진행중/다음 작업 현황 |
+| `docs/DECISION_LOG.md` | 날짜별 설계 결정 이력 |
+| `docs/DEVELOPMENT_RULES.md` | 개발 규칙 (보안, 코드 스타일, 상태관리) |
+| `docs/DB_SCHEMA.md` | 전체 DDL + RLS + 마이그레이션 순서 |
+| `docs/API_SPEC.md` | SelectionTarget + Edge Function 스펙 |
+| `docs/UI_FLOW.md` | 화면 흐름, 라우팅, 각 화면 상세 |
+| `docs/TODO.md` | Todo / Doing / Done |
+
+---
+
+## 작업 규칙
+
+1. `docs/DESIGN.md`를 단일 진실 소스(SSOT)로 사용한다.
+2. 설계 변경 시 `docs/DESIGN.md`를 최신 상태로 갱신한다.
+3. 주요 의사결정은 `docs/DECISION_LOG.md`에 날짜 + 이유와 함께 기록한다.
+4. 작업 완료 시 `docs/PROJECT_STATUS.md`를 갱신한다.
+5. 새로운 기능이 추가되면 `docs/TODO.md`를 갱신한다.
+6. DB 변경 시 `docs/DB_SCHEMA.md`를 갱신한다.
+7. API 변경 시 `docs/API_SPEC.md`를 갱신한다.
+8. UI 흐름 변경 시 `docs/UI_FLOW.md`를 갱신한다.
+
+---
+
+## 작업 종료 보고 형식
+
+모든 작업 완료 시 반드시 아래 형식으로 보고한다.
+
+```
+## Completed
+* 완료된 작업 목록
+
+## Changed Files
+* 수정된 파일 목록
+
+## Updated Docs
+* 갱신된 문서 목록
+
+## Next Recommended Task
+* 다음 작업 추천
+```
+
+---
+
+## 개발 규칙 요약 (상세는 docs/DEVELOPMENT_RULES.md 참고)
+
+- `service_role` 키는 절대 웹앱/RN에 포함하지 않는다.
+- 새 테이블 추가 시 RLS 4가지 정책 필수.
+- 공용 컴포넌트(`EditIcon`, `Spinner` 등)는 반드시 `src/components/`에서 import.
+- 서버 데이터 → TanStack Query / 로컬 상태 → Zustand.
+- Phase 완료 후 즉시 `docs/PROJECT_STATUS.md` 갱신.
+
+---
+
+## 환경
+
+- Node.js: **22.14.0** (nvm 사용, `.nvmrc` 파일 존재)
+- mobile/ 작업 시 `source ~/.nvm/nvm.sh && nvm use 22.14.0` 선행 필요
+
+---
+
+## 언어
+
+모든 답변은 한국어로 한다.
