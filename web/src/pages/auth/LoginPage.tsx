@@ -70,24 +70,27 @@ export default function LoginPage() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="이메일"
-            required
-            className="w-full border border-gray-200 rounded-lg px-4 py-3.5 text-sm outline-none focus:border-gray-400"
-          />
-          {mode !== 'magic' && (
+          {/* 인풋 영역 — 탭에 따라 1~2개로 바뀌어도 높이 고정 */}
+          <div className="flex flex-col gap-3 min-h-[112px]">
             <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="비밀번호"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="이메일"
               required
               className="w-full border border-gray-200 rounded-lg px-4 py-3.5 text-sm outline-none focus:border-gray-400"
             />
-          )}
+            {mode !== 'magic' && (
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="비밀번호"
+                required
+                className="w-full border border-gray-200 rounded-lg px-4 py-3.5 text-sm outline-none focus:border-gray-400"
+              />
+            )}
+          </div>
 
           {error && <p className="text-red-500 text-xs px-1">{error}</p>}
           {message && <p className="text-green-600 text-xs px-1">{message}</p>}
