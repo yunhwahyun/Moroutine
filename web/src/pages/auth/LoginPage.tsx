@@ -48,7 +48,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="flex flex-col items-center mb-10">
           <img src="/logo.svg" alt="Moroutine" className="h-14 w-auto" />
-          <p className="text-gray-400 text-sm mt-3">루틴으로 만드는 어휘 학습</p>
+          {/* <p className="text-gray-400 text-sm mt-3">루틴으로 만드는 어휘 학습</p> */}
         </div>
 
         {/* Mode tabs */}
