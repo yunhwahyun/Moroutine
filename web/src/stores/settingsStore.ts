@@ -10,6 +10,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   scheduleNotification: true,
   reviewNotification: true,
   reviewNotificationTime: '09:00',
+  shortAnswerInput: 'both',
 }
 
 interface SettingsState {

@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 
 export function useBridgeListener() {
   useEffect(() => {
-    registerBridgeListener(async (msg) => {
+    return registerBridgeListener(async (msg) => {
       if (msg.type === 'NOTIFICATION_RESULT') {
         const { id, nativeId, success } = msg.payload
         if (success && nativeId) {

@@ -1,10 +1,12 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import type { QuizWord, QuizMode } from '@/types'
 import ProgressBar from './ProgressBar'
 import AnswerOptions from './AnswerOptions'
 import AnswerReveal from './AnswerReveal'
-import { BackIcon, CloseIcon, SpeakerIcon } from '@/components/icons'
+import { BackIcon, CloseIcon, SpeakerIcon, MicIcon } from '@/components/icons'
 import { useTTS } from '@/hooks/useTTS'
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 interface Props {
   words: QuizWord[]
@@ -17,14 +19,26 @@ interface Props {
 
 type Phase = 'question' | 'revealed'
 
+function normalize(text: string): string {
+  return text.toLowerCase().trim().replace(/[.,!?]/g, '')
+}
+
 export default function Quiz({ words, initialMode = 'multiple_choice', onComplete, onClose, onWordAnswered }: Props) {
-  const { speak, isSupported } = useTTS()
+  const { speak, isSupported: ttsSupported } = useTTS()
+  const { supported: sttSupported, listening, transcript, start: startSTT, stop: stopSTT } = useSpeechRecognition()
+  const shortAnswerInput = useSettingsStore((s) => s.settings.shortAnswerInput)
+
   const [index, setIndex] = useState(0)
   const [mode, setMode] = useState<QuizMode>(initialMode)
   const [phase, setPhase] = useState<Phase>('question')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [shortInput, setShortInput] = useState('')
   const [correctCount, setCorrectCount] = useState(0)
+
+  // 음성 인식 결과 → 입력창 자동 반영
+  useEffect(() => {
+    if (transcript) setShortInput(transcript)
+  }, [transcript])
 
   const word = words[index]
   if (!word) return null
@@ -52,12 +66,13 @@ export default function Quiz({ words, initialMode = 'multiple_choice', onComplet
 
   const handleSubmitShort = useCallback(() => {
     if (phase !== 'question') return
-    const correct = shortInput.trim().toLowerCase() === word.term.trim().toLowerCase()
+    if (listening) stopSTT()
+    const correct = normalize(shortInput) === normalize(word.term)
     setSelectedId(correctId)
     if (correct) setCorrectCount((c) => c + 1)
     setPhase('revealed')
     onWordAnswered?.(word.id, correct)
-  }, [phase, shortInput, word.term, word.id, correctId, onWordAnswered])
+  }, [phase, shortInput, word.term, word.id, correctId, onWordAnswered, listening, stopSTT])
 
   const handleNext = useCallback(() => {
     setIndex((i) => i + 1)
@@ -71,6 +86,9 @@ export default function Quiz({ words, initialMode = 'multiple_choice', onComplet
   }, [correctCount, words.length, onComplete])
 
   const isCorrectAnswer = phase === 'revealed' && selectedId === correctId
+
+  const showKeyboard = mode === 'short_answer' && (shortAnswerInput === 'keyboard' || shortAnswerInput === 'both')
+  const showMic = mode === 'short_answer' && sttSupported && (shortAnswerInput === 'voice' || shortAnswerInput === 'both')
 
   return (
     <div className="flex flex-col min-h-dvh bg-white">
@@ -123,7 +141,7 @@ export default function Quiz({ words, initialMode = 'multiple_choice', onComplet
             <>
               <p className="text-xs text-gray-400 mb-2">영어</p>
               <p className="text-3xl font-bold text-gray-900 tracking-tight">{word.term}</p>
-              {isSupported && (
+              {ttsSupported && (
                 <button
                   onClick={() => speak(word.term)}
                   className="mt-3 flex items-center gap-1.5 mx-auto text-gray-400 hover:text-gray-600 active:text-gray-800 transition-colors text-sm"
@@ -145,7 +163,7 @@ export default function Quiz({ words, initialMode = 'multiple_choice', onComplet
             isCorrect={isCorrectAnswer}
             correctDefinition={mode === 'short_answer' ? word.term : word.definition}
             description={word.description}
-            onSpeak={isSupported ? () => speak(word.term) : undefined}
+            onSpeak={ttsSupported ? () => speak(word.term) : undefined}
           />
         )}
 
@@ -159,15 +177,41 @@ export default function Quiz({ words, initialMode = 'multiple_choice', onComplet
           />
         ) : (
           <div className="flex flex-col gap-3">
-            <input
-              type="text"
-              value={shortInput}
-              onChange={(e) => setShortInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && phase === 'question' && shortInput.trim() && handleSubmitShort()}
-              placeholder="답을 입력하세요"
-              disabled={phase === 'revealed'}
-              className="w-full border border-gray-200 rounded-lg px-4 py-4 text-sm outline-none focus:border-gray-400 disabled:bg-gray-50 disabled:text-gray-400"
-            />
+            {/* 입력창 + 마이크 */}
+            <div className="flex gap-2">
+              {showKeyboard && (
+                <input
+                  type="text"
+                  value={shortInput}
+                  onChange={(e) => setShortInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && phase === 'question' && shortInput.trim() && handleSubmitShort()}
+                  placeholder="답을 입력하세요"
+                  disabled={phase === 'revealed'}
+                  className="flex-1 border border-gray-200 rounded-lg px-4 py-4 text-sm outline-none focus:border-gray-400 disabled:bg-gray-50 disabled:text-gray-400"
+                />
+              )}
+              {showMic && phase === 'question' && (
+                <button
+                  onClick={listening ? stopSTT : startSTT}
+                  className={`flex items-center justify-center w-[56px] rounded-lg border transition-colors ${
+                    listening
+                      ? 'border-red-400 bg-red-50 text-red-500'
+                      : 'border-gray-200 bg-white text-gray-400 hover:text-gray-600'
+                  }`}
+                  aria-label={listening ? '음성 인식 중지' : '음성 입력 시작'}
+                >
+                  {listening ? (
+                    <span className="w-3.5 h-3.5 rounded-full bg-red-500 animate-pulse" />
+                  ) : (
+                    <MicIcon size={20} />
+                  )}
+                </button>
+              )}
+            </div>
+            {/* voice-only 모드: 인식된 텍스트 표시 */}
+            {!showKeyboard && shortInput && (
+              <p className="text-sm text-gray-700 px-1">{shortInput}</p>
+            )}
           </div>
         )}
       </div>

@@ -5,12 +5,22 @@ import type {
   CancelNotificationPayload,
   RequestPermissionPayload,
   SpeakTextPayload,
+  StartSTTPayload,
 } from '@/types/bridge'
 
 declare global {
   interface Window {
     ReactNativeWebView?: { postMessage: (msg: string) => void }
     onBridgeMessage?: (msg: BridgeInbound) => void
+  }
+}
+
+// 멀티 리스너 — 네이티브에서 window.onBridgeMessage 호출 시 전체 dispatch
+const listeners = new Set<(msg: BridgeInbound) => void>()
+
+if (typeof window !== 'undefined') {
+  window.onBridgeMessage = (msg: BridgeInbound) => {
+    listeners.forEach((fn) => fn(msg))
   }
 }
 
@@ -38,6 +48,12 @@ export const bridge = {
   stopSpeech() {
     send({ type: 'STOP_SPEECH' })
   },
+  startSTT(payload: StartSTTPayload) {
+    send({ type: 'START_STT', payload })
+  },
+  stopSTT() {
+    send({ type: 'STOP_STT' })
+  },
   getAppVersion() {
     send({ type: 'GET_APP_VERSION' })
   },
@@ -46,6 +62,8 @@ export const bridge = {
   },
 }
 
-export function registerBridgeListener(handler: (msg: BridgeInbound) => void) {
-  window.onBridgeMessage = handler
+/** 리스너 등록, 반환값(cleanup)을 useEffect cleanup에 사용 */
+export function registerBridgeListener(handler: (msg: BridgeInbound) => void): () => void {
+  listeners.add(handler)
+  return () => listeners.delete(handler)
 }

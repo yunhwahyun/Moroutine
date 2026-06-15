@@ -250,6 +250,17 @@ export default function SettingsPage() {
               onChange={(v) => set('questionOrder', v)}
             />
           </Row>
+          <Row label="주관식 입력 방식">
+            <SegmentControl
+              value={settings.shortAnswerInput}
+              options={[
+                { value: 'keyboard', label: '키보드' },
+                { value: 'voice', label: '음성' },
+                { value: 'both', label: '둘 다' },
+              ]}
+              onChange={(v) => set('shortAnswerInput', v)}
+            />
+          </Row>
         </Section>
 
         {/* 복습 */}

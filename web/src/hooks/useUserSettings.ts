@@ -15,6 +15,7 @@ function rowToSettings(row: Record<string, unknown>): UserSettings {
     scheduleNotification: (row.schedule_notification as boolean) ?? DEFAULT_SETTINGS.scheduleNotification,
     reviewNotification: (row.review_notification as boolean) ?? DEFAULT_SETTINGS.reviewNotification,
     reviewNotificationTime: (row.review_notification_time as string) ?? DEFAULT_SETTINGS.reviewNotificationTime,
+    shortAnswerInput: (row.short_answer_input as UserSettings['shortAnswerInput']) ?? DEFAULT_SETTINGS.shortAnswerInput,
   }
 }
 
@@ -29,6 +30,7 @@ function settingsToRow(s: Partial<UserSettings>): Record<string, unknown> {
   if ('scheduleNotification' in s)   row.schedule_notification = s.scheduleNotification
   if ('reviewNotification' in s)     row.review_notification = s.reviewNotification
   if ('reviewNotificationTime' in s) row.review_notification_time = s.reviewNotificationTime
+  if ('shortAnswerInput' in s)       row.short_answer_input = s.shortAnswerInput
   return row
 }
 

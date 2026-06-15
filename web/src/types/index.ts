@@ -103,6 +103,7 @@ export type QuizWord = {
 export type QuizMode = 'multiple_choice' | 'short_answer'
 export type QuestionOrder = 'asc' | 'desc' | 'random'
 export type ReviewPolicy = 'keep' | 'downgrade'
+export type ShortAnswerInputMode = 'keyboard' | 'voice' | 'both'
 
 export type UserSettings = {
   nickname: string | null
@@ -113,4 +114,5 @@ export type UserSettings = {
   scheduleNotification: boolean
   reviewNotification: boolean
   reviewNotificationTime: string   // 'HH:mm'
+  shortAnswerInput: ShortAnswerInputMode
 }

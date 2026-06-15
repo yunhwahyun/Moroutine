@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native'
 import WebView, { WebViewMessageEvent } from 'react-native-webview'
 import * as Notifications from 'expo-notifications'
 import * as Speech from 'expo-speech'
+import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition'
 import Constants from 'expo-constants'
 import type { BridgeOutbound, BridgeInbound } from './src/types/bridge'
 
@@ -29,6 +30,7 @@ export default function App() {
   const webViewRef = useRef<WebView>(null)
   const pendingQueue = useRef<BridgeInbound[]>([])
   const isWebReady = useRef(false)
+  const sttSubs = useRef<{ remove: () => void }[]>([])
 
   useEffect(() => {
     Notifications.requestPermissionsAsync()
@@ -106,6 +108,35 @@ export default function App() {
 
       case 'STOP_SPEECH':
         Speech.stop()
+        break
+
+      case 'START_STT': {
+        const { lang } = msg.payload
+        sttSubs.current.forEach((s) => s.remove())
+        sttSubs.current = []
+
+        const resultSub = ExpoSpeechRecognitionModule.addListener('result', (event: { results: { transcript: string }[]; isFinal: boolean }) => {
+          const transcript = event.results[0]?.transcript ?? ''
+          sendToWeb({ type: 'STT_RESULT', payload: { transcript, final: event.isFinal } })
+          if (event.isFinal) {
+            sttSubs.current.forEach((s) => s.remove())
+            sttSubs.current = []
+          }
+        })
+        const errorSub = ExpoSpeechRecognitionModule.addListener('error', () => {
+          sendToWeb({ type: 'STT_RESULT', payload: { transcript: '', final: true } })
+          sttSubs.current.forEach((s) => s.remove())
+          sttSubs.current = []
+        })
+        sttSubs.current = [resultSub, errorSub]
+        ExpoSpeechRecognitionModule.start({ lang, interimResults: false, continuous: false })
+        break
+      }
+
+      case 'STOP_STT':
+        ExpoSpeechRecognitionModule.stop()
+        sttSubs.current.forEach((s) => s.remove())
+        sttSubs.current = []
         break
 
       case 'GET_APP_VERSION': {
