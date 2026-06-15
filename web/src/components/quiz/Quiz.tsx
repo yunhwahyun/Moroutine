@@ -3,7 +3,8 @@ import type { QuizWord, QuizMode } from '@/types'
 import ProgressBar from './ProgressBar'
 import AnswerOptions from './AnswerOptions'
 import AnswerReveal from './AnswerReveal'
-import { BackIcon, CloseIcon } from '@/components/icons'
+import { BackIcon, CloseIcon, SpeakerIcon } from '@/components/icons'
+import { useTTS } from '@/hooks/useTTS'
 
 interface Props {
   words: QuizWord[]
@@ -17,6 +18,7 @@ interface Props {
 type Phase = 'question' | 'revealed'
 
 export default function Quiz({ words, initialMode = 'multiple_choice', onComplete, onClose, onWordAnswered }: Props) {
+  const { speak, isSupported } = useTTS()
   const [index, setIndex] = useState(0)
   const [mode, setMode] = useState<QuizMode>(initialMode)
   const [phase, setPhase] = useState<Phase>('question')
@@ -121,6 +123,16 @@ export default function Quiz({ words, initialMode = 'multiple_choice', onComplet
             <>
               <p className="text-xs text-gray-400 mb-2">영어</p>
               <p className="text-3xl font-bold text-gray-900 tracking-tight">{word.term}</p>
+              {isSupported && (
+                <button
+                  onClick={() => speak(word.term)}
+                  className="mt-3 flex items-center gap-1.5 mx-auto text-gray-400 hover:text-gray-600 active:text-gray-800 transition-colors text-sm"
+                  aria-label="발음 듣기"
+                >
+                  <SpeakerIcon size={16} />
+                  <span>발음 듣기</span>
+                </button>
+              )}
             </>
           )}
         </div>
@@ -133,6 +145,7 @@ export default function Quiz({ words, initialMode = 'multiple_choice', onComplet
             isCorrect={isCorrectAnswer}
             correctDefinition={mode === 'short_answer' ? word.term : word.definition}
             description={word.description}
+            onSpeak={isSupported ? () => speak(word.term) : undefined}
           />
         )}
 
