@@ -1,4 +1,4 @@
-import { useRef, useLayoutEffect, useState } from 'react'
+import { useRef, useLayoutEffect, useEffect, useState, useCallback } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 
 const tabs = [
@@ -25,15 +25,25 @@ export default function BottomNav() {
   const [indicatorPos, setIndicatorPos] = useState({ left: 0, width: 54 })
   const [animated, setAnimated] = useState(false)
 
-  useLayoutEffect(() => {
+  const updateIndicator = useCallback((animate: boolean) => {
     const el = itemRefs.current[activeIndex]
     const container = containerRef.current
     if (!el || !container) return
     const cr = container.getBoundingClientRect()
     const ir = el.getBoundingClientRect()
     setIndicatorPos({ left: ir.left - cr.left, width: ir.width })
-    setAnimated(true)
+    if (animate) setAnimated(true)
   }, [activeIndex])
+
+  useLayoutEffect(() => {
+    updateIndicator(true)
+  }, [updateIndicator])
+
+  useEffect(() => {
+    const onResize = () => updateIndicator(false)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [updateIndicator])
 
   return (
     <div
