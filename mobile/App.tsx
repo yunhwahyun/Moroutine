@@ -9,12 +9,21 @@ import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition'
 import Constants from 'expo-constants'
 import type { BridgeOutbound, BridgeInbound } from './src/types/bridge'
 
-// 개발: Vite 로컬 서버 / 프로덕션: 배포 URL
-const WEB_APP_URL = __DEV__
-  ? Platform.OS === 'android'
-    ? 'http://10.0.2.2:5173'  // Android 에뮬레이터 → 호스트 localhost
-    : 'http://localhost:5173'  // iOS 시뮬레이터 → 호스트 localhost
-  : 'https://moroutine.vercel.app'  // TODO: 실제 배포 URL로 교체
+function getWebAppUrl(): string {
+  if (!__DEV__) return 'https://moroutine.vercel.app'
+
+  if (Platform.OS === 'android') return 'http://10.0.2.2:5173'
+
+  // iOS 실기기: Expo Metro 번들러 host에서 Mac IP 추출 → Vite 포트로 연결
+  const hostUri = Constants.expoConfig?.hostUri ?? ''
+  const host = hostUri.split(':')[0]
+  if (host && host !== 'localhost') return `http://${host}:5173`
+
+  // iOS 시뮬레이터
+  return 'http://localhost:5173'
+}
+
+const WEB_APP_URL = getWebAppUrl()
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
