@@ -254,13 +254,13 @@ function ScheduleFormPanel({
             <input
               type="date" value={form.date}
               onChange={(e) => onChange({ ...form, date: e.target.value })}
-              className={`${INPUT} flex-1 min-w-0`}
+              className={`${INPUT} flex-[3] min-w-0`}
             />
             {!form.isAllDay && (
               <input
                 type="time" value={form.time}
                 onChange={(e) => onChange({ ...form, time: e.target.value })}
-                className={`${INPUT} w-32 shrink-0`}
+                className={`${INPUT} flex-[2] min-w-0`}
               />
             )}
           </div>
@@ -272,12 +272,12 @@ function ScheduleFormPanel({
               <input
                 type="date" value={form.endDate}
                 onChange={(e) => onChange({ ...form, endDate: e.target.value })}
-                className={`${INPUT} flex-1 min-w-0`}
+                className={`${INPUT} flex-[3] min-w-0`}
               />
               <input
                 type="time" value={form.endTime}
                 onChange={(e) => onChange({ ...form, endTime: e.target.value })}
-                className={`${INPUT} w-32 shrink-0`}
+                className={`${INPUT} flex-[2] min-w-0`}
               />
             </div>
           </div>
