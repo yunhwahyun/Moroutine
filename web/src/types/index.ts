@@ -50,6 +50,7 @@ export type PublicWordbook = {
   language: string
   status: PublicWordbookStatus
   word_count: number
+  is_sample: boolean
   created_by: string
   created_at: string
   updated_at: string

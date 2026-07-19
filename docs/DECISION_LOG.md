@@ -6,6 +6,13 @@
 
 ## 2026-07-19
 
+### 샘플 단어장 — Guest 기본 제공은 "권한 확장"이 아니라 "1회 로컬 복사"로 구현
+
+- **결정**: Admin이 공용 단어장을 `is_sample=true`로 지정하면 Guest(비로그인)에게 기본 제공한다는 요청을, `permissions.canUsePublicWordbooks`를 Guest에게도 true로 바꾸는 방식(권한 모델 변경) 대신, `is_sample=true`인 단어장만 `anon` role에 RLS SELECT를 열고(마이그레이션 33) Guest 앱 최초 진입 시 그 내용을 로컬(IndexedDB) 단어장으로 **복사**하는 1회성 시딩(`sampleWordbookSeed.ts`)으로 구현.
+- **이유**: `docs/PERMISSION_DESIGN.md` §3에서 Guest는 "인증 없이 로컬 저장만" 사용하는 티어로 명확히 정의되어 있고(`docs/DECISION_LOG.md` 2026-07-18 전면 개편), Guest에게 공용 단어장 열람/등록(enrollment) 기능 자체를 열면 이 경계가 흐려지고 `user_public_wordbook_enrollments`/`user_public_word_progress`(현재 `uid=user_id` 정책, Guest는 uid가 없음) 전체를 다시 설계해야 한다. 반면 "복사해서 로컬 데이터로 만든다"는 접근은 기존 Guest 아키텍처(모든 데이터가 IndexedDB에 있고 서버 의존 없음)를 그대로 유지하면서 요구사항(기본 제공)을 만족한다.
+- **한계**: 기기당 1회만 시딩하므로 Admin이 나중에 새 단어장을 샘플로 추가 지정해도 이미 실행된 적 있는 Guest 기기에는 소급 적용되지 않는다(신규 Guest에게만 적용). 필요해지면 "샘플 단어장 목록에 새 항목이 생기면 추가로 시딩" 로직으로 확장 가능.
+- **영향 범위**: `supabase/migrations/33_sample_wordbooks.sql`, `web/src/lib/publicWordbooks.ts`, `web/src/lib/sampleWordbookSeed.ts`(신규), `web/src/components/onboarding/SampleWordbookSeedGate.tsx`(신규), `web/src/App.tsx`, `web/src/pages/admin/AdminWordbookFormPage.tsx`/`AdminWordbookDetailPage.tsx`/`AdminWordbookListPage.tsx`, `web/src/types/index.ts`, `docs/ADMIN_DESIGN.md`, `docs/DB_SCHEMA.md`, `docs/TODO.md`.
+
 ### Master 초대/즉시추가 전면 500·403 — service_role GRANT 누락(마이그레이션 32) + SMTP 미설정, 두 가지 원인 확진
 
 - **현상 1차**: 배포 직후 `AdminMastersPage`에서 Master 초대 시 "Edge Function returned a non-2xx status code". `master_invitations` 0건 확인 후 `master-add-existing`(이메일 없이 즉시 추가) 대안을 추가 배포했으나, 실사용에서 그마저 `list_masters` RPC 400 + `master-invite`/`master-add-existing` 403으로 전부 실패.

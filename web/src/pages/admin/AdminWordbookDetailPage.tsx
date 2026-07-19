@@ -58,6 +58,7 @@ export default function AdminWordbookDetailPage() {
     language: string
   } | null>(null)
   const [status, setStatus] = useState<PublicWordbookStatus | null>(null)
+  const [isSample, setIsSample] = useState(false)
 
   const [newWord, setNewWord] = useState({ term: '', definition: '', description: '' })
   const [bulkPreview, setBulkPreview] = useState<{ parsed: ParsedWord[]; errorCount: number } | null>(null)
@@ -82,6 +83,7 @@ export default function AdminWordbookDetailPage() {
         language: wordbook.language,
       })
       setStatus(wordbook.status)
+      setIsSample(wordbook.is_sample)
     }
   }, [wordbook, metaForm])
 
@@ -107,6 +109,7 @@ export default function AdminWordbookDetailPage() {
         difficulty: metaForm.difficulty,
         language: metaForm.language,
         status,
+        is_sample: isSample,
       })
     },
     onSuccess: invalidate,
@@ -232,6 +235,10 @@ export default function AdminWordbookDetailPage() {
               ))}
             </select>
           </div>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={isSample} onChange={(e) => setIsSample(e.target.checked)} />
+            샘플 단어장으로 지정 (게스트에게 기본 제공)
+          </label>
           <button
             onClick={() => saveMeta()}
             disabled={!metaForm.title.trim() || isSavingMeta}

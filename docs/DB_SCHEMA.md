@@ -418,6 +418,7 @@ ALTER TABLE profiles
 | 30 | public_content_audit_triggers | `log_public_wordbook_action()`/`log_public_word_action()` 트리거(`public_wordbooks`/`public_words` AFTER INSERT/UPDATE → `admin_audit_log` 자동 기록) | `docs/ADMIN_DESIGN.md` §4 |
 | 31 | subscription_plans_anon_select | `subscription_plans` SELECT 정책을 `TO anon, authenticated`로 확장(Guest도 `/pricing` 요금제 비교표 조회 가능) | `docs/UI_FLOW.md` §3 요금제 비교 |
 | 32 | service_role_grants | `GRANT SELECT/INSERT/UPDATE/DELETE ON ALL TABLES/SEQUENCES IN SCHEMA public TO service_role` + `ALTER DEFAULT PRIVILEGES`(향후 테이블 자동 적용) + `list_masters()` 타입 캐스팅 버그(`u.email::text`) 수정 | `docs/DECISION_LOG.md` 2026-07-19 |
+| 33 | sample_wordbooks | `public_wordbooks.is_sample` 컬럼 + `is_sample=true` 단어장에 한해 `anon`(비로그인 Guest)에게 SELECT를 여는 RLS 정책 2건 + `GRANT SELECT ... TO anon` | `docs/ADMIN_DESIGN.md` §3-2, `docs/DECISION_LOG.md` 2026-07-19 |
 
 > **중요(2026-07-19 발견)**: 01~31번 마이그레이션 중 어디에도 `service_role`에 대한 GRANT가 없었다(`GRANT ... TO authenticated`만 존재). RLS의 `BYPASSRLS` 속성은 행 단위 필터만 우회할 뿐 테이블 단위 GRANT를 대신하지 않으므로, 위 표의 "쓰기는 service_role" / "service_role만"이라고 적힌 모든 정책이 마이그레이션 32 적용 전까지는 **service_role조차 해당 테이블에 접근할 수 없는 상태**였다(`subscriptions`, `master_invitations`, `admin_audit_log`, `retention_schedules` 등). 즉 Edge Function 기반 로직(구독 Webhook, Master 초대/해제, 보관 정리)은 배포 이후 한 번도 실제로 동작한 적이 없었을 가능성이 높다. 상세 경위는 `docs/DECISION_LOG.md` 2026-07-19 참고.
 
@@ -439,7 +440,7 @@ ALTER TABLE profiles
 | notifications | `uid = user_id` + schedule 소유 확인 | schedule 소유 확인 |
 | subscription_plans | Admin만 쓰기, 조회는 전체 authenticated | — |
 | subscriptions | 클라이언트 쓰기 불가(service_role만) | — |
-| public_wordbooks / public_words | Admin만 쓰기, 조회는 pro/premium/master(+admin은 전체) | — |
+| public_wordbooks / public_words | Admin만 쓰기, 조회는 pro/premium/master(+admin은 전체). 예외: `is_sample=true`인 단어장은 `anon`(비로그인 Guest)도 SELECT 가능(마이그레이션 33) | — |
 | user_public_wordbook_enrollments | `uid = user_id` + pro/premium/master 등급 | 동일 |
 | user_public_word_progress | `uid = user_id` + pro/premium/master 등급 | 동일 |
 | master_invitations | 클라이언트 쓰기 불가(service_role만), 조회는 Admin만 | — |

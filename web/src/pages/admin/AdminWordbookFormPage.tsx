@@ -19,6 +19,7 @@ export default function AdminWordbookFormPage() {
   const [category, setCategory] = useState('')
   const [difficulty, setDifficulty] = useState<Difficulty>('beginner')
   const [language, setLanguage] = useState('en-US')
+  const [isSample, setIsSample] = useState(false)
 
   const { mutateAsync: create, isPending, error } = useMutation({
     mutationFn: () =>
@@ -28,6 +29,7 @@ export default function AdminWordbookFormPage() {
         category: category.trim() || null,
         difficulty,
         language,
+        is_sample: isSample,
       }),
     onSuccess: (wordbook) => navigate(`/admin/wordbooks/${wordbook.id}`),
   })
@@ -78,6 +80,10 @@ export default function AdminWordbookFormPage() {
           placeholder="언어 코드 (예: en-US)"
           className={INPUT_CLASS}
         />
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" checked={isSample} onChange={(e) => setIsSample(e.target.checked)} />
+          샘플 단어장으로 지정 (게스트에게 기본 제공)
+        </label>
 
         {error && <p className="text-xs text-red-500">{(error as { message?: string })?.message ?? '생성에 실패했습니다.'}</p>}
 

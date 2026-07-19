@@ -56,6 +56,16 @@ Admin은 **공용 학습 콘텐츠와 Master 회원만** 관리한다. 사용자
 저장 — 두 테이블이 분리된 설계 의도와 일치). HomePage/`WordbookListPage`의 "오늘의 복습" 가상 컬렉션에
 공용 단어를 합치는 것과 여러 공용 단어장 동시 선택 학습은 범위 밖(`docs/DECISION_LOG.md` 2026-07-19).
 
+**샘플 단어장(Guest 기본 제공) ✅ 구현 완료(2026-07-19)**: `public_wordbooks.is_sample`(마이그레이션 33)을
+`AdminWordbookFormPage`(생성 시)/`AdminWordbookDetailPage`(수정 시) 체크박스로 지정. `is_sample=true`이고
+`status='published'`인 단어장만 `anon`(비로그인) role에 RLS SELECT를 열어(원래 공용 단어장은 pro/premium/master
+전용, Guest는 `canUsePublicWordbooks=false`) 예외적으로 노출한다. Guest 클라이언트는 이 권한 모델 자체를
+바꾸지 않고 — 즉 Guest가 공용 단어장 열람/등록(enrollment) 기능을 상시로 쓰게 된 것은 아니고 — 앱 최초
+진입 시 1회(`SampleWordbookSeedGate`, `web/src/lib/sampleWordbookSeed.ts`) `is_sample` 단어장을 자신의
+로컬(IndexedDB) 단어장으로 **복사**해 넣는 온보딩 시딩만 수행한다. 기기당 1회만 실행(`localDB.meta`
+플래그) — 이후 사용자가 삭제해도 다시 채워 넣지 않고, Admin이 나중에 새 단어장을 샘플로 지정해도 기존
+Guest에게는 소급 적용되지 않는다(신규 Guest에게만 적용, 알려진 한계).
+
 - 구현: `web/src/lib/publicWordbooks.ts`(Admin/사용자 양쪽 함수, `DataRepository`와 무관한 독립
   모듈 — Guest는 애초에 접근 불가하고 Admin도 tier 시스템 밖이라 기존 Repository 확장 대신 직접
   Supabase 호출), `web/src/pages/admin/{AdminWordbookListPage,AdminWordbookFormPage,AdminWordbookDetailPage}.tsx`,

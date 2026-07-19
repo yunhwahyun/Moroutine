@@ -209,6 +209,14 @@ _현재 진행 중인 작업 없음_
 - [x] Supabase 프로젝트에 마이그레이션 30 적용 완료(사용자 확인, Dashboard SQL Editor 경유, 2026-07-19)
 - [ ] **한계**: 실제 Admin/Pro 계정으로 "생성→게시→Pro 열람/등록/학습/퀴즈" 전체 플로우는 실계정 필요해 미검증
 
+### Phase 19 후속 — 샘플 단어장(Guest 기본 제공) ✅ 완료 2026-07-19
+- [x] 마이그레이션 33: `public_wordbooks.is_sample` 컬럼 + `is_sample=true` 단어장에 한해 `anon`(비로그인)에게 SELECT를 여는 RLS 정책 2건 + `GRANT SELECT ... TO anon`. 실제 관리자 세션으로 생성 → anon 세션으로 샘플만 보이고 일반 공용 단어장은 여전히 안 보임을 curl로 재현 검증(테스트 데이터는 삭제)
+- [x] `web/src/lib/publicWordbooks.ts`에 `getSampleWordbooks()` 추가(인증 불필요), Create/Update 입력 타입에 `is_sample` 추가
+- [x] `AdminWordbookFormPage`(생성)/`AdminWordbookDetailPage`(수정)에 "샘플 단어장으로 지정" 체크박스, `AdminWordbookListPage`에 샘플 배지
+- [x] `web/src/lib/sampleWordbookSeed.ts` — Guest 최초 진입 시 샘플 단어장을 로컬(IndexedDB)로 복사(1회, `localDB.meta` 플래그), `SampleWordbookSeedGate`(`App.tsx`에 마운트)로 트리거
+- [x] `tsc -b`/`eslint .`/`vite build`(web) 통과, Supabase 마이그레이션 33 실제 적용 완료
+- [ ] **한계**: 실제 Guest 브라우저(빈 IndexedDB)로 시딩 전체 플로우 미검증(RLS/RPC 응답은 curl로 검증했으나 IndexedDB 쓰기까지는 실브라우저 필요). Admin이 나중에 새 단어장을 샘플로 지정해도 기존 Guest에게는 소급 적용 안 됨(신규 Guest에게만 적용)
+
 ### Phase 20 — 관리자 화면 (`docs/ADMIN_DESIGN.md` §2) ✅ 완료 2026-07-19
 - [x] `/admin/**` 라우트 + 전용 레이아웃 — `AdminLayout`(하단 탭 없음, 상단 탭 홈/공용 단어장/Master 관리/감사 로그 + "앱으로 돌아가기"), `AdminHomePage`(`/admin`, 3개 섹션 카드) 신규. 기존 Phase 17/19의 `/admin/masters`, `/admin/wordbooks*` placeholder를 이 레이아웃 하위로 재구성(각자 자체 "홈으로" 헤더 링크는 제거)
 - [x] `admin_audit_log` 조회 화면 — `AdminAuditLogPage`(`/admin/audit-log`), 최신 200건 직접 조회(RLS 허용, `list_masters()`류 조인 RPC는 만들지 않고 `actor_id` 그대로 표시)

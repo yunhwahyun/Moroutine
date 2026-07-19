@@ -19,10 +19,11 @@ export type CreatePublicWordbookInput = {
   category: string | null
   difficulty: Difficulty
   language: string
+  is_sample?: boolean
 }
 
 export type UpdatePublicWordbookInput = Partial<
-  Pick<PublicWordbook, 'title' | 'description' | 'category' | 'difficulty' | 'language' | 'status'>
+  Pick<PublicWordbook, 'title' | 'description' | 'category' | 'difficulty' | 'language' | 'status' | 'is_sample'>
 >
 
 export type PublicWordInput = {
@@ -148,6 +149,20 @@ export async function getPublishedPublicWordbooks(): Promise<PublicWordbook[]> {
     .from('public_wordbooks')
     .select('*')
     .eq('status', 'published')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
+
+// ── Guest(비로그인) ──────────────────────────────────────────────────────
+// 인증 불필요. is_sample=true 단어장만 anon RLS로 열려 있다(마이그레이션 33).
+
+export async function getSampleWordbooks(): Promise<PublicWordbook[]> {
+  const { data, error } = await supabase
+    .from('public_wordbooks')
+    .select('*')
+    .eq('status', 'published')
+    .eq('is_sample', true)
     .order('created_at', { ascending: false })
   if (error) throw error
   return data ?? []

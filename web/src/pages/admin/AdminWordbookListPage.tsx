@@ -73,7 +73,12 @@ export default function AdminWordbookListPage() {
               className="text-left border border-gray-100 rounded-lg px-4 py-3 hover:border-gray-300"
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-gray-900">{wb.title}</span>
+                <span className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+                  {wb.title}
+                  {wb.is_sample && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-900 text-white">샘플</span>
+                  )}
+                </span>
                 <span className="text-xs text-gray-400">{STATUS_LABEL[wb.status]}</span>
               </div>
               <p className="text-xs text-gray-400 mt-1">

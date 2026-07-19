@@ -9,7 +9,8 @@
 ```text
 anonymous(Guest)
   → 로그인 없이 앱 진입, LocalDataRepository로 즉시 사용 가능
-  → 접근 불가: 공용 단어장, 일괄등록, /admin, /speaking(등록/녹음 자체는 가능 — §3.4상 Guest 허용 기능이므로 접근 가능. 저장만 로컬)
+  → 최초 진입 시 Admin이 지정한 샘플 단어장을 로컬 단어장으로 1회 자동 복사(`docs/ADMIN_DESIGN.md` §3, 2026-07-19) — 공용 단어장 화면 접근이 열리는 것은 아니고 복사된 결과만 일반 단어장처럼 보유
+  → 접근 불가: 공용 단어장(위 자동 복사 제외), 일괄등록, /admin, /speaking(등록/녹음 자체는 가능 — §3.4상 Guest 허용 기능이므로 접근 가능. 저장만 로컬)
 
 authenticated + pro/premium/master
   → 로그인 필요, RemoteDataRepository
