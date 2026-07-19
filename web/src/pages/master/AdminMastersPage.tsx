@@ -48,13 +48,14 @@ export default function AdminMastersPage() {
     queryClient.invalidateQueries({ queryKey: ['admin', 'masters'] })
   }
 
-  const handleInvite = async (e: React.FormEvent) => {
+  // 기본 동작 — 이미 가입된 사용자에 한해 이메일 없이 즉시 Master 권한을 부여한다.
+  const handleAddExisting = async (e: React.FormEvent) => {
     e.preventDefault()
     setInviteError('')
     const trimmed = email.trim()
     if (!trimmed) return
-    setPendingAction('invite')
-    const { error } = await supabase.functions.invoke('master-invite', { body: { email: trimmed } })
+    setPendingAction('add-existing')
+    const { error } = await supabase.functions.invoke('master-add-existing', { body: { email: trimmed } })
     setPendingAction(null)
     if (error) {
       setInviteError(error.message)
@@ -64,14 +65,13 @@ export default function AdminMastersPage() {
     invalidateAll()
   }
 
-  // 초대 메일 발송이 막혀 있을 때(SMTP 미설정 등)를 위한 대안 — 이미 가입된 사용자에 한해
-  // 이메일 없이 즉시 Master 권한을 부여한다.
-  const handleAddExisting = async () => {
+  // 보조 동작 — 신규(미가입) 이메일에 초대 메일을 발송한다.
+  const handleInvite = async () => {
     setInviteError('')
     const trimmed = email.trim()
     if (!trimmed) return
-    setPendingAction('add-existing')
-    const { error } = await supabase.functions.invoke('master-add-existing', { body: { email: trimmed } })
+    setPendingAction('invite')
+    const { error } = await supabase.functions.invoke('master-invite', { body: { email: trimmed } })
     setPendingAction(null)
     if (error) {
       setInviteError(error.message)
@@ -108,8 +108,8 @@ export default function AdminMastersPage() {
       <div className="max-w-lg mx-auto flex flex-col gap-8">
         <h1 className="text-lg font-bold text-gray-900">Master 관리</h1>
 
-        <form onSubmit={handleInvite} className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-gray-700">Master 초대</label>
+        <form onSubmit={handleAddExisting} className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-gray-700">Master 추가 (이미 가입된 사용자)</label>
           <div className="flex gap-2">
             <input
               type="email"
@@ -120,19 +120,19 @@ export default function AdminMastersPage() {
             />
             <button
               type="submit"
-              disabled={pendingAction === 'invite'}
+              disabled={pendingAction === 'add-existing' || !email.trim()}
               className="px-4 py-3 rounded-lg bg-gray-900 text-white text-sm font-medium disabled:opacity-50"
             >
-              초대
+              추가
             </button>
           </div>
           <button
             type="button"
-            onClick={handleAddExisting}
-            disabled={pendingAction === 'add-existing' || !email.trim()}
-            className="text-xs text-gray-600 border border-gray-200 rounded-lg px-4 py-2 self-start disabled:opacity-50"
+            onClick={handleInvite}
+            disabled={pendingAction === 'invite' || !email.trim()}
+            className="w-full text-xs text-gray-600 border border-gray-200 rounded-lg px-4 py-2.5 disabled:opacity-50"
           >
-            이미 가입된 사용자라면 초대 메일 없이 즉시 추가
+            초대 메일 보내기
           </button>
           {inviteError && <p className="text-xs text-red-500">{inviteError}</p>}
         </form>
