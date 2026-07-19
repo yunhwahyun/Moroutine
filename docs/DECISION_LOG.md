@@ -6,6 +6,14 @@
 
 ## 2026-07-19
 
+### Master 초대 500 에러 — `master-add-existing` Edge Function으로 이메일 미발송 대안 추가
+
+- **현상**: 배포 직후 `AdminMastersPage`에서 Master 초대 시 "Edge Function returned a non-2xx status code"(supabase-js가 non-2xx 응답에 붙이는 고정 메시지 — 실제 응답 본문은 UI에 노출되지 않음). `master_invitations` 테이블을 조회하니 행이 0건 — `master-invite` 함수의 `sendInviteEmail()`(`_shared/masterInvite.ts`)이 DB insert 이전 단계에서 이미 실패하고 있다는 뜻.
+- **원인 추정**: `sendInviteEmail()`은 신규 이메일이면 `inviteUserByEmail`, 이미 가입된 이메일이면(이번 케이스) `signInWithOtp`로 이메일을 보낸다. 프로젝트에 커스텀 SMTP가 등록되어 있지 않아(`supabase secrets list`에 SMTP 관련 시크릿 없음, 2026-07-18 배포 세션에서 확인) Supabase 기본 메일 발송의 낮은 rate limit(시간당 소수 건)에 걸렸을 가능성이 높음. Edge Function 로그로 정확한 에러 메시지를 직접 확인하지는 못함 — 이 CLI 버전(2.109.1)에 `supabase functions logs` 서브커맨드가 없고, Management API 토큰을 macOS 키체인에서 직접 꺼내는 것은 보안상 하지 않음. 근본 원인 확진은 Dashboard → Edge Functions → Logs에서 사용자가 직접 확인 필요.
+- **결정**: 근본 원인(SMTP) 수정 대신, **이미 회원가입된 사용자에 한해 이메일 발송 없이 즉시 Master 권한을 부여**하는 별도 Edge Function `master-add-existing`을 추가(사용자 요청). `master-accept`와 동일한 권한 부여 로직(`profiles.special_access='master'` 갱신 + `retention_schedules` 취소 + `admin_audit_log`)을 재사용하되, 초대/수락 과정 자체를 건너뛴다. `AdminMastersPage`에 "이미 가입된 사용자라면 초대 메일 없이 즉시 추가" 버튼 추가.
+- **의도적으로 남긴 한계**: 신규 미가입 이메일은 여전히 `master-invite`(이메일 발송)로만 초대 가능 — 이 경로는 SMTP 문제가 해결되기 전까지 계속 실패할 수 있음. SMTP 설정(커스텀 SMTP 등록 또는 Supabase 기본 발송 rate limit 상향)은 이번 세션에서 처리하지 않음, 다음 세션 또는 Dashboard 확인 필요.
+- **영향 범위**: `supabase/functions/master-add-existing/index.ts`(신규), `web/src/pages/master/AdminMastersPage.tsx`, `docs/API_SPEC.md`.
+
 ### 첫 배포 — 마이그레이션 이력 `migration repair`로 동기화, `db push`는 실행하지 않음
 
 - **결정**: Vercel(web) 배포 + Supabase 마이그레이션/Edge Functions 배포를 진행하며, `supabase migration list`로 원격 상태를 확인한 결과 `supabase_migrations.schema_migrations` 테이블 자체가 원격 DB에 없는데 마이그레이션 13~31이 생성해야 할 테이블(예: `admin_audit_log`, `master_invitations`, `subscription_plans`, `retention_schedules` 등)은 이미 전부 존재함을 확인. 그동안 마이그레이션이 SQL Editor 등으로 수동 적용되어 왔고 CLI 이력만 비어 있던 상태로 판단하여, `db push`(SQL 재실행)가 아니라 `supabase migration repair --status applied 01 02 … 31`로 이력 테이블만 채움. 이후 `db push --dry-run`으로 "Remote database is up to date" 확인.

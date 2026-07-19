@@ -64,6 +64,23 @@ export default function AdminMastersPage() {
     invalidateAll()
   }
 
+  // 초대 메일 발송이 막혀 있을 때(SMTP 미설정 등)를 위한 대안 — 이미 가입된 사용자에 한해
+  // 이메일 없이 즉시 Master 권한을 부여한다.
+  const handleAddExisting = async () => {
+    setInviteError('')
+    const trimmed = email.trim()
+    if (!trimmed) return
+    setPendingAction('add-existing')
+    const { error } = await supabase.functions.invoke('master-add-existing', { body: { email: trimmed } })
+    setPendingAction(null)
+    if (error) {
+      setInviteError(error.message)
+      return
+    }
+    setEmail('')
+    invalidateAll()
+  }
+
   const handleResend = async (invitationId: string) => {
     setPendingAction(invitationId)
     await supabase.functions.invoke('master-invite-resend', { body: { invitation_id: invitationId } })
@@ -109,6 +126,14 @@ export default function AdminMastersPage() {
               초대
             </button>
           </div>
+          <button
+            type="button"
+            onClick={handleAddExisting}
+            disabled={pendingAction === 'add-existing' || !email.trim()}
+            className="text-xs text-gray-600 border border-gray-200 rounded-lg px-4 py-2 self-start disabled:opacity-50"
+          >
+            이미 가입된 사용자라면 초대 메일 없이 즉시 추가
+          </button>
           {inviteError && <p className="text-xs text-red-500">{inviteError}</p>}
         </form>
 

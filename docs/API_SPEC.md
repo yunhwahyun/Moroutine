@@ -213,6 +213,25 @@ Response: 200 (idempotent — 중복 event.id는 no-op 후에도 200)
 Admin 검증 없이 호출자의 이메일이 `master_invitations`의 활성 초대와 일치하는지만 확인한다. 5개 함수 모두
 CORS 처리 필요(브라우저가 직접 호출) — `supabase/functions/_shared/cors.ts` 공용.
 
+### POST /functions/v1/master-add-existing ✅ 구현 완료(`supabase/functions/master-add-existing/index.ts`, 2026-07-19)
+
+`master-invite`는 신규 이메일이면 `inviteUserByEmail`, 이미 가입된 이메일이면 `signInWithOtp`(매직 링크)로
+이메일을 발송하는데, 프로젝트에 커스텀 SMTP가 없으면 Supabase 기본 메일 발송이 rate limit 등으로 실패해
+초대 자체가 500으로 막힌다(`docs/DECISION_LOG.md` 2026-07-19). 이 함수는 **이미 회원가입된 사용자에 한해**
+이메일 발송 없이 `profiles.special_access`를 바로 `'master'`로 부여하는 대안 경로다.
+
+```typescript
+// master-add-existing (Authorization: 관리자 세션 JWT)
+{ email: string } → { success: true, user_id: string }
+```
+
+`requireAdmin`으로 관리자 확인 후, GoTrue Admin REST(`/auth/v1/admin/users?email=`)로 가입 여부를 조회한다
+(supabase-js `admin.listUsers()`는 이메일 필터 파라미터가 없어 REST를 직접 호출). 가입 이력이 없으면 404.
+찾으면 `master-accept`와 동일하게 `special_access` 갱신 + 대기 중인 `retention_schedules` 취소 +
+`admin_audit_log`(`action: 'master_added_direct'`) 기록. `master_invitations`에는 아무 것도 남기지 않는다
+(이메일이 오간 적이 없으므로 "초대" 개념 자체가 없음) — `AdminMastersPage`의 "현재 Master" 목록(`list_masters()`
+RPC, `profiles.special_access` 기준)에는 정상적으로 나타난다.
+
 ### POST /functions/v1/retention-cleanup (Scheduled, service_role) ✅ 구현 완료(`supabase/functions/retention-cleanup/index.ts`, 2026-07-18)
 
 스펙 전문 `docs/DATA_RETENTION_DESIGN.md` §4-2. pg_cron이 매일 호출, 사용자 요청 경로 아님(`Authorization: Bearer {SUPABASE_SERVICE_ROLE_KEY}`로 인증). `retention_schedules WHERE status='active' AND retention_expires_at < now()`를 조회해 사용자별 부모 테이블(`wordbooks`/`schedules`/`study_sessions`/`user_public_wordbook_enrollments`/`user_public_word_progress`/`speaking_sentences`)만 삭제(자식 테이블은 기존 FK CASCADE로 자동 삭제) → `admin_audit_log` 기록(`actor_id: null`). Storage 삭제는 Phase 23(스피킹) 미착수라 이번엔 생략. 실제 pg_cron 등록은 사용자가 Dashboard에서 진행.
