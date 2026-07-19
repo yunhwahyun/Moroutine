@@ -20,18 +20,22 @@ export async function sendInviteEmail(
   email: string,
   redirectTo: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(email, { redirectTo })
-  if (!inviteError) return { ok: true }
+  try {
+    const { error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(email, { redirectTo })
+    if (!inviteError) return { ok: true }
 
-  if (isAlreadyRegisteredError(inviteError.message)) {
-    const { error: otpError } = await serviceClient.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: redirectTo },
-    })
-    if (!otpError) return { ok: true }
-    return { ok: false, error: otpError.message }
+    if (isAlreadyRegisteredError(inviteError.message)) {
+      const { error: otpError } = await serviceClient.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: redirectTo },
+      })
+      if (!otpError) return { ok: true }
+      return { ok: false, error: otpError.message }
+    }
+    return { ok: false, error: inviteError.message }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? `${e.name}: ${e.message}` : String(e) }
   }
-  return { ok: false, error: inviteError.message }
 }
 
 export function inviteRedirectTo(): string {

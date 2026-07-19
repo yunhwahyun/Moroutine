@@ -3,7 +3,18 @@ import { corsHeaders, handleCorsPreflight } from '../_shared/cors.ts'
 import { createServiceClient, requireAdmin } from '../_shared/auth.ts'
 import { INVITE_TTL_DAYS, addDays, sendInviteEmail, inviteRedirectTo } from '../_shared/masterInvite.ts'
 
+// 최상위 캐치 — 예상치 못한 예외가 플랫폼의 불투명한 EDGE_FUNCTION_ERROR(빈 본문)로 가려지지 않고
+// 관리자가 원인을 알 수 있는 메시지로 응답되게 한다(2026-07-19, 실사용 중 500 원인 조사 과정에서 추가).
 Deno.serve(async (req: Request) => {
+  try {
+    return await handle(req)
+  } catch (e) {
+    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e)
+    return new Response(msg, { status: 500, headers: corsHeaders })
+  }
+})
+
+async function handle(req: Request): Promise<Response> {
   const preflight = handleCorsPreflight(req)
   if (preflight) return preflight
 
@@ -69,4 +80,4 @@ Deno.serve(async (req: Request) => {
     status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
-})
+}

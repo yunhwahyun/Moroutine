@@ -417,6 +417,9 @@ ALTER TABLE profiles
 | 29 | retention_cleanup_support | `admin_audit_log.actor_id` NOT NULL 제약 제거(Scheduled Function이 시스템 실행 기록을 남길 수 있도록) | `docs/DATA_RETENTION_DESIGN.md` §4-2, §7 |
 | 30 | public_content_audit_triggers | `log_public_wordbook_action()`/`log_public_word_action()` 트리거(`public_wordbooks`/`public_words` AFTER INSERT/UPDATE → `admin_audit_log` 자동 기록) | `docs/ADMIN_DESIGN.md` §4 |
 | 31 | subscription_plans_anon_select | `subscription_plans` SELECT 정책을 `TO anon, authenticated`로 확장(Guest도 `/pricing` 요금제 비교표 조회 가능) | `docs/UI_FLOW.md` §3 요금제 비교 |
+| 32 | service_role_grants | `GRANT SELECT/INSERT/UPDATE/DELETE ON ALL TABLES/SEQUENCES IN SCHEMA public TO service_role` + `ALTER DEFAULT PRIVILEGES`(향후 테이블 자동 적용) + `list_masters()` 타입 캐스팅 버그(`u.email::text`) 수정 | `docs/DECISION_LOG.md` 2026-07-19 |
+
+> **중요(2026-07-19 발견)**: 01~31번 마이그레이션 중 어디에도 `service_role`에 대한 GRANT가 없었다(`GRANT ... TO authenticated`만 존재). RLS의 `BYPASSRLS` 속성은 행 단위 필터만 우회할 뿐 테이블 단위 GRANT를 대신하지 않으므로, 위 표의 "쓰기는 service_role" / "service_role만"이라고 적힌 모든 정책이 마이그레이션 32 적용 전까지는 **service_role조차 해당 테이블에 접근할 수 없는 상태**였다(`subscriptions`, `master_invitations`, `admin_audit_log`, `retention_schedules` 등). 즉 Edge Function 기반 로직(구독 Webhook, Master 초대/해제, 보관 정리)은 배포 이후 한 번도 실제로 동작한 적이 없었을 가능성이 높다. 상세 경위는 `docs/DECISION_LOG.md` 2026-07-19 참고.
 
 > **폐기**: 구 마이그레이션 계획 13(`profiles_plan`) / 14(`speaking_tasks`) / 15(`speaking_sessions`) / 17(`pronunciation_evaluations`)은 실제 파일이 생성된 적이 없으므로 DROP 없이 계획만 폐기. 구 16번(`speaking_recordings`)은 이름을 유지하되 신규 24번 정의로 완전히 대체(과거 `expires_at`/평가 연계 컬럼 제거, `sentence_id` 기반으로 재설계).
 

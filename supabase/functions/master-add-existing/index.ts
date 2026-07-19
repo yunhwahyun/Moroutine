@@ -6,6 +6,15 @@ import { corsHeaders, handleCorsPreflight } from '../_shared/cors.ts'
 import { createServiceClient, requireAdmin } from '../_shared/auth.ts'
 
 Deno.serve(async (req: Request) => {
+  try {
+    return await handle(req)
+  } catch (e) {
+    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e)
+    return new Response(msg, { status: 500, headers: corsHeaders })
+  }
+})
+
+async function handle(req: Request): Promise<Response> {
   const preflight = handleCorsPreflight(req)
   if (preflight) return preflight
 
@@ -89,4 +98,4 @@ Deno.serve(async (req: Request) => {
     status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
-})
+}
