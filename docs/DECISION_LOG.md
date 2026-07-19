@@ -6,6 +6,13 @@
 
 ## 2026-07-19
 
+### 첫 배포 — 마이그레이션 이력 `migration repair`로 동기화, `db push`는 실행하지 않음
+
+- **결정**: Vercel(web) 배포 + Supabase 마이그레이션/Edge Functions 배포를 진행하며, `supabase migration list`로 원격 상태를 확인한 결과 `supabase_migrations.schema_migrations` 테이블 자체가 원격 DB에 없는데 마이그레이션 13~31이 생성해야 할 테이블(예: `admin_audit_log`, `master_invitations`, `subscription_plans`, `retention_schedules` 등)은 이미 전부 존재함을 확인. 그동안 마이그레이션이 SQL Editor 등으로 수동 적용되어 왔고 CLI 이력만 비어 있던 상태로 판단하여, `db push`(SQL 재실행)가 아니라 `supabase migration repair --status applied 01 02 … 31`로 이력 테이블만 채움. 이후 `db push --dry-run`으로 "Remote database is up to date" 확인.
+- **이유**: 프로덕션 DB에 `db push`를 그대로 실행하면 이미 존재하는 테이블/정책에 대해 `CREATE TABLE` 등이 "already exists" 에러로 실패하거나, 트랜잭션 밖 DDL이 섞여 있을 경우 일부만 적용된 애매한 상태를 남길 위험이 있음. repair는 SQL을 실행하지 않고 이력만 기록하므로 더 안전.
+- **동반 조치**: Edge Functions 7종(`master-invite`/`-resend`/`-revoke`/`master-accept`/`master-revoke`/`retention-cleanup`/`revenuecat-webhook`) 전부 최초 배포(`supabase functions deploy --use-api`, Docker 미설치라 API 번들링 사용). `revenuecat-webhook`은 코드가 자체 `REVENUECAT_WEBHOOK_TOKEN`으로 인증하고 Supabase 세션 JWT를 쓰지 않으므로 `--no-verify-jwt`로 재배포(기본값 `verify_jwt: true`였다면 RevenueCat의 정상 요청도 게이트웨이 단에서 401로 막혔을 것).
+- **미해결로 남긴 것(임의로 손대지 않음)**: `SITE_URL`, `REVENUECAT_WEBHOOK_TOKEN` 시크릿 미등록 확인(`supabase secrets list`), `pg_cron` 확장 미활성화 확인(`retention-cleanup` 스케줄 등록 전 단계) — 값을 모르거나 대시보드 조작이 필요해 다음 세션/사용자 확인으로 이월. 상세는 `docs/PROJECT_STATUS.md` In Progress 표 참고.
+
 ### Phase 16 후속 — 회원가입 직후 `/pricing` 강제 라우팅: localStorage 플래그 + DowngradeGate 우선순위 분리
 
 - **결정**: 회원가입 직후를 감지하는 방법으로 "구독 이력이 전혀 없는 사용자 판정"(DB 쿼리 기반, Master 해제자도 함께 포섭) 대신 `LoginPage.tsx`의 `signUp()` 호출 시점에 로컬 스토리지 플래그를 남기는 방식(`web/src/lib/signupFlow.ts`)을 채택. 신규 `SignupPricingGate`가 이 플래그를 보고 `/pricing`으로 강제 이동시키고, 기존 `DowngradeGate`(만료/Master 해제/미결제 가입을 한 트리거로 묶어 처리하던 컴포넌트)는 플래그가 켜진 동안만 자기 자신을 비활성화(`!isSignupPending()`)하도록 조건 하나만 추가.

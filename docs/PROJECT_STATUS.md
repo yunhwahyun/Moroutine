@@ -60,12 +60,12 @@
 | Phase 14 — RPC 서버측 한도 차단 실증 | 코드 구현 완료, 직접 검증 미완 | 실제 Pro 계정 필요(위 Completed 표 참고). `personal_word_limit`을 임시로 낮게 설정해 두 탭 동시 등록으로 advisory lock까지 함께 검증 권장 |
 | Phase 15 — RPC 원격 저장 성공 경로 실증 | 코드 구현 완료, 직접 검증 미완 | 실제 Pro/Premium/Master 계정으로 "계정으로 이전" 전체 플로우(청크 업로드→원격 데이터 확인→로컬 삭제 선택) 사후 검증 권장 |
 | Phase 15 — "이전 대기 중" 배너 | 미구현 | "나중에 하기" 선택 시 세션당 1회 모달만 뜨고 끝남. 상시 배너는 후속 작업 |
-| Phase 16 — RevenueCat 실계정 연동 | 코드 스캐폴딩 완료, 실계정 연동 미착수 | RevenueCat 프로젝트/상품/Entitlement 설정, 시크릿 등록, `supabase functions deploy`, 실기기 결제·복원 테스트, EAS 빌드 전부 필요(위 Completed 표 참고) |
+| Phase 16 — RevenueCat 실계정 연동 | **2026-07-19 Edge Function 배포 완료**(`--no-verify-jwt`, 코드가 자체 `REVENUECAT_WEBHOOK_TOKEN` 검증을 하므로 Supabase JWT 검증은 비활성화), 실계정 연동 미착수 | RevenueCat 프로젝트/상품/Entitlement 설정, `REVENUECAT_WEBHOOK_TOKEN` 시크릿 등록(현재 미등록 확인, 2026-07-19), 실기기 결제·복원 테스트, EAS 빌드 전부 필요(위 Completed 표 참고) |
 | Phase 16 — billing_retry 자동 만료 스케줄 함수 | 미구현 | `billing_retry_started_at` 컬럼만 준비됨. Phase 18 `retention-cleanup`과 같은 시점에 pg_cron 등록 권장(둘 다 아직 미등록) |
 | Phase 16 — §7 3개월 이내 복원 병합 | 미구현(이월) | 중복 판정 UI/기기 선택 UX가 설계 문서에 "결정 필요"로 남아 있어 다음 세션에서 별도 진행 |
-| Phase 17 — Edge Function 5종 배포 | 코드 작성 완료, 미배포 | `supabase functions deploy master-invite master-invite-resend master-invite-revoke master-accept master-revoke` + `SITE_URL` 시크릿 등록 필요 |
+| Phase 17 — Edge Function 5종 배포 | **2026-07-19 배포 완료**(`supabase functions deploy --use-api`, 전부 ACTIVE) | **잔여**: `SITE_URL` 시크릿 미등록 — 초대 이메일 링크 생성에 필요, 등록 전까지 실사용 불가 |
 | Phase 17 — 초대/수락/해제 전체 플로우 실증 | 코드 구현 완료, 직접 검증 미완 | Supabase 프로젝트의 이메일(SMTP) 발송 설정 확인 후 실제 이메일 주소로 초대→수락→해제 전 과정 사후 검증 권장 |
-| Phase 18 — `retention-cleanup` 배포/pg_cron 등록 | 마이그레이션 적용 완료, Edge Function 미배포 | `supabase functions deploy retention-cleanup` + pg_cron 확장 활성화 후 `cron.schedule(...)` 실행 필요(`docs/DATA_RETENTION_DESIGN.md` §4-2) |
+| Phase 18 — `retention-cleanup` 배포/pg_cron 등록 | **2026-07-19 Edge Function 배포 완료**, pg_cron 미등록 | `pg_cron` 확장 미활성화 확인(2026-07-19). Dashboard에서 확장 활성화 후 `cron.schedule(...)` 실행 필요(`docs/DATA_RETENTION_DESIGN.md` §4-2) |
 | Phase 18 — 실제 삭제 동작 실증 | 코드 구현 완료, 직접 검증 미완 | 3개월 경과 `retention_schedules` 행으로 실제 삭제·감사 로그 기록 사후 검증 권장 |
 | Phase 18 — Storage(speaking-recordings) 삭제 | 미구현(범위 밖) | Phase 23(스피킹) 구현 후 `retention-cleanup`에 추가 필요 |
 | Phase 19 — 생성→게시→열람/등록/학습/퀴즈 전체 플로우 실증 | 코드 구현 완료, 직접 검증 미완 | 실제 Admin/Pro 계정 필요 |
