@@ -24,9 +24,23 @@
   input[type='number'],
   input[type='email'],
   input[type='password'],
-  input[type='search'],
-  select {
+  input[type='search'] {
     min-height: 2.75rem;
     line-height: 1.5;
+  }
+  /* select는 min-height/line-height만으로는 부족하다 — iOS Safari/WebView가 네이티브 select
+     appearance일 때 CSS 높이 지정을 무시하는 경우가 있어, appearance를 완전히 해제하고
+     직접 화살표를 그려 넣는다. 오른쪽 여백은 각 화면의 px-3/px-4보다 우선해야 화살표와
+     텍스트가 겹치지 않으므로 !important로 고정한다. */
+  select {
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 2.75rem;
+    line-height: 1.5;
+    padding-right: 2.25rem !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 8 10 12 14 8'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 0.875rem;
   }
 }
