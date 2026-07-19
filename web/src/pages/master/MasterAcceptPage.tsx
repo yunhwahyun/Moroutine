@@ -51,14 +51,26 @@ export default function MasterAcceptPage() {
         </>
       )}
       {status === 'no-session' && (
-        <p className="text-sm text-gray-500 leading-relaxed">
-          초대 링크가 유효하지 않습니다.
-          <br />
-          이메일의 링크를 다시 확인해주세요.
-        </p>
+        <>
+          <p className="text-sm text-gray-500 leading-relaxed mb-4">
+            초대 링크가 유효하지 않습니다.
+            <br />
+            이메일의 링크를 다시 확인해주세요.
+          </p>
+          <button onClick={() => navigate('/')} className="text-sm text-gray-600 underline">
+            홈으로
+          </button>
+        </>
       )}
       {status === 'success' && <p className="text-base font-bold text-gray-900">Master 권한이 부여되었습니다</p>}
-      {status === 'error' && <p className="text-sm text-red-500 leading-relaxed">{errorMessage}</p>}
+      {status === 'error' && (
+        <>
+          <p className="text-sm text-red-500 leading-relaxed mb-4">{errorMessage}</p>
+          <button onClick={() => navigate('/')} className="text-sm text-gray-600 underline">
+            홈으로
+          </button>
+        </>
+      )}
     </div>
   )
 }

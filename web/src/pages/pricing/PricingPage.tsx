@@ -7,6 +7,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { useAuthStore } from '@/stores/authStore'
 import { useSubscriptionDowngrade } from '@/hooks/useSubscriptionDowngrade'
 import { clearSignupPending, isSignupPending } from '@/lib/signupFlow'
+import { BackIcon } from '@/components/icons'
 import type { PlanCode, SubscriptionPlan } from '@/types'
 
 // docs/SUBSCRIPTION_DESIGN.md §10 결정 필요 항목 — RevenueCat 실계정/스토어 상품이 아직 없어 실제
@@ -88,6 +89,14 @@ export default function PricingPage() {
 
   return (
     <div className="px-6 py-8" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1.5rem)' }}>
+      <button
+        onClick={() => navigate(-1)}
+        className="flex items-center gap-1 text-sm text-gray-600 mb-4 -ml-1"
+        aria-label="뒤로"
+      >
+        <BackIcon size={20} />
+        뒤로
+      </button>
       <h1 className="text-lg font-bold text-gray-900 mb-6">요금제 비교</h1>
 
       {purchaseState === 'processing' && (
