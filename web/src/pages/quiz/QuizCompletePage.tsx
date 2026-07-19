@@ -14,7 +14,7 @@ export default function QuizCompletePage() {
   const rate = total > 0 ? Math.round((correctCount / total) * 100) : 0
 
   return (
-    <div className="flex flex-col min-h-dvh bg-white">
+    <div className="flex flex-col min-h-dvh bg-white" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-4 pb-2">
         <span className="text-sm font-medium text-gray-900">학습 완료</span>

@@ -14,6 +14,15 @@
 | `docs/API_SPEC.md` | SelectionTarget + Edge Function 스펙 |
 | `docs/UI_FLOW.md` | 화면 흐름, 라우팅, 각 화면 상세 |
 | `docs/TODO.md` | Todo / Doing / Done |
+| `docs/PERMISSION_DESIGN.md` | Guest/Pro/Premium/Master/Admin 권한 모델 (인증상태·역할·서비스권한 3축, `buildPermissions()`, RLS 판정 함수) |
+| `docs/SUBSCRIPTION_DESIGN.md` | 구독 상태 머신, RevenueCat Webhook, Pro 단어 한도, 사용자 상태 전이 26종 |
+| `docs/DATA_STORAGE_DESIGN.md` | Guest 로컬 저장(IndexedDB), Repository 계층(Local/Remote/Admin), Export/Import |
+| `docs/MIGRATION_DESIGN.md` | Guest↔Remote 데이터 이전 엔진 (Idempotency/청크/롤백) |
+| `docs/ADMIN_DESIGN.md` | 공용 단어장 CRUD, 관리자 접근 범위, 감사 로그 |
+| `docs/MASTER_INVITATION_DESIGN.md` | Master 초대·해제 절차 및 보안 |
+| `docs/DATA_RETENTION_DESIGN.md` | 3개월 데이터 보관·알림·삭제 파이프라인 |
+
+> `docs/PERMISSION_DESIGN.md`~`docs/DATA_RETENTION_DESIGN.md` 7개 문서와 `docs/SPEAKING_DESIGN.md`(평가 기능 삭제 후 재작성)는 **2026-07-18 무료·유료·관리자 정책 전면 개편**의 산출물이다. 배경·범위는 `docs/DECISION_LOG.md` 2026-07-18 항목 참고. 코드 구현은 아직 착수 전이며, **다음 세션에서 이어갈 작업은 `docs/TODO.md`의 `Phase 11 — 권한 모델`부터**다(구현 순서는 `docs/PROJECT_STATUS.md`의 "Next — Phase 11 이후 구현 순서" 표 참고, Phase 11→12→13 순서로 의존관계가 있으므로 건너뛰지 말 것).
 
 ---
 

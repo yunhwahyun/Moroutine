@@ -11,6 +11,7 @@ import {
   dateStr,
 } from '@/lib/scheduleRepeat'
 import { useTodayStudyWords, buildQuizWords, applyQuestionOrder } from '@/hooks/useStudyWords'
+import { usePermissions } from '@/hooks/usePermissions'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { SpeakerIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
@@ -157,13 +158,18 @@ function SwipeableWordCards({ words }: { words: Word[] }) {
 export default function HomePage() {
   const navigate = useNavigate()
   const { settings } = useSettingsStore()
+  const { permissions } = usePermissions()
+  const tier = permissions?.serviceTier ?? null
 
   const { data: rawStudyWords = [], isLoading: wordsLoading } = useTodayStudyWords()
   const studyWords = applyQuestionOrder(rawStudyWords, settings.questionOrder)
 
+  // 일정(Schedule)은 아직 Repository/Guest 로컬 저장에 연동되지 않았다(docs/TODO.md Phase 12.5 참고).
+  // Guest가 이 Supabase 쿼리를 그대로 호출하면 인증 없는 요청이라 401만 발생하므로 아예 스킵한다.
   const { data: scheduleItems = [], isLoading: schedulesLoading } = useQuery({
-    queryKey: ['home_schedules'],
+    queryKey: ['home_schedules', tier],
     queryFn: fetchHomeSchedules,
+    enabled: tier !== null && tier !== 'guest',
   })
 
   const handleLearnStart = () => {

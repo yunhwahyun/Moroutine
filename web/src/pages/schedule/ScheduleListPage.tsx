@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
-import { useAuthStore } from '@/stores/authStore'
+import { usePermissions } from '@/hooks/usePermissions'
+import { getRepository } from '@/repositories/factory'
 import { refreshScheduleNotifications, cancelScheduleNotifications } from '@/lib/notificationScheduler'
 import { EditIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
@@ -195,9 +195,8 @@ function buildEndsAt(form: ScheduleForm): string | null {
   return new Date(`${form.endDate || form.date}T${form.endTime}:00`).toISOString()
 }
 
-function formToInsert(form: ScheduleForm, userId: string, parentId?: string) {
+function formToScheduleFields(form: ScheduleForm, parentId?: string) {
   return {
-    user_id: userId,
     title: form.title.trim(),
     starts_at: buildStartsAt(form),
     ends_at: buildEndsAt(form),
@@ -482,7 +481,9 @@ function RepeatScopeModal({
 // ─── page ─────────────────────────────────────────────────
 
 export default function ScheduleListPage() {
-  const { user } = useAuthStore()
+  const { permissions } = usePermissions()
+  const tier = permissions?.serviceTier ?? null
+  const repository = tier && tier !== 'admin' ? getRepository(tier) : null
   const queryClient = useQueryClient()
 
   const today = toDateStr(new Date())
@@ -510,32 +511,19 @@ export default function ScheduleListPage() {
   const rangeStart = new Date(fromDate + 'T00:00:00')
   const rangeEnd = new Date(toDate + 'T23:59:59')
 
-  // 기간 내 원본 schedules 조회 (반복 일정은 시작일이 기간 이전일 수 있으므로 넓게)
-  // repeat 있는 것도 포함하기 위해 starts_at <= rangeEnd 조건만 사용
+  // 전체 schedules 조회(Repository는 날짜 범위 파라미터를 받지 않음 — 반복 일정은 시작일이
+  // 기간 이전일 수 있어 클라이언트에서 expandScheduleOccurrences(rangeStart, rangeEnd)로 필터링한다.
+  // Guest/개인 규모 데이터에서는 성능 문제가 없다)
   const { data: schedules = [], isLoading: loadingSchedules } = useQuery<Schedule[]>({
-    queryKey: ['schedules', fromDate, toDate],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('schedules')
-        .select('*')
-        .lte('starts_at', `${toDate}T23:59:59`)
-        .order('starts_at', { ascending: true })
-      if (error) throw error
-      return data
-    },
+    queryKey: ['schedules', tier],
+    queryFn: () => repository!.getSchedules(),
+    enabled: !!repository,
   })
 
   const { data: exceptions = [] } = useQuery<ScheduleException[]>({
-    queryKey: ['schedule_exceptions', fromDate, toDate],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('schedule_exceptions')
-        .select('*')
-        .gte('occurrence_date', fromDate)
-        .lte('occurrence_date', toDate)
-      if (error) throw error
-      return data
-    },
+    queryKey: ['schedule_exceptions', fromDate, toDate, tier],
+    queryFn: () => repository!.getScheduleExceptions(fromDate, toDate),
+    enabled: !!repository,
   })
 
   // occurrence 계산 (클라이언트)
@@ -565,18 +553,12 @@ export default function ScheduleListPage() {
 
   const { mutate: createSchedule, isPending: isCreating } = useMutation({
     mutationFn: async (f: ScheduleForm) => {
-      const { data, error } = await supabase
-        .from('schedules')
-        .insert(formToInsert(f, user!.id))
-        .select()
-        .single()
-      if (error) throw error
-      return data as Schedule
+      return repository!.saveSchedule(formToScheduleFields(f))
     },
     onSuccess: (data) => {
       invalidate()
       closeForm()
-      refreshScheduleNotifications(data).catch(console.error)
+      refreshScheduleNotifications(repository!, data).catch(console.error)
     },
     onError: (err) => {
       console.error('[schedule insert error]', err)
@@ -586,28 +568,12 @@ export default function ScheduleListPage() {
 
   const { mutate: updateScheduleAll, isPending: isUpdatingAll } = useMutation({
     mutationFn: async (f: ScheduleForm) => {
-      const { data, error } = await supabase.from('schedules').update({
-        title: f.title.trim(),
-        starts_at: buildStartsAt(f),
-        ends_at: buildEndsAt(f),
-        is_all_day: f.isAllDay,
-        location: f.location.trim() || null,
-        repeat_type: f.repeatType,
-        repeat_unit: f.repeatType === 'custom' ? f.repeatUnit : null,
-        repeat_value: f.repeatType === 'custom' ? Number(f.repeatValue) || 1 : null,
-        repeat_end_type: f.repeatType === 'none' ? 'none' : f.repeatEndType,
-        repeat_until: f.repeatEndType === 'until' ? f.repeatUntil || null : null,
-        repeat_count: f.repeatEndType === 'count' ? Number(f.repeatCount) || null : null,
-        alarm_minutes: f.alarmMinutes !== '' ? Number(f.alarmMinutes) : null,
-        updated_at: new Date().toISOString(),
-      }).eq('id', editingScheduleId!).select().single()
-      if (error) throw error
-      return data as Schedule
+      return repository!.saveSchedule({ id: editingScheduleId!, ...formToScheduleFields(f) })
     },
     onSuccess: (data) => {
       invalidate()
       closeForm()
-      refreshScheduleNotifications(data).catch(console.error)
+      refreshScheduleNotifications(repository!, data).catch(console.error)
     },
     onError: (err) => {
       console.error('[schedule update error]', err)
@@ -617,44 +583,25 @@ export default function ScheduleListPage() {
 
   const { mutate: upsertException, isPending: isUpserting } = useMutation({
     mutationFn: async ({ f, occ }: { f: ScheduleForm; occ: ScheduleOccurrence }) => {
-      const modifiedFields = {
+      await repository!.saveScheduleException({
+        scheduleId: occ.schedule_id,
+        occurrenceDate: occ.occurrence_date,
+        exceptionType: 'modified',
+        originalStartsAt: occ.starts_at,
+        originalEndsAt: occ.ends_at,
         title: f.title.trim(),
         location: f.location.trim() || null,
-        starts_at: buildStartsAt(f),
-        ends_at: buildEndsAt(f),
-        is_all_day: f.isAllDay,
-        alarm_minutes: f.alarmMinutes !== '' ? Number(f.alarmMinutes) : null,
-        updated_at: new Date().toISOString(),
-      }
-      if (occ.is_exception) {
-        // 이미 exception 행이 있으면 UPDATE — original_starts_at/ends_at은 건드리지 않음
-        const { error } = await supabase
-          .from('schedule_exceptions')
-          .update(modifiedFields)
-          .eq('schedule_id', occ.schedule_id)
-          .eq('occurrence_date', occ.occurrence_date)
-        if (error) throw error
-      } else {
-        // 새 exception 행 INSERT
-        const { error } = await supabase
-          .from('schedule_exceptions')
-          .insert({
-            user_id: user!.id,
-            schedule_id: occ.schedule_id,
-            occurrence_date: occ.occurrence_date,
-            exception_type: 'modified',
-            original_starts_at: occ.starts_at,
-            original_ends_at: occ.ends_at,
-            ...modifiedFields,
-          })
-        if (error) throw error
-      }
+        startsAt: buildStartsAt(f),
+        endsAt: buildEndsAt(f),
+        isAllDay: f.isAllDay,
+        alarmMinutes: f.alarmMinutes !== '' ? Number(f.alarmMinutes) : null,
+      })
     },
     onSuccess: (_data, { occ }) => {
       invalidate()
       closeForm()
       // 이 일정만 수정: 원본 알림 취소 후 재등록은 생략 (exceptions 미반영 MVP 제한)
-      cancelScheduleNotifications(occ.schedule_id).catch(console.error)
+      cancelScheduleNotifications(repository!, occ.schedule_id).catch(console.error)
     },
     onError: (err) => {
       console.error('[exception upsert error]', err)
@@ -667,30 +614,27 @@ export default function ScheduleListPage() {
       const cutDate = getOccurrenceDateBefore(origSchedule, occ.occurrence_date)
       if (cutDate) {
         // 선택 occurrence 이전 날짜까지만 원본을 남김
-        const { error: e1 } = await supabase.from('schedules').update({
+        await repository!.saveSchedule({
+          id: origSchedule.id,
           repeat_end_type: 'until',
           repeat_until: cutDate,
           repeat_count: null,
-          updated_at: new Date().toISOString(),
-        }).eq('id', origSchedule.id)
-        if (e1) throw e1
+        })
       } else {
         // 선택 occurrence가 원본의 첫 번째 → 원본 삭제
-        const { error: e1 } = await supabase.from('schedules').delete().eq('id', origSchedule.id)
-        if (e1) throw e1
+        await repository!.deleteSchedule(origSchedule.id)
       }
       // 선택 occurrence부터 새 schedule 생성
       // 원본이 삭제된 경우(cutDate=null) parent_schedule_id는 null — 삭제된 행 참조 불가
-      const { error: e2 } = await supabase.from('schedules').insert(
-        formToInsert({ ...f, date: occ.occurrence_date, endDate: occ.occurrence_date }, user!.id, cutDate ? origSchedule.id : undefined)
+      await repository!.saveSchedule(
+        formToScheduleFields({ ...f, date: occ.occurrence_date, endDate: occ.occurrence_date }, cutDate ? origSchedule.id : undefined),
       )
-      if (e2) throw e2
     },
     onSuccess: (_data, { origSchedule }) => {
       invalidate()
       closeForm()
       // 원본 알림 취소 (새 schedule 알림은 invalidate 후 refetch 시 자동 처리되지 않으므로 생략)
-      cancelScheduleNotifications(origSchedule.id).catch(console.error)
+      cancelScheduleNotifications(repository!, origSchedule.id).catch(console.error)
     },
     onError: (err) => {
       console.error('[schedule split error]', err)
@@ -700,14 +644,13 @@ export default function ScheduleListPage() {
 
   const { mutate: deleteScheduleFull, isPending: isDeletingFull } = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('schedules').delete().eq('id', editingScheduleId!)
-      if (error) throw error
+      await repository!.deleteSchedule(editingScheduleId!)
     },
     onSuccess: () => {
       const id = editingScheduleId
       invalidate()
       closeForm()
-      if (id) cancelScheduleNotifications(id).catch(console.error)
+      if (id) cancelScheduleNotifications(repository!, id).catch(console.error)
     },
     onError: (err) => {
       console.error('[schedule delete error]', err)
@@ -717,19 +660,13 @@ export default function ScheduleListPage() {
 
   const { mutate: cancelOccurrence, isPending: isCancelling } = useMutation({
     mutationFn: async (occ: ScheduleOccurrence) => {
-      const payload = {
-        user_id: user!.id,
-        schedule_id: occ.schedule_id,
-        occurrence_date: occ.occurrence_date,
-        exception_type: 'cancelled' as const,
-        original_starts_at: occ.starts_at,
-        original_ends_at: occ.ends_at,
-        updated_at: new Date().toISOString(),
-      }
-      const { error } = await supabase
-        .from('schedule_exceptions')
-        .upsert(payload, { onConflict: 'schedule_id,occurrence_date' })
-      if (error) throw error
+      await repository!.saveScheduleException({
+        scheduleId: occ.schedule_id,
+        occurrenceDate: occ.occurrence_date,
+        exceptionType: 'cancelled',
+        originalStartsAt: occ.starts_at,
+        originalEndsAt: occ.ends_at,
+      })
     },
     onSuccess: () => { invalidate(); closeForm() },
     onError: (err) => {
@@ -744,23 +681,21 @@ export default function ScheduleListPage() {
       const cutDate = getOccurrenceDateBefore(origSchedule, occDate)
       if (cutDate) {
         // 선택 occurrence 이전 날짜까지만 남김
-        const { error } = await supabase.from('schedules').update({
+        await repository!.saveSchedule({
+          id: scheduleId,
           repeat_end_type: 'until',
           repeat_until: cutDate,
           repeat_count: null,
-          updated_at: new Date().toISOString(),
-        }).eq('id', scheduleId)
-        if (error) throw error
+        })
       } else {
         // 선택 occurrence가 첫 번째 → schedule 전체 삭제
-        const { error } = await supabase.from('schedules').delete().eq('id', scheduleId)
-        if (error) throw error
+        await repository!.deleteSchedule(scheduleId)
       }
     },
     onSuccess: (_data, { scheduleId }) => {
       invalidate()
       closeForm()
-      cancelScheduleNotifications(scheduleId).catch(console.error)
+      cancelScheduleNotifications(repository!, scheduleId).catch(console.error)
     },
     onError: (err) => {
       console.error('[truncate future error]', err)

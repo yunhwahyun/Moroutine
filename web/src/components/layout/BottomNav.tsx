@@ -48,10 +48,10 @@ export default function BottomNav() {
   return (
     <div
       className="fixed bottom-0 left-0 right-0 z-50 pt-4 px-4"
-      style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}
+      style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 10px), 1.25rem)' }}
     >
-      <nav className="bg-white rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.10)] py-[6px] px-[6px]">
-        <div ref={containerRef} className="relative flex justify-between items-center">
+      <nav className="bg-white rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.10)] py-[6px] px-[6px] w-fit mx-auto">
+        <div ref={containerRef} className="relative flex items-center gap-5">
 
           {/* 슬라이딩 indicator */}
           <div

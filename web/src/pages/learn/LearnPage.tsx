@@ -4,7 +4,8 @@ import { useTTS } from '@/hooks/useTTS'
 import { renderLineBreaks } from '@/lib/text'
 import { BackIcon, SpeakerIcon } from '@/components/icons'
 import { STATUS_LABEL, STATUS_COLOR } from '@/lib/wordConstants'
-import { createStudySession, completeStudySession } from '@/lib/studySession'
+import { usePermissions } from '@/hooks/usePermissions'
+import { getRepository } from '@/repositories/factory'
 import type { Word } from '@/types'
 
 
@@ -30,20 +31,30 @@ export default function LearnPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const { speak, isSupported } = useTTS()
+  const { permissions } = usePermissions()
+  const tier = permissions?.serviceTier ?? null
+  const repository = tier && tier !== 'admin' ? getRepository(tier) : null
 
   const words: Word[] = sortWords(location.state?.words ?? [])
+  // docs/DECISION_LOG.md 2026-07-19 — 공용 단어장 학습은 개인 study_sessions에 기록하지 않는다.
+  const isPublicMode = !!location.state?.targets?.some(
+    (t: { type: string }) => t.type === 'public_wordbook',
+  )
   const sessionIdRef = useRef<string | null>(null)
+  const sessionCreatedRef = useRef(false)  // React StrictMode 개발 모드 이중 마운트로 세션이 중복 생성되는 것 방지
 
   useEffect(() => {
-    if (words.length === 0) return
-    createStudySession({ sessionType: 'learn', wordbookIds: [], totalCount: words.length })
+    if (words.length === 0 || !repository || sessionCreatedRef.current || isPublicMode) return
+    sessionCreatedRef.current = true
+    repository
+      .createStudySession({ sessionType: 'learn', wordbookIds: [], totalCount: words.length })
       .then((id) => { sessionIdRef.current = id })
       .catch(console.error)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [repository]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleComplete = () => {
-    if (sessionIdRef.current) {
-      completeStudySession(sessionIdRef.current, words.length, 0).catch(console.error)
+    if (sessionIdRef.current && repository) {
+      repository.completeStudySession(sessionIdRef.current, words.length, 0).catch(console.error)
     }
     navigate(-1)
   }
@@ -51,7 +62,10 @@ export default function LearnPage() {
   return (
     <div className="flex flex-col min-h-dvh bg-gray-50">
       {/* 헤더 */}
-      <div className="sticky top-0 z-10 bg-white flex items-center justify-between px-4 py-3 border-b border-gray-100">
+      <div
+        className="sticky top-0 z-10 bg-white flex items-center justify-between px-4 pb-3 border-b border-gray-100"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
+      >
         <button
           onClick={() => navigate(-1)}
           className="p-1 -ml-1 text-gray-600"

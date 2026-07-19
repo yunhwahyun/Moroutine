@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
+import { markSignupPending } from '@/lib/signupFlow'
 
 type Mode = 'login' | 'signup' | 'magic'
 
@@ -30,6 +31,7 @@ export default function LoginPage() {
       } else if (mode === 'signup') {
         const { error } = await supabase.auth.signUp({ email, password })
         if (error) throw error
+        markSignupPending()
         setMessage('이메일을 확인하세요. 인증 링크를 보냈습니다.')
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password })

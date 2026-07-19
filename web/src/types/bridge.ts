@@ -22,6 +22,14 @@ export type StartSTTPayload = {
   lang: string
 }
 
+export type SetUserIdPayload = {
+  userId: string | null
+}
+
+export type PurchaseRequestPayload = {
+  planCode: 'pro' | 'premium'
+}
+
 export type BridgeOutbound =
   | { type: 'SCHEDULE_NOTIFICATION'; payload: ScheduleNotificationPayload }
   | { type: 'CANCEL_NOTIFICATION'; payload: CancelNotificationPayload }
@@ -32,6 +40,9 @@ export type BridgeOutbound =
   | { type: 'STOP_STT' }
   | { type: 'GET_APP_VERSION' }
   | { type: 'WEB_READY' }
+  | { type: 'SET_USER_ID'; payload: SetUserIdPayload }
+  | { type: 'PURCHASE_REQUEST'; payload: PurchaseRequestPayload }
+  | { type: 'RESTORE_PURCHASES' }
 
 export type NotificationResultPayload = {
   id: string
@@ -54,8 +65,20 @@ export type STTResultPayload = {
   final: boolean
 }
 
+export type PurchaseResultPayload = {
+  success: boolean
+  error?: string
+}
+
+export type RestoreResultPayload = {
+  success: boolean
+  error?: string
+}
+
 export type BridgeInbound =
   | { type: 'NOTIFICATION_RESULT'; payload: NotificationResultPayload }
   | { type: 'PERMISSION_RESULT'; payload: PermissionResultPayload }
   | { type: 'APP_VERSION'; payload: AppVersionPayload }
   | { type: 'STT_RESULT'; payload: STTResultPayload }
+  | { type: 'PURCHASE_RESULT'; payload: PurchaseResultPayload }
+  | { type: 'RESTORE_RESULT'; payload: RestoreResultPayload }

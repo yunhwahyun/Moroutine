@@ -18,7 +18,35 @@
 9.  schedules_repeat    ← repeat 컬럼 + schedule_exceptions 테이블
 10. notifications_occurrence
 11. profiles_settings   ← 설정 컬럼 추가 (quiz_mode, question_order, review_intervals 등)
+12. profiles_short_answer_input ← short_answer_input 컬럼 추가
 ```
+
+> **2026-07-18 정책 전면 개편**: 구 Phase 10 계획(마이그레이션 13~17 — `profiles_plan`/`speaking_tasks`/`speaking_sessions`/`speaking_recordings`/`pronunciation_evaluations`)은 실제 파일로 생성된 적이 없어 전량 폐기하고 아래 신규 계획으로 대체한다. 배경은 `docs/DECISION_LOG.md` 2026-07-18 항목, 정책 원문은 `docs/PERMISSION_DESIGN.md`/`docs/SUBSCRIPTION_DESIGN.md`/`docs/ADMIN_DESIGN.md`/`docs/MASTER_INVITATION_DESIGN.md`/`docs/DATA_RETENTION_DESIGN.md`/`docs/MIGRATION_DESIGN.md`/`docs/SPEAKING_DESIGN.md` 참고.
+
+```
+--- Guest/Pro/Premium/Master/Admin 정책 개편 ---
+13. profiles_role_access        ← role, special_access 컬럼 추가 (docs/PERMISSION_DESIGN.md §4-1)
+14. subscription_plans          ← 요금제 설정 테이블 (docs/PERMISSION_DESIGN.md §4-2)
+15. subscriptions                ← 구독 상태 테이블 (docs/PERMISSION_DESIGN.md §4-3)
+16. subscription_webhook_support ← processed_webhook_events, subscription_audit_log (docs/SUBSCRIPTION_DESIGN.md §3)
+17. public_wordbooks_words       ← public_wordbooks, public_words (docs/ADMIN_DESIGN.md §3-2)
+18. user_public_progress         ← user_public_wordbook_enrollments, user_public_word_progress (docs/ADMIN_DESIGN.md §3-3)
+19. master_invitations           ← Master 초대 테이블 (docs/MASTER_INVITATION_DESIGN.md §2)
+20. admin_audit_log              ← 관리자 작업 감사 로그 (docs/ADMIN_DESIGN.md §4)
+21. migration_engine             ← migration_jobs, migration_id_map, device_migration_status (docs/MIGRATION_DESIGN.md §3, §8)
+22. retention_schedules          ← 3개월 보관/삭제 스케줄 (docs/DATA_RETENTION_DESIGN.md §2)
+23. speaking_sentences           ← 개인 스피킹 문장 (docs/SPEAKING_DESIGN.md §4-1, 평가 기능 없는 신규 설계)
+24. speaking_recordings          ← 개인 스피킹 녹음 메타 (docs/SPEAKING_DESIGN.md §4-1)
+25. create_words_checked         ← Pro 단어 한도 원자적 검증 RPC (docs/SUBSCRIPTION_DESIGN.md §4-2)
+26. migration_engine_rpcs        ← Guest→Remote 이전 RPC 6종 (docs/MIGRATION_DESIGN.md §3)
+27. subscription_retry_and_realtime ← billing_retry_started_at 컬럼 + subscriptions realtime publication (docs/SUBSCRIPTION_DESIGN.md §2, §10)
+28. master_admin_fixes           ← prevent_self_privilege_escalation 트리거 수정 + master_invitations.token_hash nullable + list_masters() RPC + profiles realtime publication (docs/MASTER_INVITATION_DESIGN.md)
+29. retention_cleanup_support     ← admin_audit_log.actor_id nullable (docs/DATA_RETENTION_DESIGN.md §4-2, §7)
+30. public_content_audit_triggers ← public_wordbooks/public_words 쓰기를 admin_audit_log에 자동 기록하는 트리거 (docs/ADMIN_DESIGN.md §4)
+31. subscription_plans_anon_select ← subscription_plans SELECT를 anon까지 확장 (docs/UI_FLOW.md §3 요금제 비교)
+```
+
+> `is_admin()` / `get_service_tier()` SQL 함수(`docs/PERMISSION_DESIGN.md` §4-4)는 마이그레이션 13 직후, 이를 참조하는 모든 RLS 정책(14번 이후)보다 먼저 생성한다.
 
 ---
 
@@ -36,6 +64,7 @@ CREATE TABLE profiles (
   schedule_notification    boolean NOT NULL DEFAULT true,
   review_notification      boolean NOT NULL DEFAULT true,
   review_notification_time text    NOT NULL DEFAULT '09:00',
+  short_answer_input       text    NOT NULL DEFAULT 'both',
   created_at               timestamptz NOT NULL DEFAULT now(),
   updated_at               timestamptz NOT NULL DEFAULT now()
 );
@@ -352,11 +381,52 @@ CREATE POLICY "notifications_update"
 
 ---
 
+## 마이그레이션 12 — profiles_short_answer_input
+
+```sql
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS short_answer_input TEXT NOT NULL DEFAULT 'both';
+```
+
+---
+
+---
+
+## 마이그레이션 13~31 — Guest/Pro/Premium/Master/Admin 정책 개편 (신규)
+
+전체 DDL은 아래 각 설계 문서에 원문이 있다. 이 표는 마이그레이션 순번과 출처만 인덱싱한다(실행 시 반드시 순번 순서를 지킬 것 — 뒷번호가 앞번호의 함수/테이블을 참조함).
+
+| # | 마이그레이션 | 주요 오브젝트 | DDL 원문 |
+|---|---|---|---|
+| 13 | profiles_role_access | `profiles.role`, `profiles.special_access` 컬럼 + `is_admin()`/`get_service_tier()` 함수 + `prevent_self_privilege_escalation` 트리거 | `docs/PERMISSION_DESIGN.md` §4-1, §4-4, §7-1 |
+| 14 | subscription_plans | `subscription_plans` 테이블 + 초기 데이터 | `docs/PERMISSION_DESIGN.md` §4-2 |
+| 15 | subscriptions | `subscriptions` 테이블 | `docs/PERMISSION_DESIGN.md` §4-3 |
+| 16 | subscription_webhook_support | `processed_webhook_events`, `subscription_audit_log` | `docs/SUBSCRIPTION_DESIGN.md` §3 |
+| 17 | public_wordbooks_words | `public_wordbooks`, `public_words` + `sync_public_word_count` 트리거 | `docs/ADMIN_DESIGN.md` §3-2 |
+| 18 | user_public_progress | `user_public_wordbook_enrollments`, `user_public_word_progress` | `docs/ADMIN_DESIGN.md` §3-3 |
+| 19 | master_invitations | `master_invitations` | `docs/MASTER_INVITATION_DESIGN.md` §2 |
+| 20 | admin_audit_log | `admin_audit_log` | `docs/ADMIN_DESIGN.md` §4 |
+| 21 | migration_engine | `migration_jobs`, `migration_id_map`, `device_migration_status` | `docs/MIGRATION_DESIGN.md` §3-1, §8 |
+| 22 | retention_schedules | `retention_schedules` | `docs/DATA_RETENTION_DESIGN.md` §2 |
+| 23 | speaking_sentences | `speaking_sentences` | `docs/SPEAKING_DESIGN.md` §4-1 |
+| 24 | speaking_recordings | `speaking_recordings`(평가 없는 신규 버전, 구 마이그레이션 계획과 이름은 같으나 컬럼 구조 다름) | `docs/SPEAKING_DESIGN.md` §4-1 |
+| 25 | create_words_checked | `create_words_checked` RPC(Pro 단어 한도 원자적 검증) | `docs/SUBSCRIPTION_DESIGN.md` §4-2 |
+| 26 | migration_engine_rpcs | `migrate_wordbooks`/`migrate_words`/`migrate_schedules`/`migrate_schedule_exceptions`/`migrate_study_sessions`/`migrate_study_results` RPC 6종 | `docs/MIGRATION_DESIGN.md` §3 |
+| 27 | subscription_retry_and_realtime | `subscriptions.billing_retry_started_at` 컬럼 + `subscriptions` realtime publication 추가 | `docs/SUBSCRIPTION_DESIGN.md` §2, §10 |
+| 28 | master_admin_fixes | `prevent_self_privilege_escalation` 트리거 수정(service_role 예외 추가) + `master_invitations.token_hash` nullable + `list_masters()` RPC + `profiles` realtime publication 추가 | `docs/MASTER_INVITATION_DESIGN.md` |
+| 29 | retention_cleanup_support | `admin_audit_log.actor_id` NOT NULL 제약 제거(Scheduled Function이 시스템 실행 기록을 남길 수 있도록) | `docs/DATA_RETENTION_DESIGN.md` §4-2, §7 |
+| 30 | public_content_audit_triggers | `log_public_wordbook_action()`/`log_public_word_action()` 트리거(`public_wordbooks`/`public_words` AFTER INSERT/UPDATE → `admin_audit_log` 자동 기록) | `docs/ADMIN_DESIGN.md` §4 |
+| 31 | subscription_plans_anon_select | `subscription_plans` SELECT 정책을 `TO anon, authenticated`로 확장(Guest도 `/pricing` 요금제 비교표 조회 가능) | `docs/UI_FLOW.md` §3 요금제 비교 |
+
+> **폐기**: 구 마이그레이션 계획 13(`profiles_plan`) / 14(`speaking_tasks`) / 15(`speaking_sessions`) / 17(`pronunciation_evaluations`)은 실제 파일이 생성된 적이 없으므로 DROP 없이 계획만 폐기. 구 16번(`speaking_recordings`)은 이름을 유지하되 신규 24번 정의로 완전히 대체(과거 `expires_at`/평가 연계 컬럼 제거, `sentence_id` 기반으로 재설계).
+
+---
+
 ## RLS 정책 구조 요약
 
 | 테이블 | INSERT WITH CHECK | UPDATE 추가 조건 |
 |--------|------------------|-----------------|
-| profiles | `uid = id` | — |
+| profiles | `uid = id` (단, role/special_access*는 트리거로 보호) | — |
 | schedules | `uid = user_id` | — |
 | schedule_exceptions | `uid = user_id` + schedule 소유 확인 | schedule 소유 확인 |
 | wordbooks | `uid = user_id` | — |
@@ -364,3 +434,17 @@ CREATE POLICY "notifications_update"
 | study_sessions | `uid = user_id` | — |
 | study_results | `uid = user_id` + session 소유 + word 소유 | session 소유 + word 소유 |
 | notifications | `uid = user_id` + schedule 소유 확인 | schedule 소유 확인 |
+| subscription_plans | Admin만 쓰기, 조회는 전체 authenticated | — |
+| subscriptions | 클라이언트 쓰기 불가(service_role만) | — |
+| public_wordbooks / public_words | Admin만 쓰기, 조회는 pro/premium/master(+admin은 전체) | — |
+| user_public_wordbook_enrollments | `uid = user_id` + pro/premium/master 등급 | 동일 |
+| user_public_word_progress | `uid = user_id` + pro/premium/master 등급 | 동일 |
+| master_invitations | 클라이언트 쓰기 불가(service_role만), 조회는 Admin만 | — |
+| admin_audit_log | 클라이언트 쓰기 불가(service_role/트리거만), 조회는 Admin만 | — |
+| migration_jobs / migration_id_map | `uid = user_id` | — |
+| device_migration_status | `uid = user_id` | — |
+| retention_schedules | 조회만 `uid = user_id`, 쓰기는 service_role | — |
+| speaking_sentences | `uid = user_id` | — |
+| speaking_recordings | `uid = user_id` | — |
+
+상세 RLS 문구는 각 테이블이 정의된 설계 문서(위 표) 원문을 그대로 적용한다.

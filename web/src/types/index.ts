@@ -2,6 +2,7 @@ export type SelectionTarget =
   | { type: 'review' }
   | { type: 'wordbook'; id: string }
   | { type: 'word'; id: string }
+  | { type: 'public_wordbook'; id: string }
 
 export type WordStatus = 'unseen' | 'learning' | 'reviewing' | 'mastered'
 export type SessionType = 'learn' | 'quiz' | 'review_quiz'
@@ -17,7 +18,7 @@ export type Word = {
   memo: string | null
   wrong_count: number
   status: WordStatus
-  review_step: 0 | 1 | 2 | 3
+  review_step: number  // 0: 비복습, 1~N: 복습 단계(N = 사용자 설정 reviewIntervals 길이, 최대 5)
   first_passed_at: string | null
   next_review_at: string | null
   created_at: string
@@ -32,6 +33,51 @@ export type Wordbook = {
   language: string | null
   word_count: number
   created_at: string
+  updated_at: string
+}
+
+// docs/ADMIN_DESIGN.md §3 — 공용 단어장. 개인 Wordbook/Word와 별개 테이블(원본 참조 방식).
+export type PublicWordbookStatus = 'draft' | 'published' | 'hidden' | 'archived'
+export type PublicWordStatus = 'active' | 'archived'
+export type Difficulty = 'beginner' | 'intermediate' | 'advanced'
+
+export type PublicWordbook = {
+  id: string
+  title: string
+  description: string | null
+  category: string | null
+  difficulty: Difficulty
+  language: string
+  status: PublicWordbookStatus
+  word_count: number
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export type PublicWord = {
+  id: string
+  wordbook_id: string
+  term: string
+  definition: string
+  description: string | null
+  example: string | null
+  sort_order: number
+  status: PublicWordStatus
+  created_at: string
+  updated_at: string
+}
+
+// docs/ADMIN_DESIGN.md §3-3 — 공용 단어에 대한 사용자별 학습 진행 상태(user_public_word_progress).
+export type PublicWordProgress = {
+  id: string
+  user_id: string
+  public_word_id: string
+  status: WordStatus
+  review_step: number
+  first_passed_at: string | null
+  next_review_at: string | null
+  wrong_count: number
   updated_at: string
 }
 
@@ -76,6 +122,16 @@ export type ScheduleException = {
   updated_at: string
 }
 
+export type NotificationRecord = {
+  id: string
+  user_id: string
+  schedule_id: string
+  native_id: string | null
+  fire_at: string
+  is_cancelled: boolean
+  created_at: string
+}
+
 export type ScheduleOccurrence = {
   occurrence_id: string         // `${schedule_id}:${occurrence_date}`
   schedule_id: string
@@ -115,4 +171,51 @@ export type UserSettings = {
   reviewNotification: boolean
   reviewNotificationTime: string   // 'HH:mm'
   shortAnswerInput: ShortAnswerInputMode
+}
+
+// --- 권한 모델 (docs/PERMISSION_DESIGN.md) ---
+
+export type AccountRole = 'user' | 'admin'
+export type SpecialAccess = 'none' | 'master'
+
+export type PlanCode = 'pro' | 'premium'
+export type SubscriptionStatus = 'active' | 'grace_period' | 'billing_retry' | 'expired' | 'revoked'
+
+export type Subscription = {
+  id: string
+  user_id: string
+  plan_code: PlanCode
+  status: SubscriptionStatus
+  provider: string
+  provider_subscription_id: string | null
+  started_at: string
+  current_period_end: string | null
+  grace_period_end: string | null
+  canceled_at: string | null
+  expired_at: string | null
+  retention_expires_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type SubscriptionPlan = {
+  code: PlanCode
+  personal_word_limit: number | null   // null = 무제한
+  sync_enabled: boolean
+  public_wordbook_enabled: boolean
+  bulk_import_enabled: boolean
+  is_active: boolean
+}
+
+export type ServiceTier = 'guest' | 'pro' | 'premium' | 'master' | 'admin'
+
+export type Permissions = {
+  serviceTier: ServiceTier
+  isAuthenticated: boolean
+  usesRemoteStorage: boolean       // false = LocalDataRepository, true = RemoteDataRepository
+  canSync: boolean
+  canBulkImport: boolean
+  canUsePublicWordbooks: boolean
+  personalWordLimit: number | null // null = 무제한
+  canAccessAdmin: boolean
 }

@@ -6,6 +6,7 @@ import WebView, { WebViewMessageEvent } from 'react-native-webview'
 import * as Notifications from 'expo-notifications'
 import * as Speech from 'expo-speech'
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition'
+import Purchases from 'react-native-purchases'
 import Constants from 'expo-constants'
 import type { BridgeOutbound, BridgeInbound } from './src/types/bridge'
 
@@ -43,6 +44,16 @@ export default function App() {
 
   useEffect(() => {
     Notifications.requestPermissionsAsync()
+
+    // RevenueCat 초기화. 실계정 준비 전이라 EXPO_PUBLIC_REVENUECAT_API_KEY_* 미설정 시 스킵한다.
+    const apiKey = Platform.OS === 'ios'
+      ? process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_IOS
+      : process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID
+    if (apiKey) {
+      Purchases.configure({ apiKey })
+    } else {
+      console.warn('[RevenueCat] API key not set — skipping configure (scaffolding stage)')
+    }
   }, [])
 
   function sendToWeb(msg: BridgeInbound) {
@@ -153,12 +164,56 @@ export default function App() {
         sendToWeb({ type: 'APP_VERSION', payload: { version } })
         break
       }
+
+      case 'SET_USER_ID': {
+        const { userId } = msg.payload
+        try {
+          if (userId) {
+            await Purchases.logIn(userId)
+          } else {
+            await Purchases.logOut()
+          }
+        } catch (error) {
+          console.error('[RevenueCat] setUserId error', error)
+        }
+        break
+      }
+
+      case 'PURCHASE_REQUEST': {
+        const { planCode } = msg.payload
+        try {
+          const offerings = await Purchases.getOfferings()
+          // 실제 Entitlement/Offering 식별자는 RevenueCat 대시보드 설정 후 확정 필요 — planCode와
+          // 동일한 식별자로 패키지/상품을 구성한다고 가정한 임시 매칭 로직
+          const pkg = offerings.current?.availablePackages.find(
+            (p) => p.identifier === planCode || p.product.identifier.includes(planCode)
+          )
+          if (!pkg) {
+            sendToWeb({ type: 'PURCHASE_RESULT', payload: { success: false, error: 'offering not found' } })
+            break
+          }
+          await Purchases.purchasePackage(pkg)
+          sendToWeb({ type: 'PURCHASE_RESULT', payload: { success: true } })
+        } catch (error) {
+          sendToWeb({ type: 'PURCHASE_RESULT', payload: { success: false, error: String(error) } })
+        }
+        break
+      }
+
+      case 'RESTORE_PURCHASES':
+        try {
+          await Purchases.restorePurchases()
+          sendToWeb({ type: 'RESTORE_RESULT', payload: { success: true } })
+        } catch (error) {
+          sendToWeb({ type: 'RESTORE_RESULT', payload: { success: false, error: String(error) } })
+        }
+        break
     }
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
       <View style={styles.webviewContainer}>
         <WebView
           ref={webViewRef}

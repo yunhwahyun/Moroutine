@@ -91,7 +91,7 @@ export default function Quiz({ words, initialMode = 'multiple_choice', onComplet
   const showMic = mode === 'short_answer' && sttSupported && (shortAnswerInput === 'voice' || shortAnswerInput === 'both')
 
   return (
-    <div className="flex flex-col min-h-dvh bg-white">
+    <div className="flex flex-col min-h-dvh bg-white" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       {/* Header */}
       <div className="px-4 pt-4 pb-2">
         <div className="flex items-center justify-between mb-3">
@@ -179,17 +179,20 @@ export default function Quiz({ words, initialMode = 'multiple_choice', onComplet
           <div className="flex flex-col gap-3">
             {/* 입력창 + 마이크 */}
             <div className="flex gap-2">
-              {showKeyboard && (
-                <input
-                  type="text"
-                  value={shortInput}
-                  onChange={(e) => setShortInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && phase === 'question' && shortInput.trim() && handleSubmitShort()}
-                  placeholder="답을 입력하세요"
-                  disabled={phase === 'revealed'}
-                  className="flex-1 border border-gray-200 rounded-lg px-4 py-4 text-sm outline-none focus:border-gray-400 disabled:bg-gray-50 disabled:text-gray-400"
-                />
-              )}
+              <input
+                type="text"
+                value={shortInput}
+                readOnly={!showKeyboard}
+                onChange={showKeyboard ? (e) => setShortInput(e.target.value) : undefined}
+                onKeyDown={showKeyboard ? (e) => e.key === 'Enter' && phase === 'question' && shortInput.trim() && handleSubmitShort() : undefined}
+                placeholder={showKeyboard ? '답을 입력하세요' : '마이크 버튼을 눌러 말해보세요'}
+                disabled={phase === 'revealed'}
+                className={`flex-1 border rounded-lg px-4 py-4 text-sm outline-none disabled:bg-gray-50 disabled:text-gray-400 ${
+                  showKeyboard
+                    ? 'border-gray-200 focus:border-gray-400'
+                    : 'border-gray-100 bg-gray-50 text-gray-800 cursor-default'
+                }`}
+              />
               {showMic && phase === 'question' && (
                 <button
                   onClick={listening ? stopSTT : startSTT}
@@ -208,10 +211,6 @@ export default function Quiz({ words, initialMode = 'multiple_choice', onComplet
                 </button>
               )}
             </div>
-            {/* voice-only 모드: 인식된 텍스트 표시 */}
-            {!showKeyboard && shortInput && (
-              <p className="text-sm text-gray-700 px-1">{shortInput}</p>
-            )}
           </div>
         )}
       </div>

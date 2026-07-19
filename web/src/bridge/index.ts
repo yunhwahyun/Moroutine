@@ -6,6 +6,8 @@ import type {
   RequestPermissionPayload,
   SpeakTextPayload,
   StartSTTPayload,
+  SetUserIdPayload,
+  PurchaseRequestPayload,
 } from '@/types/bridge'
 
 declare global {
@@ -59,6 +61,15 @@ export const bridge = {
   },
   ready() {
     send({ type: 'WEB_READY' })
+  },
+  setUserId(payload: SetUserIdPayload) {
+    send({ type: 'SET_USER_ID', payload })
+  },
+  requestPurchase(payload: PurchaseRequestPayload) {
+    send({ type: 'PURCHASE_REQUEST', payload })
+  },
+  restorePurchases() {
+    send({ type: 'RESTORE_PURCHASES' })
   },
 }
 
