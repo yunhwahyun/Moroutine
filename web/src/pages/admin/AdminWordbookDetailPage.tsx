@@ -7,25 +7,26 @@ import {
   updatePublicWordbook,
   createPublicWord,
   bulkCreatePublicWords,
-  archivePublicWord,
 } from '@/lib/publicWordbooks'
 import { BackIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
-import type { Difficulty, PublicWordbookStatus } from '@/types'
+import type { PublicWordbookStatus } from '@/types'
 
 const INPUT_CLASS = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400'
 
-const DIFFICULTY_OPTIONS: { value: Difficulty; label: string }[] = [
-  { value: 'beginner', label: '초급' },
-  { value: 'intermediate', label: '중급' },
-  { value: 'advanced', label: '고급' },
+// WordbookListPage.tsx의 추가 폼과 동일한 언어 옵션(2026-09-02).
+const LANG_OPTIONS = [
+  { value: '', label: '언어 선택 (선택사항)' },
+  { value: 'en-ko', label: '영어' },
+  { value: 'ja-ko', label: '일본어' },
+  { value: 'zh-ko', label: '중국어' },
 ]
 
 const STATUS_OPTIONS: { value: PublicWordbookStatus; label: string }[] = [
   { value: 'draft', label: '초안' },
-  { value: 'published', label: '게시됨' },
-  { value: 'hidden', label: '숨김' },
-  { value: 'archived', label: '보관됨' },
+  { value: 'default', label: '기본' },
+  { value: 'published', label: '게시' },
+  { value: 'archived', label: '보관' },
 ]
 
 type ParsedWord = { term: string; definition: string; description: string }
@@ -52,15 +53,8 @@ export default function AdminWordbookDetailPage() {
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [metaForm, setMetaForm] = useState<{
-    title: string
-    description: string
-    category: string
-    difficulty: Difficulty
-    language: string
-  } | null>(null)
+  const [metaForm, setMetaForm] = useState<{ title: string; language: string } | null>(null)
   const [status, setStatus] = useState<PublicWordbookStatus | null>(null)
-  const [isSample, setIsSample] = useState(false)
 
   const [newWord, setNewWord] = useState({ term: '', definition: '', description: '' })
   const [bulkPreview, setBulkPreview] = useState<{ parsed: ParsedWord[]; errorCount: number } | null>(null)
@@ -77,15 +71,8 @@ export default function AdminWordbookDetailPage() {
   // useEffect로 채운다. 이미 편집 중인 값을 덮어쓰지 않도록 최초 1회(!metaForm)만 반영한다.
   useEffect(() => {
     if (wordbook && !metaForm) {
-      setMetaForm({
-        title: wordbook.title,
-        description: wordbook.description ?? '',
-        category: wordbook.category ?? '',
-        difficulty: wordbook.difficulty,
-        language: wordbook.language,
-      })
+      setMetaForm({ title: wordbook.title, language: wordbook.language })
       setStatus(wordbook.status)
-      setIsSample(wordbook.is_sample)
     }
   }, [wordbook, metaForm])
 
@@ -106,12 +93,8 @@ export default function AdminWordbookDetailPage() {
       if (!id || !metaForm || !status) throw new Error('폼이 준비되지 않았습니다.')
       return updatePublicWordbook(id, {
         title: metaForm.title.trim(),
-        description: metaForm.description.trim() || null,
-        category: metaForm.category.trim() || null,
-        difficulty: metaForm.difficulty,
         language: metaForm.language,
         status,
-        is_sample: isSample,
       })
     },
     onSuccess: invalidate,
@@ -128,11 +111,6 @@ export default function AdminWordbookDetailPage() {
       invalidate()
       setNewWord({ term: '', definition: '', description: '' })
     },
-  })
-
-  const { mutate: archiveWord } = useMutation({
-    mutationFn: (wordId: string) => archivePublicWord(wordId),
-    onSuccess: invalidate,
   })
 
   const handleBulkImportClick = () => {
@@ -210,49 +188,31 @@ export default function AdminWordbookDetailPage() {
           <input
             value={metaForm.title}
             onChange={(e) => setMetaForm({ ...metaForm, title: e.target.value })}
+            placeholder="단어장 이름"
             className={`${INPUT_CLASS} font-medium`}
           />
-          <textarea
-            value={metaForm.description}
-            onChange={(e) => setMetaForm({ ...metaForm, description: e.target.value })}
-            rows={2}
-            placeholder="설명"
-            className={`${INPUT_CLASS} resize-none`}
-          />
-          <input
-            value={metaForm.category}
-            onChange={(e) => setMetaForm({ ...metaForm, category: e.target.value })}
-            placeholder="카테고리"
-            className={INPUT_CLASS}
-          />
-          <div className="flex gap-2">
-            <select
-              value={metaForm.difficulty}
-              onChange={(e) => setMetaForm({ ...metaForm, difficulty: e.target.value as Difficulty })}
-              className={`${INPUT_CLASS} bg-white flex-1`}
-            >
-              {DIFFICULTY_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as PublicWordbookStatus)}
-              className={`${INPUT_CLASS} bg-white flex-1`}
-            >
-              {STATUS_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <label className="flex items-center gap-2 text-sm text-gray-700">
-            <input type="checkbox" checked={isSample} onChange={(e) => setIsSample(e.target.checked)} />
-            샘플 단어장으로 지정 (게스트에게 기본 제공)
-          </label>
+          <select
+            value={metaForm.language}
+            onChange={(e) => setMetaForm({ ...metaForm, language: e.target.value })}
+            className={`${INPUT_CLASS} bg-white text-gray-700`}
+          >
+            {LANG_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as PublicWordbookStatus)}
+            className={`${INPUT_CLASS} bg-white text-gray-700`}
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
           <button
             onClick={() => saveMeta()}
             disabled={!metaForm.title.trim() || isSavingMeta}
@@ -329,19 +289,7 @@ export default function AdminWordbookDetailPage() {
         <div className="flex flex-col gap-3">
           {words.map((word) => (
             <div key={word.id} className="bg-white rounded-2xl shadow-sm p-4">
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-sm font-semibold text-gray-900">{word.term}</span>
-                {word.status === 'archived' ? (
-                  <span className="text-xs text-gray-400 shrink-0">보관됨</span>
-                ) : (
-                  <button
-                    onClick={() => archiveWord(word.id)}
-                    className="text-xs text-red-500 shrink-0"
-                  >
-                    보관
-                  </button>
-                )}
-              </div>
+              <span className="text-sm font-semibold text-gray-900">{word.term}</span>
               <p className="text-xs text-gray-600 mt-1">{word.definition}</p>
               {word.description && <p className="text-xs text-gray-400 mt-1">{word.description}</p>}
             </div>

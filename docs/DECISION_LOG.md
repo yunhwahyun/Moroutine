@@ -4,6 +4,46 @@
 
 ---
 
+## 2026-09-02
+
+### 관리자 화면 디자인을 사용자 화면과 통일
+
+- **결정**: `/admin/**` 4개 화면(단어장 목록/상세, Master 관리, 감사 로그)을 기존 "데스크톱 대시보드풍"
+  (`max-w-lg mx-auto` 중앙 정렬, `border border-gray-100 rounded-lg` 카드)에서 사용자 화면과 동일한
+  모바일 앱 톤(전체 너비, `bg-white rounded-2xl shadow-sm` 카드, `gray-50` 배경, 동일한 헤더 패턴)으로
+  전면 교체. `SettingsPage.tsx`의 `Section`/`Row` 컴포넌트를 `web/src/components/ui/SettingsList.tsx`로
+  공용 분리해 `AdminMastersPage`가 그대로 재사용하도록 함(CLAUDE.md "공용 컴포넌트는 src/components/에서
+  import" 원칙에 맞춤). Master 관리 화면의 "Master 추가" 영역만 별도로, `WordbookListPage.tsx`의 "+ 추가"
+  폼 카드 디자인(흰 배경+테두리 rounded-2xl, `flex-1` 버튼 2개)으로 다시 맞춤(사용자 후속 요청).
+- **영향 범위**: `web/src/pages/admin/{AdminWordbookListPage,AdminWordbookDetailPage,AdminAuditLogPage}.tsx`, `web/src/pages/master/AdminMastersPage.tsx`, `web/src/pages/settings/SettingsPage.tsx`, `web/src/components/ui/SettingsList.tsx`(신규).
+
+### 공용 단어장 상태값 단순화 — 초안/기본/게시/보관 4가지로 통합, is_sample 흡수, 단어별 보관 폐지
+
+- **결정**: 기존 `public_wordbooks.status`(`draft`/`published`/`hidden`/`archived`) + 별도 `is_sample`
+  불리언 컬럼의 이중 구조를, `status` 하나로 통합했다. `'hidden'`은 폐지하고, 예전 `is_sample=true`(+
+  `status='published'`)의 의미를 `status='default'`(기본) 값 하나가 대신한다 — `default`는 사용자에게는
+  `published`와 동등하게 노출되면서(`docs/ADMIN_DESIGN.md` §3-4 RLS), 게스트에게도 최초 진입 시 자동
+  제공된다. 마이그레이션 36으로 데이터 이관(`is_sample=true`→`default`, 남은 `hidden`→`draft`) + RLS
+  정책 4건 교체 + `is_sample` 컬럼·인덱스 제거를 한 번에 처리.
+- **단어(word) 단위 보관 폐지**: `public_words.status`(`active`/`archived`) 컬럼/RLS는 기존 데이터 보존을
+  위해 남겨두되, 관리자 화면에서 개별 단어를 보관 처리하는 기능(버튼)은 제거했다 — 단어장 전체의
+  `status`만으로 공개 범위를 관리하는 편이 더 단순하다는 사용자 판단. `web/src/lib/publicWordbooks.ts`의
+  `archivePublicWord()` 함수도 사용처가 없어져 함께 제거.
+- **추가/수정 폼 필드를 사용자 단어장과 동일하게 축소**: 관리자 `AdminWordbookFormPage`/
+  `AdminWordbookDetailPage`의 단어장 메타 입력을 기존(제목/설명/카테고리/난이도/언어/샘플 체크박스)에서
+  사용자 `WordbookListPage.tsx`의 추가 폼과 동일한 **이름+언어**만 남기고, 여기에 상태(초안/기본/게시/
+  보관) 선택을 더하는 것으로 단순화했다. `description`/`category`/`difficulty` DB 컬럼 자체는 기존 데이터
+  보존을 위해 그대로 두되(마이그레이션 없이 컬럼 유지), 폼에서는 더 이상 다루지 않는다 — 목록 화면의
+  "카테고리 · 난이도" 표시도 함께 제거.
+- **영향 범위**: `supabase/migrations/36_public_wordbook_status_simplify.sql`(신규), `web/src/types/index.ts`
+  (`PublicWordbookStatus`, `PublicWordbook.is_sample` 제거), `web/src/lib/publicWordbooks.ts`
+  (`Create/UpdatePublicWordbookInput`, `getPublishedPublicWordbooks`, `getSampleWordbooks`,
+  `archivePublicWord` 제거), `web/src/lib/sampleWordbookSeed.ts`(주석), `web/src/pages/admin/
+  {AdminWordbookListPage,AdminWordbookFormPage,AdminWordbookDetailPage}.tsx`, `docs/ADMIN_DESIGN.md`,
+  `docs/DB_SCHEMA.md`.
+
+---
+
 ## 2026-09-01
 
 ### Admin+Master 겸용 계정에서 개인 학습 기능이 막혀 있던 것은 버그가 아니라 설계대로 — 계정 분리 유지

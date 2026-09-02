@@ -37,7 +37,9 @@ export type Wordbook = {
 }
 
 // docs/ADMIN_DESIGN.md §3 — 공용 단어장. 개인 Wordbook/Word와 별개 테이블(원본 참조 방식).
-export type PublicWordbookStatus = 'draft' | 'published' | 'hidden' | 'archived'
+// 'default'(기본)는 예전 is_sample=true 체크박스를 대체한 상태값 — 게스트에게 기본 제공되면서
+// 사용자에게도 게시된 것처럼 보인다(2026-09-02, 마이그레이션 36. 'hidden'은 제거됨).
+export type PublicWordbookStatus = 'draft' | 'default' | 'published' | 'archived'
 export type PublicWordStatus = 'active' | 'archived'
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced'
 
@@ -50,7 +52,6 @@ export type PublicWordbook = {
   language: string
   status: PublicWordbookStatus
   word_count: number
-  is_sample: boolean
   created_by: string
   created_at: string
   updated_at: string

@@ -7,12 +7,12 @@ import type { PublicWordbookStatus } from '@/types'
 
 const STATUS_LABEL: Record<PublicWordbookStatus, string> = {
   draft: '초안',
+  default: '기본',
   published: '게시됨',
-  hidden: '숨김',
   archived: '보관됨',
 }
 
-const FILTERS: (PublicWordbookStatus | 'all')[] = ['all', 'draft', 'published', 'hidden', 'archived']
+const FILTERS: (PublicWordbookStatus | 'all')[] = ['all', 'draft', 'default', 'published', 'archived']
 
 // docs/ADMIN_DESIGN.md §2 — WordbookListPage.tsx와 헤더/필터/카드 톤을 맞춘다(사용자·관리자 통일감, 2026-09-02).
 export default function AdminWordbookListPage() {
@@ -81,17 +81,10 @@ export default function AdminWordbookListPage() {
             className="text-left bg-white rounded-2xl shadow-sm overflow-hidden px-4 py-4"
           >
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
-                {wb.title}
-                {wb.is_sample && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-900 text-white">샘플</span>
-                )}
-              </span>
+              <span className="text-sm font-semibold text-gray-900">{wb.title}</span>
               <span className="text-xs text-gray-400">{STATUS_LABEL[wb.status]}</span>
             </div>
-            <p className="text-xs text-gray-400 mt-1">
-              {wb.category ?? '카테고리 없음'} · {wb.difficulty} · 단어 {wb.word_count}개
-            </p>
+            <p className="text-xs text-gray-400 mt-1">단어 {wb.word_count}개</p>
           </button>
         ))}
       </div>

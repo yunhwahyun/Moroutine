@@ -1,6 +1,6 @@
 # Project Status
 
-> 최종 업데이트: 2026-09-01
+> 최종 업데이트: 2026-09-02
 
 ---
 
@@ -47,6 +47,8 @@
 | **샘플 단어장(Guest 기본 제공) — Phase 19 후속** | 마이그레이션 33(`public_wordbooks.is_sample` + `is_sample=true` 단어장에 한해 `anon`에게 SELECT를 여는 RLS) + `AdminWordbookFormPage`/`AdminWordbookDetailPage`에 "샘플로 지정" 체크박스 + `AdminWordbookListPage` 배지 + `web/src/lib/sampleWordbookSeed.ts`(Guest 최초 진입 시 로컬로 1회 복사) + `SampleWordbookSeedGate`(`App.tsx`). **설계 결정**: Guest 권한 모델(`canUsePublicWordbooks`)은 바꾸지 않고 1회성 로컬 복사로 구현(`docs/DECISION_LOG.md` 2026-07-19). RLS는 실제 관리자 세션으로 샘플 단어장 생성 후 anon 세션으로 curl 재현 검증 완료(테스트 데이터 삭제함), `tsc -b`/`eslint .`/`vite build` 통과, Supabase 마이그레이션 33 적용 완료. **한계**: 실제 Guest 브라우저(빈 IndexedDB)로 시딩 전체 플로우 미검증, Admin이 나중에 단어장을 샘플로 추가 지정해도 이미 시딩된 기존 Guest 기기에는 소급 적용 안 됨 |
 
 | **Phase 20 후속 — 사용자/관리자 메뉴 완전 분리 + 관리자 설정값 신규 가입자 기본값화** | `BottomNav`가 `serviceTier==='admin'`이면 탭을 단어장/Master/LOG/설정으로 자동 전환(홈/일정 제외) + 신규 `UserRouteGuard`(사용자 라우트 전체를 감싸 Admin의 직접 URL 접근을 `/admin/wordbooks`로 리다이렉트) + `AdminLayout` 단순화(상단 탭·"앱으로 돌아가기" 제거, `AppLayout`과 동일한 `main+BottomNav` 구조) + `/admin` → `/admin/wordbooks` 리다이렉트로 대체(`AdminHomePage` 삭제) + 관리자 화면 "공용 단어장" 라벨을 사용자용과 동일하게 "단어장"으로 통일. **설정값**: `useUserSettings.ts`가 admin에 한해 `remoteDataRepository`를 직접 써서 실제로 저장/로드되게 함(마이그레이션 34 `handle_new_user()`가 신규 가입자에게 role='admin' 최초 계정의 설정값을 복사, `get_admin_default_settings()` RPC로 Guest도 `SettingsSeedGate`가 동일 패턴으로 1회 시딩) + Guest↔Remote 마이그레이션 엔진에 설정값 이전이 아예 빠져있던 기존 공백을 발견해 양방향 추가(`guestToRemoteMigration.ts`/`remoteToLocalMigration.ts`) + 재구독 시 마이그레이션 RPC가 기존 서버 데이터를 중복 생성하던 기존 버그를 발견해 마이그레이션 35로 수정(local_id가 본인 소유 기존 서버 행과 같으면 재사용). 배경/근거는 `docs/DECISION_LOG.md` 2026-09-01. `tsc -b`/`eslint .`/`vite build`(web) 전체 통과. **한계**: 이번 세션 환경에 Playwright/브라우저 자동화 도구가 설치되어 있지 않아 실브라우저 검증은 수행하지 못함(코드 리뷰 + 타입체크/빌드로만 확인) — 위 "검증 방법"에 정리된 시나리오(Admin 리다이렉트, 하단 탭 전환, 설정 저장, 재구독 중복 방지)는 사후 실제 계정으로 검증 권장. 마이그레이션 34/35는 Supabase Dashboard SQL Editor로 사용자가 직접 적용 필요(미적용 상태) |
+
+| **관리자 화면 디자인 통일 + 공용 단어장 상태값 단순화 ✅ 완료 2026-09-02** | `/admin/**` 4개 화면을 사용자 화면과 동일한 톤(전체 너비, `rounded-2xl` 카드, `gray-50` 배경)으로 재작업, `SettingsPage`의 Section/Row를 공용 컴포넌트로 분리. `public_wordbooks.status`를 초안/기본/게시/보관 4가지로 통합(마이그레이션 36, `is_sample` 컬럼 제거·`hidden` 폐지), 단어별 보관 기능 제거, 추가/수정 폼을 사용자 단어장과 동일한 이름+언어(+상태)로 축소. `tsc -b`/`eslint`/`vite build` 통과. **한계**: 실브라우저 검증 미수행(코드 리뷰만), 마이그레이션 36 미적용(Dashboard 적용 필요), 커밋 전 상태 |
 
 > 구 "Speaking 설계 완료(Azure 평가 포함)" 항목은 위 재설계로 대체되어 제거함. 두 설계 모두 실제 코드/마이그레이션 파일로 구현된 적은 없었음(`docs/DECISION_LOG.md` 참고).
 

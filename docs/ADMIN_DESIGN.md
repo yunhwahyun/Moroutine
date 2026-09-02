@@ -11,9 +11,8 @@ Admin은 **공용 학습 콘텐츠와 Master 회원만** 관리한다. 사용자
 
 ### 1-1. 가능
 
-- 공용 단어장 목록 조회 / 생성 / 수정 / 공개·비공개·보관 전환
-- 공용 단어 추가 / 수정 / 순서 변경 / 일괄 등록 / CSV 업로드
-- 카테고리 관리 / 난이도 관리 / 공개 전 미리보기
+- 공용 단어장 목록 조회 / 생성 / 수정 / 상태 전환(초안·기본·게시·보관, 2026-09-02 단순화, §3)
+- 공용 단어 추가 / 수정 / 일괄 등록(.txt)
 - Master 이메일 초대 / 재발송 / 취소 / 목록 조회 / 권한 해제
 - 권한 변경 감사 로그 조회
 
@@ -82,14 +81,17 @@ throw를 우회하고 `remoteDataRepository`를 직접 사용). 관리자가 저
 저장 — 두 테이블이 분리된 설계 의도와 일치). HomePage/`WordbookListPage`의 "오늘의 복습" 가상 컬렉션에
 공용 단어를 합치는 것과 여러 공용 단어장 동시 선택 학습은 범위 밖(`docs/DECISION_LOG.md` 2026-07-19).
 
-**샘플 단어장(Guest 기본 제공) ✅ 구현 완료(2026-07-19)**: `public_wordbooks.is_sample`(마이그레이션 33)을
-`AdminWordbookFormPage`(생성 시)/`AdminWordbookDetailPage`(수정 시) 체크박스로 지정. `is_sample=true`이고
-`status='published'`인 단어장만 `anon`(비로그인) role에 RLS SELECT를 열어(원래 공용 단어장은 pro/premium/master
-전용, Guest는 `canUsePublicWordbooks=false`) 예외적으로 노출한다. Guest 클라이언트는 이 권한 모델 자체를
-바꾸지 않고 — 즉 Guest가 공용 단어장 열람/등록(enrollment) 기능을 상시로 쓰게 된 것은 아니고 — 앱 최초
-진입 시 1회(`SampleWordbookSeedGate`, `web/src/lib/sampleWordbookSeed.ts`) `is_sample` 단어장을 자신의
-로컬(IndexedDB) 단어장으로 **복사**해 넣는 온보딩 시딩만 수행한다. 기기당 1회만 실행(`localDB.meta`
-플래그) — 이후 사용자가 삭제해도 다시 채워 넣지 않고, Admin이 나중에 새 단어장을 샘플로 지정해도 기존
+**샘플 단어장(Guest 기본 제공) ✅ 구현 완료(2026-07-19, 2026-09-02 상태값 단순화)**: 처음에는
+`public_wordbooks.is_sample`(마이그레이션 33) 불리언 컬럼 + `status` 두 축으로 구현했으나, 관리 화면
+단순화 요청에 따라 하나로 통합했다(마이그레이션 36) — `status`가 `'draft'|'default'|'published'|'archived'`
+4가지 값만 가지며, 예전 `is_sample=true`(+`status='published'`)의 의미를 `status='default'`(기본) 하나가
+대신한다. `default` 단어장은 `anon`(비로그인) role에도 RLS SELECT가 열려 있고(원래 공용 단어장은
+pro/premium/master 전용, Guest는 `canUsePublicWordbooks=false`), 동시에 pro/premium/master의 공용 단어장
+목록 조회에서도 `published`와 동등하게 노출된다(§3-4). Guest 클라이언트는 이 권한 모델 자체를 바꾸지
+않고 — 즉 Guest가 공용 단어장 열람/등록(enrollment) 기능을 상시로 쓰게 된 것은 아니고 — 앱 최초 진입 시
+1회(`SampleWordbookSeedGate`, `web/src/lib/sampleWordbookSeed.ts`) `default` 단어장을 자신의 로컬
+(IndexedDB) 단어장으로 **복사**해 넣는 온보딩 시딩만 수행한다. 기기당 1회만 실행(`localDB.meta`
+플래그) — 이후 사용자가 삭제해도 다시 채워 넣지 않고, Admin이 나중에 새 단어장을 기본으로 지정해도 기존
 Guest에게는 소급 적용되지 않는다(신규 Guest에게만 적용, 알려진 한계).
 
 - 구현: `web/src/lib/publicWordbooks.ts`(Admin/사용자 양쪽 함수, `DataRepository`와 무관한 독립
@@ -101,7 +103,10 @@ Guest에게는 소급 적용되지 않는다(신규 Guest에게만 적용, 알�
 
 - Admin이 생성/수정, 사용자는 조회·학습만(제목/설명/단어 수정 불가, 원본 삭제 불가).
 - 개인 단어장으로 자동 복제하지 않는다 — **원본 참조 방식**. 사용자별 학습 상태만 별도 저장.
-- 공용 단어는 물리 삭제하지 않고 상태값(`archived`)으로 관리 — 관리자가 archived 처리해도 기존 사용자의 학습 기록은 유지.
+- 공용 단어(word) 단위 물리 삭제는 하지 않는다 — `public_words.status`(`active`|`archived`) 컬럼과 RLS는
+  유지하지만, **2026-09-02부터 관리자 화면에서 단어별 보관 기능은 노출하지 않는다**(단어장 전체의
+  `status`로만 공개 범위를 관리하는 쪽이 단순하다는 판단, `docs/DECISION_LOG.md` 2026-09-02). 단어장
+  (wordbook) 자체는 `status='archived'`로 보관한다.
 - 관리자가 단어 내용을 수정하면 기존 사용자에게도 즉시 반영된다(참조 방식이므로 자동 충족).
 - 공용 단어는 Pro 개인 단어 한도에 포함하지 않는다(`docs/SUBSCRIPTION_DESIGN.md` §1).
 
@@ -118,7 +123,8 @@ CREATE TABLE public_wordbooks (
     -- 'beginner' | 'intermediate' | 'advanced'
   language     text NOT NULL DEFAULT 'en-US',
   status       text NOT NULL DEFAULT 'draft',
-    -- 'draft' | 'published' | 'hidden' | 'archived'
+    -- 2026-09-02(마이그레이션 36) 이전: 'draft' | 'published' | 'hidden' | 'archived' + is_sample 컬럼
+    -- 2026-09-02(마이그레이션 36) 이후: 'draft' | 'default' | 'published' | 'archived' (is_sample 흡수, hidden 폐지)
   word_count   int NOT NULL DEFAULT 0,
   created_by   uuid NOT NULL REFERENCES auth.users(id),
   created_at   timestamptz NOT NULL DEFAULT now(),
@@ -229,6 +235,12 @@ CREATE POLICY "public_word_progress_all" ON user_public_word_progress
 ```
 
 Admin은 개인 데이터 테이블(`wordbooks`/`words`/`study_sessions`/`schedules`/`notifications`/`user_public_word_progress` 등)에 대해 **어떤 정책도 추가하지 않는다** — `is_admin()`을 개인 데이터 RLS에 절대 포함시키지 않는 것이 "Admin도 사용자 개인 데이터 접근 불가" 요구사항의 실제 구현이다.
+
+> **2026-09-02(마이그레이션 36)**: 위 `public_wordbooks_select`/`public_words_select` 정책의
+> `status = 'published'` 조건은 `status IN ('published', 'default')`로 교체됐다(§3의 상태값 단순화로
+> `default`가 `published`와 동등하게 사용자에게 노출되어야 하므로). 마이그레이션 33이 추가한
+> `is_sample=true` 기반 anon 정책 2건도 `status = 'default'` 단일 조건으로 교체됐다. 원문(위 코드
+> 블록)은 마이그레이션 17 당시 기록을 그대로 남겨둔다.
 
 ---
 

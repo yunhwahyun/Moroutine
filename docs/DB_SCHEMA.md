@@ -50,6 +50,8 @@
                                      get_admin_default_settings() RPC(Guest 시딩용) (docs/DECISION_LOG.md 2026-09-01)
 35. migration_rpcs_dedup_by_id   ← migrate_* RPC 6종에 "이미 존재하는 서버 행 재사용" 조건 추가
                                      (재구독 시 데이터 중복 생성 방지, docs/MIGRATION_DESIGN.md §3-1)
+36. public_wordbook_status_simplify ← public_wordbooks.status를 초안/기본/게시/보관 4가지로 통합,
+                                     is_sample 컬럼 제거, 관련 RLS 정책 교체 (docs/ADMIN_DESIGN.md §3)
 ```
 
 > `is_admin()` / `get_service_tier()` SQL 함수(`docs/PERMISSION_DESIGN.md` §4-4)는 마이그레이션 13 직후, 이를 참조하는 모든 RLS 정책(14번 이후)보다 먼저 생성한다.
@@ -427,6 +429,7 @@ ALTER TABLE profiles
 | 33 | sample_wordbooks | `public_wordbooks.is_sample` 컬럼 + `is_sample=true` 단어장에 한해 `anon`(비로그인 Guest)에게 SELECT를 여는 RLS 정책 2건 + `GRANT SELECT ... TO anon` | `docs/ADMIN_DESIGN.md` §3-2, `docs/DECISION_LOG.md` 2026-07-19 |
 | 34 | admin_settings_defaults | `handle_new_user()` 교체(role='admin' 중 최초 계정의 현재 설정값을 신규 `profiles` 행에 복사, 관리자가 아직 없으면 기존 컬럼 기본값) + `get_admin_default_settings()` RPC(SECURITY DEFINER, 관리자 설정 컬럼만 반환, `GRANT EXECUTE ... TO anon`) | `docs/PERMISSION_DESIGN.md` §8, `docs/DECISION_LOG.md` 2026-09-01 |
 | 35 | migration_rpcs_dedup_by_id | `migrate_wordbooks`/`migrate_words`/`migrate_schedules`/`migrate_schedule_exceptions`/`migrate_study_sessions`/`migrate_study_results` 6종에 "local_id가 이미 이 사용자 소유의 서버 행 id와 같으면 재사용(신규 INSERT 안 함)" 조건 추가(재구독 시 중복 생성 방지) | `docs/MIGRATION_DESIGN.md` §3-1, `docs/DECISION_LOG.md` 2026-09-01 |
+| 36 | public_wordbook_status_simplify | `public_wordbooks.status`를 `'draft'\|'default'\|'published'\|'archived'` 4가지로 통합(`'hidden'` 폐지, `is_sample` 흡수) — 데이터 이관(`is_sample=true`→`default`, `hidden`→`draft`) + `public_wordbooks_select`/`public_words_select`/anon 샘플 정책 4건 교체 + `is_sample` 컬럼·인덱스 제거 | `docs/ADMIN_DESIGN.md` §3, `docs/DECISION_LOG.md` 2026-09-02 |
 
 > **중요(2026-07-19 발견)**: 01~31번 마이그레이션 중 어디에도 `service_role`에 대한 GRANT가 없었다(`GRANT ... TO authenticated`만 존재). RLS의 `BYPASSRLS` 속성은 행 단위 필터만 우회할 뿐 테이블 단위 GRANT를 대신하지 않으므로, 위 표의 "쓰기는 service_role" / "service_role만"이라고 적힌 모든 정책이 마이그레이션 32 적용 전까지는 **service_role조차 해당 테이블에 접근할 수 없는 상태**였다(`subscriptions`, `master_invitations`, `admin_audit_log`, `retention_schedules` 등). 즉 Edge Function 기반 로직(구독 Webhook, Master 초대/해제, 보관 정리)은 배포 이후 한 번도 실제로 동작한 적이 없었을 가능성이 높다. 상세 경위는 `docs/DECISION_LOG.md` 2026-07-19 참고.
 

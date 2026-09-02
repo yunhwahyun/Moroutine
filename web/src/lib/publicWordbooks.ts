@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import { computeQuizAnswerUpdate } from '@/lib/wordStatus'
-import type { Difficulty, PublicWord, PublicWordbook, PublicWordProgress, ReviewPolicy, Word } from '@/types'
+import type { PublicWord, PublicWordbook, PublicWordbookStatus, PublicWordProgress, ReviewPolicy, Word } from '@/types'
 
 // docs/ADMIN_DESIGN.md §3 — 공용 단어장은 Guest/Pro/Premium/Master의 Local/Remote 분기 대상이 아니라
 // (Guest는 애초에 접근 불가, Admin도 기존 tier 시스템 밖) DataRepository를 확장하지 않고 독립 모듈로
@@ -13,18 +13,16 @@ function requireUserId(): string {
   return user.id
 }
 
+// docs/ADMIN_DESIGN.md §3-2(2026-09-02) — 사용자 단어장 추가 폼과 동일하게 이름+언어만 받고,
+// 공용 콘텐츠의 공개 범위는 status(초안/기본/게시/보관)로 판단한다. description/category/difficulty는
+// DB 컬럼은 유지하되(기존 데이터 보존) 더 이상 입력받지 않는다.
 export type CreatePublicWordbookInput = {
   title: string
-  description: string | null
-  category: string | null
-  difficulty: Difficulty
   language: string
-  is_sample?: boolean
+  status: PublicWordbookStatus
 }
 
-export type UpdatePublicWordbookInput = Partial<
-  Pick<PublicWordbook, 'title' | 'description' | 'category' | 'difficulty' | 'language' | 'status' | 'is_sample'>
->
+export type UpdatePublicWordbookInput = Partial<Pick<PublicWordbook, 'title' | 'language' | 'status'>>
 
 export type PublicWordInput = {
   term: string
@@ -133,36 +131,28 @@ export async function updatePublicWord(
   if (error) throw error
 }
 
-// 물리 삭제 금지(docs/ADMIN_DESIGN.md §3-1) — 기존 사용자 학습 기록을 보존하기 위해 상태만 전환한다.
-export async function archivePublicWord(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('public_words')
-    .update({ status: 'archived', updated_at: new Date().toISOString() })
-    .eq('id', id)
-  if (error) throw error
-}
-
 // ── 사용자(Pro/Premium/Master) ──────────────────────────────────────────
+// docs/ADMIN_DESIGN.md §3(2026-09-02) — 'default'(기본)는 이전 is_sample=true와 동일 의미이며
+// 사용자에게는 'published'와 동등하게 게시된 것으로 취급한다(마이그레이션 36).
 
 export async function getPublishedPublicWordbooks(): Promise<PublicWordbook[]> {
   const { data, error } = await supabase
     .from('public_wordbooks')
     .select('*')
-    .eq('status', 'published')
+    .in('status', ['published', 'default'])
     .order('created_at', { ascending: false })
   if (error) throw error
   return data ?? []
 }
 
 // ── Guest(비로그인) ──────────────────────────────────────────────────────
-// 인증 불필요. is_sample=true 단어장만 anon RLS로 열려 있다(마이그레이션 33).
+// 인증 불필요. status='default'인 단어장만 anon RLS로 열려 있다(마이그레이션 36).
 
 export async function getSampleWordbooks(): Promise<PublicWordbook[]> {
   const { data, error } = await supabase
     .from('public_wordbooks')
     .select('*')
-    .eq('status', 'published')
-    .eq('is_sample', true)
+    .eq('status', 'default')
     .order('created_at', { ascending: false })
   if (error) throw error
   return data ?? []
