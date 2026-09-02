@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { createPublicWordbook } from '@/lib/publicWordbooks'
+import { BackIcon } from '@/components/icons'
 import type { PublicWordbookStatus } from '@/types'
 
 const INPUT_CLASS = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400'
@@ -43,11 +44,11 @@ export default function AdminWordbookFormPage() {
   return (
     <div className="min-h-dvh bg-gray-50 px-4 py-8">
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <button onClick={() => navigate('/admin/wordbooks')} className="p-1 -ml-1 text-gray-600" aria-label="뒤로">
+            <BackIcon />
+          </button>
           <h1 className="text-lg font-bold text-gray-900">단어장 생성</h1>
-          <Link to="/admin/wordbooks" className="text-sm text-gray-400">
-            목록으로
-          </Link>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm p-4 flex flex-col gap-3">
