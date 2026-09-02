@@ -89,7 +89,6 @@ export function usePermissions(): { permissions: Permissions | null; isLoading: 
     subscription: query.data.subscription,
     plans: {
       pro: query.data.plans.pro ?? FAIL_SAFE_PLAN_LIMITS,
-      premium: query.data.plans.premium ?? FAIL_SAFE_PLAN_LIMITS,
     },
     isAuthenticated: true,
   })

@@ -21,13 +21,13 @@
 **설계 원문과 달라진 점(실용적 스코프 조정)**:
 - **notifications 테이블 자체는 이전하지 않는다.** 오래된 `native_id`를 그대로 복사하면 기기의 실제 알림 예약 상태와 어긋날 수 있어서, 이전된 일정 중 `alarm_minutes`가 설정된 것만 이전 완료 후 `refreshScheduleNotifications()`로 **새로 예약**한다(§3-2 원문의 7번 단계를 대체).
 - **speaking_sentences/recordings는 대상에서 제외** — Phase 23에서 Local 스키마 자체가 아직 없다(`docs/DATA_STORAGE_DESIGN.md` §7 참고).
-- **트리거는 "결제 확정" 이벤트 구독이 아니라 `usePermissions()`의 `serviceTier` 변화를 감지하는 방식**이다. Phase 16(RevenueCat) 전이라 결제 이벤트 자체가 없으므로, 로그인한 사용자의 서버 등급이 pro/premium/master로 확인되고 로컬에 데이터가 있으면 무조건 모달을 띄운다 — 원인(결제든 Master 지정이든)을 가리지 않는 범용 게이트라 Phase 16/17에서 별도 배선 없이 그대로 재사용된다.
+- **트리거는 "결제 확정" 이벤트 구독이 아니라 `usePermissions()`의 `serviceTier` 변화를 감지하는 방식**이다. Phase 16(RevenueCat) 전이라 결제 이벤트 자체가 없으므로, 로그인한 사용자의 서버 등급이 pro/master로 확인되고 로컬에 데이터가 있으면 무조건 모달을 띄운다 — 원인(결제든 Master 지정이든)을 가리지 않는 범용 게이트라 Phase 16/17에서 별도 배선 없이 그대로 재사용된다.
 - **"나중에 하기" 시 배너 상시 노출은 미구현**(원문 §2: "로컬 데이터는 앱 내 '이전 대기 중' 배너로 계속 노출") — 지금은 세션당 1회만 모달을 띄우고 닫으면 그 세션에서는 다시 안 뜬다. 배너 UI는 후속 작업으로 남긴다.
 - **Idempotency 응답 형태**: 문서 초안은 TABLE 반환이었으나 실제로는 각 RPC가 `TABLE(local_id text, server_id uuid)`를 그대로 반환해 클라이언트가 부모→자식 remap에 바로 쓸 수 있게 했다(`create_words_checked`처럼 jsonb 단일 값이 아님 — 이 RPC들은 단건 조회가 아니라 여러 행의 매핑을 돌려줘야 하므로 TABLE이 더 자연스럽다).
 
 **Playwright 실브라우저 검증(2026-07-18)**: `GuestMigrationGate`의 tier 조건을 임시로 우회(검증 후 즉시 원복)해 확인 — 로컬에 단어장 1개+단어 2개가 있는 상태에서 홈 진입 시 모달이 정확한 요약("단어장 1개", "단어 2개")과 함께 뜨고, "계정으로 이전" 클릭 시(미인증 상태라 RPC가 401로 실패) UI가 "이전에 실패했습니다 / 로컬 데이터는 안전하게 보존되어 있습니다"로 정확히 전환되며, 실패 후에도 로컬 데이터(1개 단어장, 2개 단어)가 그대로 남아있음을 확인. **이 과정에서 실제 버그 1건을 발견해 수정**: `getOrCreateMigrationJob()` 실패 시 `onProgress` 콜백이 호출되지 않아 UI가 무한정 "이전 중" 상태에 머무는 문제 — 원복 전 즉시 수정 완료.
 
-**한계**: RPC들이 실제로 wordbooks/words 등을 원격 DB에 정확히 써넣는지(성공 경로)는 실제 Pro/Premium/Master 계정이 없어 이 세션에서 검증하지 못했다. SQL 로직(Idempotency CTE, 부모-자식 remap JOIN)은 꼼꼼히 리뷰했으나, 실제 계정으로 "계정으로 이전" 전체 플로우(청크 업로드 → 원격 데이터 확인 → 로컬 삭제 선택)를 사후 검증하는 것을 강력히 권장한다.
+**한계**: RPC들이 실제로 wordbooks/words 등을 원격 DB에 정확히 써넣는지(성공 경로)는 실제 Pro/Master 계정이 없어 이 세션에서 검증하지 못했다. SQL 로직(Idempotency CTE, 부모-자식 remap JOIN)은 꼼꼼히 리뷰했으나, 실제 계정으로 "계정으로 이전" 전체 플로우(청크 업로드 → 원격 데이터 확인 → 로컬 삭제 선택)를 사후 검증하는 것을 강력히 권장한다.
 
 ---
 
@@ -35,8 +35,8 @@
 
 | 방향 | 트리거 | 관련 정책 문서 |
 |---|---|---|
-| Local → Remote (Guest → Pro/Premium/Master) | 결제 확정 / Master 초대 수락 | `docs/SUBSCRIPTION_DESIGN.md` §5, `docs/MASTER_INVITATION_DESIGN.md` |
-| Remote → Local (Pro/Premium/Master → Guest) | 구독 만료/해지, Master 해제(+유료 구독 없음) | `docs/SUBSCRIPTION_DESIGN.md` §6 |
+| Local → Remote (Guest → Pro/Master) | 결제 확정 / Master 초대 수락 | `docs/SUBSCRIPTION_DESIGN.md` §5, `docs/MASTER_INVITATION_DESIGN.md` |
+| Remote → Local (Pro/Master → Guest) | 구독 만료/해지, Master 해제(+유료 구독 없음) | `docs/SUBSCRIPTION_DESIGN.md` §6 |
 | Remote → Local 병합 (3개월 이내 복원) | 재구독, Master 재지정 | `docs/SUBSCRIPTION_DESIGN.md` §7, `docs/DATA_RETENTION_DESIGN.md` §3 |
 
 ---
@@ -44,7 +44,7 @@
 ## 2. Local → Remote 이전 절차 (§9 원문 11단계 기준)
 
 ```text
-1. Pro/Premium 상품 선택
+1. Pro 상품 선택
 2. 회원가입 또는 로그인
 3. 결제 상태 서버 검증 (RevenueCat Webhook 확정 대기)
 4. Entitlement 확정 (subscriptions.status='active' 확인)

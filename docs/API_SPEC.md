@@ -160,7 +160,7 @@ const { data, error } = await supabase.rpc('create_words_checked', {
 // data: { inserted_count, current_total, limit_value, blocked }[]
 ```
 
-호출 위치: 단건 등록 / 일괄 등록 / CSV 등록 / 공용 단어 개인 복사 — Pro/Premium/Master 전 경로 공통(Guest는 LocalDataRepository가 처리하므로 호출하지 않음).
+호출 위치: 단건 등록 / 일괄 등록 / CSV 등록 / 공용 단어 개인 복사 — Pro/Master 전 경로 공통(Guest는 LocalDataRepository가 처리하므로 호출하지 않음).
 
 ### RPC `migrate_guest_words` (Guest→Remote 이전 전용, 한도 미검증)
 
@@ -185,7 +185,7 @@ Body: RevenueCat Webhook 표준 payload (event.type, event.app_user_id, event.id
 Response: 200 (idempotent — 중복 event.id는 no-op 후에도 200)
 ```
 
-실계정 준비 전 스캐폴딩 단계 — `ENTITLEMENT_TO_PLAN` 매핑(entitlement_id → `pro`/`premium`)은 실제 RevenueCat
+실계정 준비 전 스캐폴딩 단계 — `ENTITLEMENT_TO_PLAN` 매핑(entitlement_id → `pro`)은 실제 RevenueCat
 대시보드에서 Entitlement/Product ID를 확정한 뒤 코드와 대조 필요. `REVENUECAT_WEBHOOK_TOKEN`/
 `SUPABASE_SERVICE_ROLE_KEY`는 `supabase secrets set`으로 등록해야 한다.
 
@@ -205,7 +205,7 @@ Response: 200 (idempotent — 중복 event.id는 no-op 후에도 200)
 → { success: true }
 
 // master-revoke (Authorization: 관리자 세션 JWT)
-{ userId: string } → { success: true, resultingTier: 'guest' | 'pro' | 'premium' }
+{ userId: string } → { success: true, resultingTier: 'guest' | 'pro' }
 ```
 
 `master-invite`/`-resend`/`-revoke`/`master-revoke`는 `Authorization` 헤더의 세션으로 호출자를 식별한 뒤
@@ -242,4 +242,4 @@ RPC, `profiles.special_access` 기준)에는 정상적으로 나타난다.
 
 ### 데이터 내보내기/가져오기 (클라이언트 로컬 처리, Edge Function 아님)
 
-Guest는 LocalDataRepository에서, Pro/Premium/Master는 RemoteDataRepository에서 조회한 데이터를 클라이언트에서 JSON으로 직렬화(`docs/DATA_STORAGE_DESIGN.md` §13). 서버 라운드트립이 필요 없으므로 별도 Edge Function을 두지 않는다 — 단, Remote의 경우 대량 조회 시 페이지네이션은 기존 PostgREST range 헤더로 처리.
+Guest는 LocalDataRepository에서, Pro/Master는 RemoteDataRepository에서 조회한 데이터를 클라이언트에서 JSON으로 직렬화(`docs/DATA_STORAGE_DESIGN.md` §13). 서버 라운드트립이 필요 없으므로 별도 Edge Function을 두지 않는다 — 단, Remote의 경우 대량 조회 시 페이지네이션은 기존 PostgREST range 헤더로 처리.

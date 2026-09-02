@@ -254,6 +254,18 @@ _현재 진행 중인 작업 없음_
 - [x] `tsc -b`/`eslint .`/`vite build`(web) 통과
 - [ ] **한계**: 이번 세션 환경에 Playwright가 없어 실브라우저 검증 미수행(코드 리뷰 + 타입체크/빌드만). 마이그레이션 34/35는 Supabase Dashboard SQL Editor로 사용자가 직접 적용 필요(미적용 상태). 상세는 `docs/DECISION_LOG.md` 2026-09-01
 
+### Phase 21 후속 — Premium 티어 폐지 ✅ 완료 2026-09-02
+- [x] 실 Premium 구독자 없음 확인(사용자 확인) 후 데이터 이관 없이 바로 제거
+- [x] 타입: `PlanCode`(`'pro'`만), `ServiceTier`(`premium` 제거), `PurchaseRequestPayload`(web+mobile 양쪽 bridge 타입)
+- [x] `permissions.ts` — `resolveServiceTier()`/`GUEST_PERMISSIONS`에서 premium 분기·키 제거(우선순위: admin>master>pro>guest)
+- [x] `usePermissions.ts`/`factory.ts`/`GuestMigrationGate.tsx` — premium을 포함하던 목록·매핑에서 제거
+- [x] `PricingPage.tsx` 재작성 — Pro/Premium 두 유료 카드 비교 → **Free/Pro** 비교로 전환(Free 카드는 `GUEST_PERMISSIONS` 그대로 반영한 고정 카드, Pro만 `subscription_plans` 동적 로드)
+- [x] `SettingsPage.tsx`/`WordbookListPage.tsx` — pro 전용 "Premium으로 업그레이드" CTA 제거(상위 요금제가 없어짐)
+- [x] Migration 37: `subscription_plans`/`subscriptions`에서 premium 행 삭제 + `get_service_tier()`/`create_words_checked()`/공용 단어장 RLS 4건(마이그레이션 36, 18)에서 premium 제거
+- [x] `revenuecat-webhook` Edge Function — `ENTITLEMENT_TO_PLAN`/`resolvePlanCode()`에서 premium 매핑 제거
+- [x] `tsc -b`(web+mobile)/`eslint .`/`vite build` 통과
+- [ ] **한계**: 실브라우저 검증 미수행. 마이그레이션 37은 34/35/36과 함께 Supabase Dashboard SQL Editor로 사용자가 직접 적용 필요(미적용 상태). 상세는 `docs/DECISION_LOG.md` 2026-09-02
+
 ### Phase 23 — 스피킹 재구현 (`docs/SPEAKING_DESIGN.md`) ⏸ 보류 2026-09-01
 - [ ] WebView 녹음 환경 검증 6개 항목(§7, Azure 관련 2개 항목 제거됨)
 - [ ] Migration 23~24: speaking_sentences, speaking_recordings
@@ -285,11 +297,10 @@ _현재 진행 중인 작업 없음_
 
 | 우선순위 | 영역 | 핵심 시나리오 |
 |---|---|---|
-| P0 | 권한 판정 | Admin/Master/Premium/Pro/Guest 우선순위 정확성, Master 해제 즉시 반영, Admin 자기 자신 role 변경 시도 차단 |
+| P0 | 권한 판정 | Admin/Master/Pro/Guest 우선순위 정확성(2026-09-02: Premium 폐지), Master 해제 즉시 반영, Admin 자기 자신 role 변경 시도 차단 |
 | P0 | Pro 단어 한도 | 단건/일괄/CSV/복사/API 경로 전부 서버 검증, 동시 등록 Race Condition(advisory lock) |
 | P0 | Guest 로컬 저장 | 최초 실행, 무제한 등록, 앱 재실행 후 데이터 유지, WebView IndexedDB 검증 |
 | P1 | Guest→Pro 전환 | 한도 이하/동일/초과 3케이스, 신규 등록 차단→재허용, 네트워크 중단 재시도 |
-| P1 | Guest→Premium 전환 | 무제한 이전, 대량 데이터, 녹음 파일 이전 |
 | P1 | 구독 만료→Guest | 로컬 이전 성공/실패, 오프라인 downgrade_pending, 성공 검증 전 삭제/로그아웃 금지 |
 | P1 | Master 초대/삭제 | 초대 발송~수락 전체 플로우, 만료/재사용 링크 차단, 유료 구독 있는 상태에서 해제 |
 | P2 | 3개월 보관/알림/삭제 | retention-cleanup 멱등성, 삭제 전 알림 발송, 앱 미실행 사용자 삭제 확인 |

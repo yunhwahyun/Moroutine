@@ -1,7 +1,7 @@
 import type { Schedule, ScheduleException, Wordbook, Word } from '@/types'
 import type { LocalStudyResult, LocalStudySession } from '@/repositories/local/schema'
 
-// docs/MIGRATION_DESIGN.md §2, §3 — Guest(로컬) → Pro/Premium/Master(원격) 데이터 이전.
+// docs/MIGRATION_DESIGN.md §2, §3 — Guest(로컬) → Pro/Master(원격) 데이터 이전.
 
 export type LocalSnapshot = {
   wordbooks: Wordbook[]
@@ -12,7 +12,7 @@ export type LocalSnapshot = {
   studyResults: LocalStudyResult[]
 }
 
-// docs/UI_FLOW.md "Guest → Pro/Premium 전환 확인 모달" — 요약 카드에 표시할 개수.
+// docs/UI_FLOW.md "Guest → Pro 전환 확인 모달" — 요약 카드에 표시할 개수.
 // 로컬 녹음(speaking)은 아직 Repository/스키마 자체가 없어(Phase 23) 집계 대상에서 제외한다.
 export type LocalDataSummary = {
   wordbookCount: number

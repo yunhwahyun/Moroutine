@@ -62,7 +62,7 @@ async function handle(req: Request): Promise<Response> {
     return new Response('Master 권한이 없는 사용자입니다.', { status: 400, headers: corsHeaders })
   }
 
-  // docs/MASTER_INVITATION_DESIGN.md §5-1 — 유효 구독이 있으면 get_service_tier()가 자동으로 Premium/Pro를
+  // docs/MASTER_INVITATION_DESIGN.md §5-1 — 유효 구독이 있으면 get_service_tier()가 자동으로 Pro를
   // 반환하므로 별도 처리 없이 special_access만 해제한다. 구독이 없으면 클라이언트의 DowngradeGate가
   // 다음 permissions 조회 시 serviceTier==='guest'를 감지해 로컬 전환 절차를 자동으로 시작한다.
   const { data: activeSubscription } = await serviceClient

@@ -27,7 +27,8 @@ export type BuildPermissionsInput = {
   isAuthenticated: boolean
 }
 
-// docs/PERMISSION_DESIGN.md §3 — role=admin > special_access=master > 활성 Premium > 활성 Pro > Guest
+// docs/PERMISSION_DESIGN.md §3 — role=admin > special_access=master > 활성 Pro > Guest
+// (2026-09-02: Premium 티어 폐지, Pro만 유지 — docs/DECISION_LOG.md 2026-09-02)
 function resolveServiceTier(input: BuildPermissionsInput): ServiceTier {
   if (input.role === 'admin') return 'admin'
   if (input.specialAccess === 'master') return 'master'
@@ -36,7 +37,6 @@ function resolveServiceTier(input: BuildPermissionsInput): ServiceTier {
     input.subscription?.plan_code === code &&
     ACTIVE_SUBSCRIPTION_STATUSES.includes(input.subscription.status)
 
-  if (hasActiveSub('premium')) return 'premium'
   if (hasActiveSub('pro')) return 'pro'
   return 'guest'
 }
@@ -86,7 +86,7 @@ export function buildPermissions(input: BuildPermissionsInput): Permissions {
     }
   }
 
-  // pro | premium
+  // pro
   const plan = input.plans[serviceTier]
   return {
     serviceTier,
@@ -107,6 +107,5 @@ export const GUEST_PERMISSIONS: Permissions = buildPermissions({
   isAuthenticated: false,
   plans: {
     pro: { personal_word_limit: null, sync_enabled: false, bulk_import_enabled: false, public_wordbook_enabled: false },
-    premium: { personal_word_limit: null, sync_enabled: false, bulk_import_enabled: false, public_wordbook_enabled: false },
   },
 })

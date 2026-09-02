@@ -40,7 +40,7 @@ async function callCreateWordsChecked(
   return data as CreateWordsCheckedResult
 }
 
-// docs/DATA_STORAGE_DESIGN.md §6 — Pro/Premium/Master 전용 구현. Supabase가 정본이다.
+// docs/DATA_STORAGE_DESIGN.md §6 — Pro/Master 전용 구현. Supabase가 정본이다.
 // docs/DEVELOPMENT_RULES.md #9 — 훅 외부(클래스 메서드)에서 Zustand 상태를 읽으므로 getState() 사용.
 function requireUserId(): string {
   const user = useAuthStore.getState().user

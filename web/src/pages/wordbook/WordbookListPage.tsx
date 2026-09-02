@@ -259,11 +259,6 @@ export default function WordbookListPage() {
             개인 단어 {personalWordCount}/{permissions?.personalWordLimit}개
             {personalWordCount >= (permissions?.personalWordLimit ?? Infinity) && ' · 한도 도달, 신규 등록 불가'}
           </span>
-          {personalWordCount >= (permissions?.personalWordLimit ?? Infinity) && (
-            <button onClick={() => navigate('/pricing')} className="text-red-600 font-medium underline shrink-0 ml-2">
-              Premium 업그레이드
-            </button>
-          )}
         </div>
       )}
 

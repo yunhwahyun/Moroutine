@@ -9,7 +9,7 @@
 하이브리드 WebView 기반 학습 루틴 / 단어 암기 앱.  
 Web App(React)을 React Native WebView 안에서 실행하며, 알림·TTS 등 네이티브 기능은 Bridge를 통해 처리한다.
 
-**2026-07-18 무료·유료·관리자 정책 전면 개편**: 사용자 유형을 Guest(비로그인·로컬 저장) / Pro·Premium(유료·서버 저장) / Master(관리자 지정 무료·서버 저장) / Admin(공용 콘텐츠 관리 전용)으로 재정의했다. 상세 설계는 아래 하위 문서 참고 — 이 문서(DESIGN.md)는 SSOT로서 아키텍처 개요만 유지하고, 정책·스키마 상세는 각 문서에 위임한다.
+**2026-07-18 무료·유료·관리자 정책 전면 개편**: 사용자 유형을 Guest(비로그인·로컬 저장) / Pro(유료·서버 저장) / Master(관리자 지정 무료·서버 저장) / Admin(공용 콘텐츠 관리 전용)으로 재정의했다(2026-09-02: Premium 티어는 실 구독자 없이 폐지, `docs/DECISION_LOG.md` 2026-09-02). 상세 설계는 아래 하위 문서 참고 — 이 문서(DESIGN.md)는 SSOT로서 아키텍처 개요만 유지하고, 정책·스키마 상세는 각 문서에 위임한다.
 
 | 문서 | 범위 |
 |---|---|
@@ -142,7 +142,7 @@ GET_APP_VERSION
 START_STT              { lang }
 STOP_STT
 SET_USER_ID            { userId: string | null }   // Phase 16 — RevenueCat app_user_id를 Supabase user_id와 동기화
-PURCHASE_REQUEST       { planCode: 'pro' | 'premium' }   // Phase 16
+PURCHASE_REQUEST       { planCode: 'pro' }   // Phase 16 (2026-09-02: Premium 폐지)
 RESTORE_PURCHASES      // Phase 16
 // Phase 10 예정 (WebView 녹음 불가 시 폴백)
 START_RECORDING        { signedUrl: string; storagePath: string }
@@ -283,7 +283,7 @@ src/
 │   │   ├── WordbookListPage.tsx       # 다중 선택 + 학습/퀴즈 진입
 │   │   ├── WordbookDetailPage.tsx     # 단어 CRUD + 일괄등록(Pro↑)
 │   │   ├── WordFormPage.tsx           # placeholder
-│   │   └── PublicWordbookListPage.tsx # 신규 — 공용 단어장 열람(Pro/Premium/Master)
+│   │   └── PublicWordbookListPage.tsx # 신규 — 공용 단어장 열람(Pro/Master)
 │   ├── speaking/                      # 신규 — docs/SPEAKING_DESIGN.md
 │   │   ├── SpeakingListPage.tsx
 │   │   ├── SpeakingSentenceFormPage.tsx

@@ -24,7 +24,7 @@
 > **2026-07-18 정책 전면 개편**: 구 Phase 10 계획(마이그레이션 13~17 — `profiles_plan`/`speaking_tasks`/`speaking_sessions`/`speaking_recordings`/`pronunciation_evaluations`)은 실제 파일로 생성된 적이 없어 전량 폐기하고 아래 신규 계획으로 대체한다. 배경은 `docs/DECISION_LOG.md` 2026-07-18 항목, 정책 원문은 `docs/PERMISSION_DESIGN.md`/`docs/SUBSCRIPTION_DESIGN.md`/`docs/ADMIN_DESIGN.md`/`docs/MASTER_INVITATION_DESIGN.md`/`docs/DATA_RETENTION_DESIGN.md`/`docs/MIGRATION_DESIGN.md`/`docs/SPEAKING_DESIGN.md` 참고.
 
 ```
---- Guest/Pro/Premium/Master/Admin 정책 개편 ---
+--- Guest/Pro/Master/Admin 정책 개편 ---
 13. profiles_role_access        ← role, special_access 컬럼 추가 (docs/PERMISSION_DESIGN.md §4-1)
 14. subscription_plans          ← 요금제 설정 테이블 (docs/PERMISSION_DESIGN.md §4-2)
 15. subscriptions                ← 구독 상태 테이블 (docs/PERMISSION_DESIGN.md §4-3)
@@ -400,7 +400,7 @@ ALTER TABLE profiles
 
 ---
 
-## 마이그레이션 13~31 — Guest/Pro/Premium/Master/Admin 정책 개편 (신규)
+## 마이그레이션 13~31 — Guest/Pro/Master/Admin 정책 개편 (신규)
 
 전체 DDL은 아래 각 설계 문서에 원문이 있다. 이 표는 마이그레이션 순번과 출처만 인덱싱한다(실행 시 반드시 순번 순서를 지킬 것 — 뒷번호가 앞번호의 함수/테이블을 참조함).
 
@@ -451,9 +451,9 @@ ALTER TABLE profiles
 | notifications | `uid = user_id` + schedule 소유 확인 | schedule 소유 확인 |
 | subscription_plans | Admin만 쓰기, 조회는 전체 authenticated | — |
 | subscriptions | 클라이언트 쓰기 불가(service_role만) | — |
-| public_wordbooks / public_words | Admin만 쓰기, 조회는 pro/premium/master(+admin은 전체). 예외: `is_sample=true`인 단어장은 `anon`(비로그인 Guest)도 SELECT 가능(마이그레이션 33) | — |
-| user_public_wordbook_enrollments | `uid = user_id` + pro/premium/master 등급 | 동일 |
-| user_public_word_progress | `uid = user_id` + pro/premium/master 등급 | 동일 |
+| public_wordbooks / public_words | Admin만 쓰기, 조회는 pro/master(+admin은 전체). 예외: `is_sample=true`인 단어장은 `anon`(비로그인 Guest)도 SELECT 가능(마이그레이션 33) | — |
+| user_public_wordbook_enrollments | `uid = user_id` + pro/master 등급 | 동일 |
+| user_public_word_progress | `uid = user_id` + pro/master 등급 | 동일 |
 | master_invitations | 클라이언트 쓰기 불가(service_role만), 조회는 Admin만 | — |
 | admin_audit_log | 클라이언트 쓰기 불가(service_role/트리거만), 조회는 Admin만 | — |
 | migration_jobs / migration_id_map | `uid = user_id` | — |

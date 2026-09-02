@@ -8,7 +8,9 @@
 
 ## 1. 확정 정책 요약
 
-- 사용자 유형은 `guest / pro / premium / admin / master` 5종.
+- 사용자 유형은 `guest / pro / admin / master` 4종(2026-09-02: Premium 티어 폐지, 실 구독자 없이 제거
+  — `docs/DECISION_LOG.md` 2026-09-02. 아래 §2-3·§3·§4·§6·§7의 DDL/코드 블록은 마이그레이션 13~15
+  당시 원문을 그대로 남겨두되, 각 절 하단에 2026-09-02 변경 사항을 별도로 표기한다).
 - 이 값을 단일 컬럼으로 관리하지 않는다. **인증 상태 / 계정 역할 / 서비스 권한 3개 축으로 분리**한다.
 - 서비스 권한은 항상 **서버에서 검증된 값**을 기준으로 판단한다. 클라이언트 상태(Zustand 등)는 서버 값의 캐시일 뿐 권한의 근거가 될 수 없다.
 - Guest는 Supabase Auth 계정이 없다. Guest는 "인증 상태=anonymous"이며, DB의 `profiles`/`subscriptions` 어디에도 행이 존재하지 않는다.
@@ -21,7 +23,7 @@
 
 ```text
 anonymous     — Supabase Auth 세션 없음. Guest.
-authenticated — Supabase Auth 세션 있음. pro / premium / master / admin 중 하나여야 함(정상 상태).
+authenticated — Supabase Auth 세션 있음. pro / master / admin 중 하나여야 함(정상 상태).
 ```
 
 > 인증되어 있으나 아무 서비스 권한도 없는 상태(구독 만료 + special_access 없음)는 **정상 정착 상태가 아니라 전이 상태**다. `docs/MIGRATION_DESIGN.md`의 `downgrade_pending` 절차를 거쳐 반드시 `anonymous`(Guest)로 귀결되어야 한다. 이 상태가 오래 지속되면 버그로 간주한다.
@@ -43,9 +45,9 @@ admin  — 관리자
 ```text
 guest    — anonymous 상태에서만 존재(DB 행 없음, 클라이언트 로컬 판단)
 pro      — 활성 pro 구독
-premium  — 활성 premium 구독
 master   — profiles.special_access = 'master'
 ```
+> 2026-09-02: `premium`은 폐지됐다(실 구독자 없이 제거, `docs/DECISION_LOG.md` 2026-09-02).
 
 - `admin`은 서비스 권한 열거형에는 포함하지 않는다. Admin은 계정 역할이며, 관리자 화면 접근 여부는 role로 판단하고, Admin 본인이 개인 학습 기능을 사용할지는 **결정 필요**(§8 결정 필요 항목 참고) 항목으로 별도 처리한다.
 
@@ -56,12 +58,13 @@ master   — profiles.special_access = 'master'
 ```text
 role = 'admin'                        → Admin
 special_access = 'master'             → Master
-활성 Premium 구독 존재                 → Premium
 활성 Pro 구독 존재                     → Pro
 그 외 (anonymous, 또는 authenticated인데 위 어디에도 해당 없음) → Guest
 ```
+> 2026-09-02 이전에는 Master와 Pro 사이에 "활성 Premium 구독 존재 → Premium" 단계가 있었다. Premium
+> 폐지로 제거됨(`docs/DECISION_LOG.md` 2026-09-02).
 
-- 우선순위는 상호 배타적이지 않다. 예: Admin이면서 과거 Pro 구독 이력이 있을 수 있으나, 최종 서비스 등급은 항상 최상단 매칭값을 따른다(Admin > Master > Premium > Pro > Guest).
+- 우선순위는 상호 배타적이지 않다. 예: Admin이면서 과거 Pro 구독 이력이 있을 수 있으나, 최종 서비스 등급은 항상 최상단 매칭값을 따른다(Admin > Master > Pro > Guest).
 - `role='admin'`인 계정도 `special_access`, `subscriptions` 행을 가질 수 있다(예: 관리자가 개인적으로 Pro를 구독). 다만 최종 판정은 Admin이 우선한다. 관리자 화면 접근은 role만으로 판단하고, 개인 학습 기능 사용 시의 데이터 저장 모드(Remote/AdminContent)는 §8에서 결정.
 
 ---
@@ -124,7 +127,12 @@ CREATE POLICY "subscription_plans_admin_write" ON subscription_plans
   FOR ALL TO authenticated USING (is_admin(auth.uid())) WITH CHECK (is_admin(auth.uid()));
 ```
 
-> ⚠️ 배포 체크리스트: `pro.personal_word_limit`을 NULL(무제한)인 채로 배포하면 Pro/Premium 구분이 무의미해진다. 값 확정 전에는 스테이징에서만 사용하고 프로덕션 배포를 막는 CI 체크를 권장(결정 필요 항목, §8).
+> ⚠️ 배포 체크리스트(원문): `pro.personal_word_limit`을 NULL(무제한)인 채로 배포하면 Pro/Premium 구분이 무의미해진다. 값 확정 전에는 스테이징에서만 사용하고 프로덕션 배포를 막는 CI 체크를 권장(결정 필요 항목, §8).
+>
+> **2026-09-02**: Premium이 폐지되면서 이 우려 자체가 해소됐다 — 이제 유료 요금제는 Pro 하나뿐이라
+> "Pro/Premium 구분"이라는 문제가 존재하지 않는다(`subscription_plans`에서 `premium` 행 삭제,
+> 마이그레이션 37). `pro.personal_word_limit`을 실제 값으로 채울지는 여전히 열린 결정 항목(§8)이지만,
+> Premium과의 구분 목적은 더 이상 이 결정의 이유가 아니다.
 
 ### 4-3. subscriptions (신규 — 결제 상태)
 
@@ -163,7 +171,7 @@ CREATE POLICY "subscriptions_select" ON subscriptions
 -- (RLS를 우회하는 service_role 경로만 존재 — authenticated 대상 INSERT/UPDATE 정책 없음)
 ```
 
-`idx_subscriptions_user_active` 유니크 인덱스로 "동시에 2개 이상의 활성 구독" 상태를 DB 레벨에서 방지한다(Pro→Premium 전환 시 기존 구독을 먼저 `canceled`/`expired`로 전이시킨 후 신규 구독 INSERT).
+`idx_subscriptions_user_active` 유니크 인덱스로 "동시에 2개 이상의 활성 구독" 상태를 DB 레벨에서 방지한다(요금제 전환 시 기존 구독을 먼저 `canceled`/`expired`로 전이시킨 후 신규 구독 INSERT — 2026-09-02 Premium 폐지로 현재는 Pro 하나뿐이라 실제로는 발생하지 않지만, 인덱스 자체는 향후 요금제가 다시 늘어날 경우를 대비해 유지).
 
 ### 4-4. 권한 판정 SQL 함수
 
@@ -200,6 +208,9 @@ $$;
 ```
 
 > `grace_period`/`billing_retry` 상태도 "활성 구독"으로 취급해 권한을 유지한다(§7 processing 원칙, `docs/SUBSCRIPTION_DESIGN.md` §2 참고).
+>
+> **2026-09-02**: 위 `get_service_tier()` 원문은 마이그레이션 15 당시 것이다. 현재(마이그레이션 37)는
+> `plan_code = 'premium'` 분기가 제거되어 `admin > master > pro > guest` 순서로 판정한다.
 
 ---
 
@@ -219,11 +230,11 @@ $$;
 
 ## 6. 클라이언트 Permissions 객체
 
-화면에서 `if (planType === 'premium')` 같은 직접 분기를 금지하고, 중앙화된 권한 객체를 사용한다.
+화면에서 `if (planType === 'pro')` 같은 직접 분기를 금지하고, 중앙화된 권한 객체를 사용한다.
 
 ```typescript
-// src/lib/permissions.ts
-export type ServiceTier = 'guest' | 'pro' | 'premium' | 'master' | 'admin'
+// src/lib/permissions.ts (2026-09-02: Premium 폐지 반영)
+export type ServiceTier = 'guest' | 'pro' | 'master' | 'admin'
 
 export type Permissions = {
   serviceTier: ServiceTier
@@ -239,18 +250,17 @@ export type Permissions = {
 export function buildPermissions(input: {
   role: 'user' | 'admin'
   specialAccess: 'none' | 'master'
-  subscription: { planCode: 'pro' | 'premium'; status: SubscriptionStatus } | null
-  plans: Record<'pro' | 'premium', { personalWordLimit: number | null; syncEnabled: boolean; bulkImportEnabled: boolean; publicWordbookEnabled: boolean }>
+  subscription: { planCode: 'pro'; status: SubscriptionStatus } | null
+  plans: Record<'pro', { personalWordLimit: number | null; syncEnabled: boolean; bulkImportEnabled: boolean; publicWordbookEnabled: boolean }>
   isAuthenticated: boolean
 }): Permissions {
   const activeStatuses = ['active', 'grace_period', 'billing_retry']
-  const hasActiveSub = (code: 'pro' | 'premium') =>
+  const hasActiveSub = (code: 'pro') =>
     input.subscription?.planCode === code && activeStatuses.includes(input.subscription.status)
 
   const serviceTier: ServiceTier =
     input.role === 'admin' ? 'admin'
     : input.specialAccess === 'master' ? 'master'
-    : hasActiveSub('premium') ? 'premium'
     : hasActiveSub('pro') ? 'pro'
     : 'guest'
 
@@ -275,7 +285,7 @@ export function buildPermissions(input: {
       personalWordLimit: null, canAccessAdmin: false,
     }
   }
-  // pro | premium
+  // pro
   const plan = input.plans[serviceTier]
   return {
     serviceTier, isAuthenticated: true, usesRemoteStorage: true,
@@ -286,7 +296,7 @@ export function buildPermissions(input: {
 }
 ```
 
-- `personalWordLimit = null`은 무제한을 의미한다(Guest, Premium, Master, Admin).
+- `personalWordLimit = null`은 무제한을 의미한다(Guest, Master, Admin).
 - Guest의 `personalWordLimit: null`은 "서버 제한 없음"을 의미할 뿐, §3.4 정책상 Guest는 로컬 저장 용량이 사실상의 한계다. UI는 이를 별도 안내(로컬 저장 용량 안내)로 표시하고 `personalWordLimit`과 혼동하지 않는다.
 - 이 객체는 반드시 **서버에서 조회한 role/special_access/subscription/plans 값**으로만 생성한다. 클라이언트가 임의로 `serviceTier`를 지정해 생성할 수 없도록 `buildPermissions`는 순수 함수로 유지하고, 입력값 자체는 TanStack Query로 서버에서 로드한다(§9 참고).
 
@@ -296,9 +306,9 @@ export function buildPermissions(input: {
 
 | 원칙 | 적용 |
 |---|---|
-| Pro/Premium/Master는 자신의 개인 데이터만 CRUD | 기존 `wordbooks`/`words`/`study_sessions`/`schedules`/`notifications` RLS(`auth.uid() = user_id`) 그대로 유지 — 이 정책들은 role/tier와 무관하게 "로그인한 본인"이면 적용되므로 수정 불필요 |
+| Pro/Master는 자신의 개인 데이터만 CRUD | 기존 `wordbooks`/`words`/`study_sessions`/`schedules`/`notifications` RLS(`auth.uid() = user_id`) 그대로 유지 — 이 정책들은 role/tier와 무관하게 "로그인한 본인"이면 적용되므로 수정 불필요 |
 | Guest는 Supabase 개인 데이터에 접근하지 않음 | Guest는 애초에 Auth 계정이 없으므로 자동 충족. 서버 측 강제 규칙 아님(구조적으로 불가능) |
-| Pro/Premium/Master는 `published` 공용 단어장 읽기 가능 | `public_wordbooks_select` 정책에 `get_service_tier(auth.uid()) IN ('pro','premium','master')` 조건(`docs/ADMIN_DESIGN.md` §4 DDL 참고) |
+| Pro/Master는 `published`/`default` 공용 단어장 읽기 가능 | `public_wordbooks_select` 정책에 `get_service_tier(auth.uid()) IN ('pro','master')` 조건(2026-09-02 Premium 제거, 마이그레이션 37 — `docs/ADMIN_DESIGN.md` §3-4 참고) |
 | Guest는 공용 단어장 접근 불가 | Guest는 anon key로도 `authenticated` 세션이 없으므로 `TO authenticated` 정책 자체가 차단 |
 | 일반 사용자는 공용 단어장 원본 수정·삭제 불가 | `public_wordbooks`/`public_words`의 UPDATE/DELETE 정책은 `is_admin(auth.uid())`만 허용 |
 | 사용자는 자신의 공용 단어장 등록 상태만 CRUD | `user_public_wordbook_enrollments`: `auth.uid() = user_id` |

@@ -11,7 +11,6 @@ export function getRepository(tier: ServiceTier): DataRepository {
     case 'guest':
       return localDataRepository
     case 'pro':
-    case 'premium':
     case 'master':
       return remoteDataRepository
     case 'admin':

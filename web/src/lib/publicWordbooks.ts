@@ -3,7 +3,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { computeQuizAnswerUpdate } from '@/lib/wordStatus'
 import type { PublicWord, PublicWordbook, PublicWordbookStatus, PublicWordProgress, ReviewPolicy, Word } from '@/types'
 
-// docs/ADMIN_DESIGN.md §3 — 공용 단어장은 Guest/Pro/Premium/Master의 Local/Remote 분기 대상이 아니라
+// docs/ADMIN_DESIGN.md §3 — 공용 단어장은 Guest/Pro/Master의 Local/Remote 분기 대상이 아니라
 // (Guest는 애초에 접근 불가, Admin도 기존 tier 시스템 밖) DataRepository를 확장하지 않고 독립 모듈로
 // 직접 Supabase를 호출한다. RLS(is_admin()/get_service_tier())가 실제 접근 제어를 담당한다.
 
@@ -131,7 +131,7 @@ export async function updatePublicWord(
   if (error) throw error
 }
 
-// ── 사용자(Pro/Premium/Master) ──────────────────────────────────────────
+// ── 사용자(Pro/Master) ──────────────────────────────────────────────────
 // docs/ADMIN_DESIGN.md §3(2026-09-02) — 'default'(기본)는 이전 is_sample=true와 동일 의미이며
 // 사용자에게는 'published'와 동등하게 게시된 것으로 취급한다(마이그레이션 36).
 

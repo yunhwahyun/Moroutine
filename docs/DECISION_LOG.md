@@ -67,6 +67,36 @@
   (`unenrollPublicWordbook` 제거, `enrollPublicWordbook` 주석 갱신), `docs/ADMIN_DESIGN.md` §3-1,
   `docs/UI_FLOW.md`.
 
+### Premium 티어 폐지 — 유료 요금제는 Pro 하나로 통합
+
+- **결정**: 사용자 확인 결과 실제 Premium 구독자가 없어, 데이터 이관 없이 Premium 티어를 코드/DB
+  양쪽에서 완전히 제거했다. 유료 요금제는 이제 Pro 하나뿐이다(`ServiceTier`: `guest | pro | master |
+  admin`, `PlanCode`: `'pro'`). 요금제 비교 화면(`/pricing`)도 기존 "Pro vs Premium" 두 유료 카드
+  비교에서 **"Free vs Pro"** 비교로 바꿨다 — Free 카드는 `GUEST_PERMISSIONS`가 실제로 갖는 권한(저장
+  위치/단어 한도/일괄등록/공용 단어장/동기화)을 그대로 보여주는 고정 카드이고, Pro 카드만 기존처럼
+  `subscription_plans`에서 동적으로 로드한다.
+- **범위**: (1) 타입 — `PlanCode`/`ServiceTier`(`web/src/types/index.ts`), `PurchaseRequestPayload`(web+
+  mobile `bridge.ts` 양쪽). (2) 권한 판정 — `permissions.ts`의 `resolveServiceTier()`/`GUEST_PERMISSIONS`
+  에서 premium 분기·키 제거(최종 우선순위: `admin > master > pro > guest`), `usePermissions.ts`의 plans
+  fetch, `factory.ts`의 tier→Repository 매핑, `GuestMigrationGate.tsx`의 tier 목록. (3) UI — `PricingPage.tsx`
+  전면 재작성(Free/Pro), `SettingsPage.tsx`/`WordbookListPage.tsx`의 pro 전용 "Premium으로 업그레이드"
+  CTA 제거(더 이상 안내할 상위 요금제가 없음). (4) DB — 마이그레이션 37: `subscription_plans`/
+  `subscriptions`에서 `premium` 행 삭제(테스트성 잔여 구독 행도 함께 정리), `get_service_tier()`/
+  `create_words_checked()` 재정의(premium 분기 제거), 공용 단어장 열람 RLS 4건(마이그레이션 36의
+  `public_wordbooks_select`/`public_words_select`, 마이그레이션 18의 `enrollments_all`/
+  `public_word_progress_all`)에서 `'premium'`을 허용 목록에서 제거. (5) `revenuecat-webhook` Edge
+  Function의 `ENTITLEMENT_TO_PLAN`/`resolvePlanCode()` premium 매핑 제거.
+- **문서**: `docs/PERMISSION_DESIGN.md`/`docs/SUBSCRIPTION_DESIGN.md`가 5단계·Pro/Premium 비교를 중심으로
+  구성돼 있어 가장 크게 손댔다 — 마이그레이션 13~18 당시 원문 DDL/코드 블록은 역사적 기록으로 그대로
+  남기고, 각 블록 바로 아래에 "2026-09-02 이후" 변경 사항을 별도 인용문으로 덧붙이는 방식을 취했다(코드
+  자체를 다시 쓰지 않고 히스토리를 보존하면서 현재 상태를 명확히 하기 위함). `docs/SUBSCRIPTION_DESIGN.md`
+  §5-2("Guest→Premium 전환"), §7-2("Premium 복원"), §8-2("Pro↔Premium")처럼 더 이상 발생하지 않는 전이를
+  다루던 절은 절 제목만 남기고 본문을 "폐지됨" 안내로 교체했다. 그 외 `ADMIN_DESIGN.md`/`UI_FLOW.md`/
+  `DB_SCHEMA.md`/`DATA_STORAGE_DESIGN.md`/`MIGRATION_DESIGN.md`/`DESIGN.md`/`MASTER_INVITATION_DESIGN.md`/
+  `API_SPEC.md`/`TODO.md`/`PROJECT_STATUS.md`도 premium 언급을 정리했다(스크랩된 구 설계를 가리키는
+  순수 역사적 언급은 그대로 둠).
+- **영향 범위**: 위 각 항목의 파일 전부, `supabase/migrations/37_remove_premium_tier.sql`(신규).
+
 ---
 
 ## 2026-09-01

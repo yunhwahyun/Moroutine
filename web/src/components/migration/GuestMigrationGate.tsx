@@ -5,7 +5,7 @@ import GuestMigrationModal from './GuestMigrationModal'
 
 const DISMISS_KEY = 'moroutine_migration_prompt_dismissed'
 
-// docs/MIGRATION_DESIGN.md §2 — 로그인 사용자의 serviceTier가 pro/premium/master로 확인되고
+// docs/MIGRATION_DESIGN.md §2 — 로그인 사용자의 serviceTier가 pro/master로 확인되고
 // 이 기기에 로컬(Guest) 데이터가 남아있으면 전환 확인 모달을 띄운다.
 // App.tsx의 AuthProvider 안에서 한 번만 마운트한다.
 export default function GuestMigrationGate() {
@@ -15,7 +15,7 @@ export default function GuestMigrationGate() {
 
   useEffect(() => {
     const tier = permissions?.serviceTier
-    if (!tier || (tier !== 'pro' && tier !== 'premium' && tier !== 'master')) return
+    if (!tier || (tier !== 'pro' && tier !== 'master')) return
     if (sessionStorage.getItem(DISMISS_KEY)) return
     checkLocalData().catch((err) => console.error('[guest migration] summary check failed', err))
   }, [permissions?.serviceTier, checkLocalData])

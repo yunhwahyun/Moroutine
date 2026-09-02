@@ -47,7 +47,7 @@ export type BulkCreateWordsInput = {
 }
 
 // docs/SUBSCRIPTION_DESIGN.md §4 — Pro 한도 검증 결과. Remote(Pro)는 실제 검증값을 채우고,
-// Local(Guest)/Premium/Master는 한도가 없으므로 blocked=false, limitValue=null 고정.
+// Local(Guest)/Master는 한도가 없으므로 blocked=false, limitValue=null 고정.
 export type BulkCreateResult = {
   insertedCount: number
   currentTotal: number
@@ -115,7 +115,7 @@ export interface DataRepository {
   deleteWordbook(id: string): Promise<void>
 
   getWords(wordbookId: string): Promise<Word[]>
-  createWord(input: CreateWordInput): Promise<Word>  // 한도 초과 시 WordLimitExceededError throw(Guest/Premium/Master는 무제한이라 발생 안 함)
+  createWord(input: CreateWordInput): Promise<Word>  // 한도 초과 시 WordLimitExceededError throw(Guest/Master는 무제한이라 발생 안 함)
   bulkCreateWords(input: BulkCreateWordsInput): Promise<BulkCreateResult>
   updateWord(id: string, input: UpdateWordInput): Promise<void>
   deleteWord(id: string): Promise<void>

@@ -27,7 +27,7 @@ export type SetUserIdPayload = {
 }
 
 export type PurchaseRequestPayload = {
-  planCode: 'pro' | 'premium'
+  planCode: 'pro'
 }
 
 export type BridgeOutbound =

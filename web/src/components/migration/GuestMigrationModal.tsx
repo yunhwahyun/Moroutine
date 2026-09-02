@@ -1,6 +1,6 @@
 import type { LocalDataSummary, MigrationProgress } from '@/lib/migration/types'
 
-// docs/UI_FLOW.md "Guest → Pro/Premium 전환 확인 모달", docs/MIGRATION_DESIGN.md §2 참고.
+// docs/UI_FLOW.md "Guest → Pro 전환 확인 모달", docs/MIGRATION_DESIGN.md §2 참고.
 // 훅 인스턴스는 상위(GuestMigrationGate)가 소유하고, 이 컴포넌트는 순수하게 표시/콜백만 담당한다.
 export default function GuestMigrationModal({
   summary,

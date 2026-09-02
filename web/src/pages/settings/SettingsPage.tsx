@@ -305,7 +305,7 @@ export default function SettingsPage() {
             <br />
             앱을 삭제하거나 기기 데이터를 초기화하면 데이터를 복구할 수 없습니다.
             <br />
-            Pro 또는 Premium을 시작하면 데이터를 계정에 저장하고 다른 기기에서도 사용할 수 있습니다.
+            Pro를 시작하면 데이터를 계정에 저장하고 다른 기기에서도 사용할 수 있습니다.
           </div>
         )}
 
@@ -323,12 +323,12 @@ export default function SettingsPage() {
                 onClick={() => navigate('/pricing')}
                 className="w-full flex items-center px-4 py-3.5 min-h-[52px]"
               >
-                <span className="text-sm text-gray-900 font-medium">Pro/Premium 요금제 보기</span>
+                <span className="text-sm text-gray-900 font-medium">Pro 요금제 보기</span>
               </button>
             </>
           )}
 
-          {(tier === 'pro' || tier === 'premium' || tier === 'master') && (
+          {(tier === 'pro' || tier === 'master') && (
             <>
               <NicknameRow
                 value={settings.nickname}
@@ -354,14 +354,6 @@ export default function SettingsPage() {
               </Row>
               {tier !== 'master' && (
                 <>
-                  {tier === 'pro' && (
-                    <button
-                      onClick={() => navigate('/pricing')}
-                      className="w-full flex items-center px-4 py-3.5 min-h-[52px]"
-                    >
-                      <span className="text-sm text-gray-900 font-medium">Premium으로 업그레이드</span>
-                    </button>
-                  )}
                   {isNative() ? (
                     <Row label="구독 관리">
                       <span className="text-xs text-gray-400">앱스토어/플레이스토어 계정에서 관리할 수 있어요</span>

@@ -13,7 +13,7 @@ anonymous(Guest)
   → 최초 진입 시 Admin이 저장해 둔 설정값도 로컬 기본값으로 1회 자동 복사(`docs/ADMIN_DESIGN.md` §2-1, 2026-09-01) — 위 샘플 단어장과 동일한 패턴
   → 접근 불가: 공용 단어장(위 자동 복사 제외), 일괄등록, /admin, /speaking(등록/녹음 자체는 가능 — §3.4상 Guest 허용 기능이므로 접근 가능. 저장만 로컬)
 
-authenticated + pro/premium/master
+authenticated + pro/master
   → 로그인 필요, RemoteDataRepository
   → Pro만 개인 단어 한도 UI 노출
 
@@ -38,13 +38,13 @@ authenticated + admin
 | 퀴즈 완료 | `/quiz/complete` | — | Guest 포함 전체 | 정답률 + 완료 개수 |
 | 단어장 | `/wordbooks` | 단어장 | Guest 포함 전체 | 복습컬렉션 + 단어장 다중 선택, 학습/퀴즈 진입 |
 | 단어장 상세 | `/wordbooks/:id` | — | Guest 포함 전체 | 단어 목록 + 추가/수정/삭제, 일괄등록은 Pro↑만 노출 |
-| 공용 단어장 ✅ 구현 완료(2026-07-19, 2026-09-02 "담기"→복사 방식 전환) | `/public-wordbooks`, `/public-wordbooks/:id` | `WordbookListPage` 헤더 링크(탭 아님, 편차) | Pro/Premium/Master | 열람·미리보기 학습하기/퀴즈 + 개인 단어장으로 복사("내 단어장에 추가") |
+| 공용 단어장 ✅ 구현 완료(2026-07-19, 2026-09-02 "담기"→복사 방식 전환) | `/public-wordbooks`, `/public-wordbooks/:id` | `WordbookListPage` 헤더 링크(탭 아님, 편차) | Pro/Master | 열람·미리보기 학습하기/퀴즈 + 개인 단어장으로 복사("내 단어장에 추가") |
 | 스피킹 | `/speaking` | 스피킹 | Guest 포함 전체 | 등록 문장 목록(`docs/SPEAKING_DESIGN.md`) |
 | 스피킹 문장 등록 | `/speaking/new` | — | Guest 포함 전체 | 문장 등록/수정 |
 | 스피킹 녹음 | `/speaking/:id/record` | — | Guest 포함 전체 | TTS + 녹음 + 재생 |
 | 일정 | `/schedules` | 일정 | Guest 포함 전체 | 날짜 범위 검색, 날짜별 그룹 조회 |
-| 요금제 비교 | `/pricing` | — | 전체(로그인 유도용) | Guest/Pro/Premium 비교, 결제 진입 |
-| 로그인 | `/login` | — | 비로그인 상태에서만 | Pro/Premium 결제 진입 시 또는 "기존 회원 로그인" |
+| 요금제 비교 | `/pricing` | — | 전체(로그인 유도용) | Free/Pro 비교, 결제 진입 |
+| 로그인 | `/login` | — | 비로그인 상태에서만 | Pro 결제 진입 시 또는 "기존 회원 로그인" |
 | 설정 | `/settings` | 설정 | Guest 포함 전체 | 등급별 섹션 분기(§4) |
 | 관리자 진입점 ✅ 구현 완료(2026-09-01) | `/admin` | — | Admin만(`ProtectedRoute` + role 체크) | `/admin/wordbooks`로 즉시 리다이렉트("홈" 개념 없음 — 관리자 하단 탭에서도 제외, `docs/ADMIN_DESIGN.md` §2) |
 | 단어장(관리자) ✅ 구현 완료(2026-09-01, 라벨 통일) | `/admin/wordbooks` | 단어장 | Admin만(`ProtectedRoute requireRole="admin"`) | 단어장 목록(draft/published/hidden/archived 필터), 라벨을 사용자용과 동일하게 "단어장"으로 통일 |
@@ -169,7 +169,7 @@ authenticated + admin
 - 행 클릭 = 체크박스 토글 (ChevronRight 클릭만 상세 이동)
 - `✏` = 단어장 수정/삭제 인라인 폼
 - 학습하기 → `/learn`, 문제풀기 → `/quiz` (선택된 단어 병합 + 중복 제거)
-- **일괄등록 버튼**: `permissions.canBulkImport`가 true인 등급(Pro/Premium/Master)에서만 노출. Guest는 버튼 자체를 숨기고, Pro는 한도 초과 상태(`docs/SUBSCRIPTION_DESIGN.md` §5-1)면 버튼은 노출하되 클릭 시 안내 모달로 대체
+- **일괄등록 버튼**: `permissions.canBulkImport`가 true인 등급(Pro/Master)에서만 노출. Guest는 버튼 자체를 숨기고, Pro는 한도 초과 상태(`docs/SUBSCRIPTION_DESIGN.md` §5-1)면 버튼은 노출하되 클릭 시 안내 모달로 대체
 - **공용 단어장 진입** ✅ 구현 완료(2026-07-19, 편차): 세그먼트 탭 대신 헤더의 "공용 단어장" 링크(`permissions.canUsePublicWordbooks`일 때만 노출)로 `/public-wordbooks`로 이동하는 방식으로 단순화
 
 ---
@@ -241,17 +241,17 @@ authenticated + admin
 
 등급별 **계정** 섹션(§23 원문 기준):
 
-| 섹션 | Guest | Pro | Premium | Master | Admin |
-|---|---|---|---|---|---|
-| 저장 위치 안내 | "현재 기기에 저장 중" | 계정 정보 | 계정 정보 | 계정 정보 + Master 권한 표시 | 관리자 권한 표시 |
-| 단어 등록 상태 | 제한 없음 표시 + 로컬 저장 용량 안내 | 현재 수/한도/신규 등록 가능 여부 | 무제한 표시 | 무제한 표시 | — |
-| 동기화 | — | ~~마지막 동기화 시간~~ "실시간 동기화 중"(편차, 아래 참고) | 동일 | 동일 | — |
-| 결제 | 요금제 보기(`/pricing`) | Premium으로 업그레이드 / 구독 관리 | 구독 관리 | **비노출**(무료 지정 계정) | 비노출 |
-| 데이터 ✅ 구현 완료(2026-07-19) | 전체 백업(JSON)/CSV 내보내기 + 가져오기 + 로컬 데이터 초기화 | 전체 백업(JSON)/CSV 내보내기 | 동일 | 동일 | — |
-| 로그인/로그아웃 | 로그인 | 로그아웃 / 계정 탈퇴 | 로그아웃 / 계정 탈퇴 | 로그아웃 | 로그아웃 |
-| 관리자 진입 | — | — | — | — | 관리자 화면으로 이동(`/admin`) |
+| 섹션 | Guest | Pro | Master | Admin |
+|---|---|---|---|---|
+| 저장 위치 안내 | "현재 기기에 저장 중" | 계정 정보 | 계정 정보 + Master 권한 표시 | 관리자 권한 표시 |
+| 단어 등록 상태 | 제한 없음 표시 + 로컬 저장 용량 안내 | 현재 수/한도/신규 등록 가능 여부 | 무제한 표시 | — |
+| 동기화 | — | ~~마지막 동기화 시간~~ "실시간 동기화 중"(편차, 아래 참고) | 동일 | — |
+| 결제 | 요금제 보기(`/pricing`) | 구독 관리(2026-09-02: Premium 폐지로 업그레이드 CTA 제거, 아래 참고) | **비노출**(무료 지정 계정) | 비노출 |
+| 데이터 ✅ 구현 완료(2026-07-19) | 전체 백업(JSON)/CSV 내보내기 + 가져오기 + 로컬 데이터 초기화 | 전체 백업(JSON)/CSV 내보내기 | 동일 | — |
+| 로그인/로그아웃 | 로그인 | 로그아웃 / 계정 탈퇴 | 로그아웃 | 로그아웃 |
+| 관리자 진입 | — | — | — | 관리자 화면으로 이동(`/admin`) |
 
-**편차**: "마지막 동기화 시간"은 이 앱이 오프라인 배치 동기화가 아니라 Pro/Premium/Master 모두 Supabase에
+**편차**: "마지막 동기화 시간"은 이 앱이 오프라인 배치 동기화가 아니라 Pro/Master 모두 Supabase에
 직접 실시간으로 쓰기 때문에 추적 중인 타임스탬프 자체가 없다 — 가짜 시각을 표시하지 않고 "실시간
 동기화 중"이라는 정적 문구로 대체(`docs/DECISION_LOG.md` 2026-07-19). "회원탈퇴"는 실제 Edge
 Function 없이 로그아웃만 수행하는 기존 동작 그대로 유지(변경 없음). "구독 관리"는 실제 스토어 딥링크
@@ -263,7 +263,7 @@ Guest 안내 문구(설정 화면 상단 배너, §4 원문 그대로, 구현 �
 ```text
 무료 이용 데이터는 현재 기기에만 저장됩니다.
 앱을 삭제하거나 기기 데이터를 초기화하면 데이터를 복구할 수 없습니다.
-Pro 또는 Premium을 시작하면 데이터를 계정에 저장하고 다른 기기에서도 사용할 수 있습니다.
+Pro를 시작하면 데이터를 계정에 저장하고 다른 기기에서도 사용할 수 있습니다.
 ```
 
 ---
@@ -271,7 +271,9 @@ Pro 또는 Premium을 시작하면 데이터를 계정에 저장하고 다른 �
 ### 요금제 비교 / 결제 진입 (`/pricing`) ✅ 구현 완료(2026-07-19)
 
 - Guest가 설정의 "요금제 보기"에서 진입(§0 라우팅상 로그인 없이도 접근 가능한 공개 라우트).
-- Pro vs Premium 비교표(단어 한도/일괄 등록/공용 단어장/동기화) — `subscription_plans`에서 동적 로드.
+- Free vs Pro 비교표(2026-09-02: Premium 폐지로 Pro/Premium 비교에서 Free/Pro 비교로 전환,
+  `docs/DECISION_LOG.md` 2026-09-02) — Free 카드는 Guest 권한(`GUEST_PERMISSIONS`)을 그대로 보여주는
+  고정 카드, Pro 카드만 `subscription_plans`에서 동적 로드(단어 한도/일괄 등록/공용 단어장/동기화).
   **마이그레이션 31 필요**: 이 테이블의 기존 RLS SELECT 정책이 `TO authenticated`만 허용해 Guest(비로그인,
   `anon` 롤)는 전혀 읽을 수 없었다 — `TO anon, authenticated`로 확장(`docs/DECISION_LOG.md` 2026-07-19).
 - **가격 표시 편차**: `subscription_plans`에는애초에 가격 컬럼이 없다(한도/기능 플래그만 관리, 실제
@@ -297,7 +299,7 @@ Pro 또는 Premium을 시작하면 데이터를 계정에 저장하고 다른 �
 
 ---
 
-### Guest → Pro/Premium 전환 확인 모달
+### Guest → Pro 전환 확인 모달
 
 결제 확정(`docs/SUBSCRIPTION_DESIGN.md` §5) 직후 노출. 전체 절차는 `docs/MIGRATION_DESIGN.md` §2.
 
@@ -369,7 +371,7 @@ Pro 또는 Premium을 시작하면 데이터를 계정에 저장하고 다른 �
 
 ### 공용 단어장 (`/public-wordbooks`) ✅ 구현 완료(2026-07-19, `docs/ADMIN_DESIGN.md` §3)
 
-Pro/Premium/Master 전용(`permissions.canUsePublicWordbooks` 아니면 업그레이드 안내 + `/pricing` 유도,
+Pro/Master 전용(`permissions.canUsePublicWordbooks` 아니면 업그레이드 안내 + `/pricing` 유도,
 `/public-wordbooks`와 `/public-wordbooks/:id` 둘 다 동일하게 게이트). 게시(`published`) 또는 기본
 (`default`) 상태인 공용 단어장 목록에 뒤로가기 버튼 + 단어장별 **"내 단어장에 추가"** 버튼
 (2026-09-02부터: 등록/해제 토글이 아니라 개인 `wordbooks`/`words`로 실제 **복사** — `docs/ADMIN_DESIGN.md`

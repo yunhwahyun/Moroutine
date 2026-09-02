@@ -28,7 +28,7 @@ export type SetUserIdPayload = {
 }
 
 export type PurchaseRequestPayload = {
-  planCode: 'pro' | 'premium'
+  planCode: 'pro'
 }
 
 // 웹 → 네이티브 메시지 (BridgeOutbound = 웹 기준 outbound)

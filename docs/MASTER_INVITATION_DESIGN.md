@@ -7,7 +7,7 @@
 
 ## 1. 확정 정책
 
-Master는 관리자가 지정한 무료 로그인 회원 — 유료 결제 없이 Premium과 동일하게 무제한 이용. 관리자 기능은 이용 불가. 가입은 **관리자가 이메일을 먼저 등록 → 초대 메일 발송 → 사용자가 링크로 가입 완료**하는 순서로만 진행한다(사용자가 스스로 "Master로 가입"할 방법은 없다).
+Master는 관리자가 지정한 무료 로그인 회원 — 유료 결제 없이 무제한 이용(Pro의 `personal_word_limit`과 무관하게 항상 `null`, `docs/PERMISSION_DESIGN.md` §4-4). 관리자 기능은 이용 불가. 가입은 **관리자가 이메일을 먼저 등록 → 초대 메일 발송 → 사용자가 링크로 가입 완료**하는 순서로만 진행한다(사용자가 스스로 "Master로 가입"할 방법은 없다).
 
 ---
 
@@ -159,8 +159,7 @@ CREATE POLICY "master_invitations_admin_select" ON master_invitations
 
 ```text
 special_access='none' 처리 직후 get_service_tier() 재평가:
-  유효 Premium 구독 있음 → Premium 유지 (위 §5의 2~8단계 전체 스킵, 로그아웃 없음)
-  유효 Pro 구독 있음     → Pro 유지 (동일하게 스킵)
+  유효 Pro 구독 있음     → Pro 유지 (위 §5의 2~8단계 전체 스킵, 로그아웃 없음)
   유료 구독 없음          → 위 §5의 2~8단계 전체 진행 (Guest 전환)
 ```
 
@@ -171,7 +170,7 @@ special_access='none' 처리 직후 get_service_tier() 재평가:
 ```sql
 -- admin_audit_log (docs/ADMIN_DESIGN.md §4) 재사용
 -- action='master_revoke', target_type='user', target_id=대상 user_id,
--- detail={ 'resulting_tier': 'guest'|'pro'|'premium', 'had_active_subscription': bool }
+-- detail={ 'resulting_tier': 'guest'|'pro', 'had_active_subscription': bool }
 ```
 
 ---

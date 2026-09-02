@@ -8,7 +8,7 @@ const IDLE_PROGRESS: MigrationProgress = {
   phase: 'idle', currentEntity: null, processedRecords: 0, totalRecords: 0, errorMessage: null,
 }
 
-// docs/MIGRATION_DESIGN.md §2 — Guest→Pro/Premium 전환 확인 모달의 상태/액션을 담당하는 훅.
+// docs/MIGRATION_DESIGN.md §2 — Guest→Pro 전환 확인 모달의 상태/액션을 담당하는 훅.
 // 화면(모달 컴포넌트)은 이 훅만 사용하고 마이그레이션 엔진 내부 구조를 몰라도 된다.
 export function useGuestMigration() {
   const [summary, setSummary] = useState<LocalDataSummary | null>(null)

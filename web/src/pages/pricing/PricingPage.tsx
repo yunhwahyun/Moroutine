@@ -8,30 +8,28 @@ import { useAuthStore } from '@/stores/authStore'
 import { useSubscriptionDowngrade } from '@/hooks/useSubscriptionDowngrade'
 import { clearSignupPending, isSignupPending } from '@/lib/signupFlow'
 import { BackIcon } from '@/components/icons'
-import type { PlanCode, SubscriptionPlan } from '@/types'
+import type { SubscriptionPlan } from '@/types'
 
 // docs/SUBSCRIPTION_DESIGN.md §10 결정 필요 항목 — RevenueCat 실계정/스토어 상품이 아직 없어 실제
 // 가격을 동적으로 가져올 방법이 없다(2026-07-19 결정: 플레이스홀더 텍스트로 표시, 실제 상품 확정 후 교체).
-const PLACEHOLDER_PRICE: Record<PlanCode, string> = {
-  pro: '월 ₩4,900 (예시 — 실제 스토어 가격 확정 전)',
-  premium: '월 ₩9,900 (예시 — 실제 스토어 가격 확정 전)',
-}
+const PRO_PRICE_PLACEHOLDER = '월 ₩4,900 (예시 — 실제 스토어 가격 확정 전)'
 
-const PLAN_LABEL: Record<PlanCode, string> = { pro: 'Pro', premium: 'Premium' }
-const PLAN_CODES: PlanCode[] = ['pro', 'premium']
-
-async function fetchPlans(): Promise<Partial<Record<PlanCode, SubscriptionPlan>>> {
-  const { data, error } = await supabase.from('subscription_plans').select('*').eq('is_active', true)
+async function fetchProPlan(): Promise<SubscriptionPlan | null> {
+  const { data, error } = await supabase
+    .from('subscription_plans')
+    .select('*')
+    .eq('code', 'pro')
+    .eq('is_active', true)
+    .maybeSingle()
   if (error) throw error
-  const map: Partial<Record<PlanCode, SubscriptionPlan>> = {}
-  for (const row of data ?? []) map[row.code as PlanCode] = row
-  return map
+  return data
 }
 
 type PurchaseState = 'idle' | 'processing' | 'success' | 'error'
 
-// docs/UI_FLOW.md "요금제 비교 / 결제 진입" — Guest가 가입 유도 목적으로 진입. 한도/기능은
-// subscription_plans에서 동적 로드(마이그레이션 31로 Guest도 조회 가능하게 확장), 가격만 플레이스홀더.
+// docs/UI_FLOW.md "요금제 비교 / 결제 진입" — Guest가 가입 유도 목적으로 진입. Free는 Guest의 실제
+// 권한(GUEST_PERMISSIONS)을 그대로 보여주는 고정 카드, Pro만 subscription_plans에서 동적 로드한다
+// (2026-09-02: Premium 티어 폐지, Pro만 유지 — docs/DECISION_LOG.md 2026-09-02).
 export default function PricingPage() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
@@ -39,21 +37,16 @@ export default function PricingPage() {
   const tier = permissions?.serviceTier ?? 'guest'
   const [purchaseState, setPurchaseState] = useState<PurchaseState>('idle')
   const [purchaseError, setPurchaseError] = useState('')
-  const [pendingPlan, setPendingPlan] = useState<PlanCode | null>(null)
   const { progress: downgradeProgress, start: startDowngrade } = useSubscriptionDowngrade()
   const showContinueFree = !!user && tier === 'guest' && isSignupPending()
 
-  const { data: plans } = useQuery({ queryKey: ['subscription-plans'], queryFn: fetchPlans })
+  const { data: proPlan } = useQuery({ queryKey: ['subscription-plans', 'pro'], queryFn: fetchProPlan })
 
   useEffect(() => {
     return registerBridgeListener((msg) => {
       if (msg.type === 'PURCHASE_RESULT') {
-        if (msg.payload.success) {
-          setPurchaseState('success')
-        } else {
-          setPurchaseState('error')
-          setPurchaseError(msg.payload.error ?? '구매를 완료하지 못했습니다.')
-        }
+        setPurchaseState(msg.payload.success ? 'success' : 'error')
+        if (!msg.payload.success) setPurchaseError(msg.payload.error ?? '구매를 완료하지 못했습니다.')
       }
       if (msg.type === 'RESTORE_RESULT') {
         setPurchaseState(msg.payload.success ? 'success' : 'error')
@@ -62,14 +55,13 @@ export default function PricingPage() {
     })
   }, [])
 
-  const handlePurchase = (planCode: PlanCode) => {
+  const handlePurchase = () => {
     if (!user) {
       navigate('/login')
       return
     }
     setPurchaseState('processing')
-    setPendingPlan(planCode)
-    bridge.requestPurchase({ planCode })
+    bridge.requestPurchase({ planCode: 'pro' })
   }
 
   const handleRestore = () => {
@@ -87,6 +79,9 @@ export default function PricingPage() {
       .catch((err) => console.error('[signup continue free]', err))
   }
 
+  const isProCurrent = tier === 'pro'
+  const showProButton = !isProCurrent && tier !== 'master' && tier !== 'admin'
+
   return (
     <div className="px-6 py-8" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1.5rem)' }}>
       <button
@@ -103,53 +98,64 @@ export default function PricingPage() {
         <div className="bg-gray-50 rounded-lg px-4 py-3 mb-4 text-sm text-gray-600">처리 중이에요...</div>
       )}
       {purchaseState === 'success' && (
-        <div className="bg-green-50 rounded-lg px-4 py-3 mb-4 text-sm text-green-700">
-          {pendingPlan ? `${PLAN_LABEL[pendingPlan]} ` : ''}구독이 완료되었습니다.
-        </div>
+        <div className="bg-green-50 rounded-lg px-4 py-3 mb-4 text-sm text-green-700">Pro 구독이 완료되었습니다.</div>
       )}
       {purchaseState === 'error' && (
         <div className="bg-red-50 rounded-lg px-4 py-3 mb-4 text-sm text-red-600">{purchaseError}</div>
       )}
 
       <div className="grid grid-cols-1 gap-4">
-        {PLAN_CODES.map((code) => {
-          const plan = plans?.[code]
-          const isCurrentPlan = tier === code
-          const showButton = !isCurrentPlan && tier !== 'master' && tier !== 'admin'
-          const buttonLabel =
-            tier === 'pro' && code === 'premium' ? 'Premium으로 업그레이드' : `${PLAN_LABEL[code]} 시작하기`
+        {/* Free */}
+        <div className="border border-gray-200 rounded-2xl p-5 flex flex-col gap-3">
+          <div>
+            <p className="text-base font-bold text-gray-900">
+              Free
+              {tier === 'guest' && <span className="ml-2 text-xs font-normal text-gray-400">현재 요금제</span>}
+            </p>
+            <p className="text-sm text-gray-500 mt-0.5">무료</p>
+          </div>
+          <div className="flex flex-col gap-1.5 text-xs text-gray-600">
+            <p>저장 위치: 이 기기에만 저장</p>
+            <p>개인 단어 한도: 무제한</p>
+            <p>일괄 등록: 불가</p>
+            <p>공용 단어장: 이용 불가</p>
+            <p>기기 간 동기화: 미지원</p>
+          </div>
+        </div>
 
-          return (
-            <div key={code} className="border border-gray-200 rounded-2xl p-5 flex flex-col gap-3">
-              <div>
-                <p className="text-base font-bold text-gray-900">
-                  {PLAN_LABEL[code]}
-                  {isCurrentPlan && <span className="ml-2 text-xs font-normal text-gray-400">현재 요금제</span>}
-                </p>
-                <p className="text-sm text-gray-500 mt-0.5">{PLACEHOLDER_PRICE[code]}</p>
-              </div>
-              <div className="flex flex-col gap-1.5 text-xs text-gray-600">
-                <p>개인 단어 한도: {plan ? (plan.personal_word_limit === null ? '무제한' : `${plan.personal_word_limit}개`) : '-'}</p>
-                <p>일괄 등록: {plan?.bulk_import_enabled ? '가능' : '불가'}</p>
-                <p>공용 단어장: {plan?.public_wordbook_enabled ? '이용 가능' : '이용 불가'}</p>
-                <p>기기 간 동기화: {plan?.sync_enabled ? '지원' : '미지원'}</p>
-              </div>
-              {showButton && (
-                isNative() ? (
-                  <button
-                    onClick={() => handlePurchase(code)}
-                    disabled={purchaseState === 'processing'}
-                    className="w-full py-3 rounded-lg bg-gray-900 text-white text-sm font-medium disabled:opacity-50"
-                  >
-                    {buttonLabel}
-                  </button>
-                ) : (
-                  <p className="text-xs text-gray-400 text-center py-2">모바일 앱에서 구독을 시작할 수 있어요.</p>
-                )
-              )}
-            </div>
-          )
-        })}
+        {/* Pro */}
+        <div className="border border-gray-200 rounded-2xl p-5 flex flex-col gap-3">
+          <div>
+            <p className="text-base font-bold text-gray-900">
+              Pro
+              {isProCurrent && <span className="ml-2 text-xs font-normal text-gray-400">현재 요금제</span>}
+            </p>
+            <p className="text-sm text-gray-500 mt-0.5">{PRO_PRICE_PLACEHOLDER}</p>
+          </div>
+          <div className="flex flex-col gap-1.5 text-xs text-gray-600">
+            <p>저장 위치: 클라우드 동기화</p>
+            <p>
+              개인 단어 한도:{' '}
+              {proPlan ? (proPlan.personal_word_limit === null ? '무제한' : `${proPlan.personal_word_limit}개`) : '-'}
+            </p>
+            <p>일괄 등록: {proPlan?.bulk_import_enabled ? '가능' : '불가'}</p>
+            <p>공용 단어장: {proPlan?.public_wordbook_enabled ? '이용 가능' : '이용 불가'}</p>
+            <p>기기 간 동기화: {proPlan?.sync_enabled ? '지원' : '미지원'}</p>
+          </div>
+          {showProButton && (
+            isNative() ? (
+              <button
+                onClick={handlePurchase}
+                disabled={purchaseState === 'processing'}
+                className="w-full py-3 rounded-lg bg-gray-900 text-white text-sm font-medium disabled:opacity-50"
+              >
+                Pro 시작하기
+              </button>
+            ) : (
+              <p className="text-xs text-gray-400 text-center py-2">모바일 앱에서 구독을 시작할 수 있어요.</p>
+            )
+          )}
+        </div>
       </div>
 
       {isNative() && (

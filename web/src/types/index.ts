@@ -180,7 +180,7 @@ export type UserSettings = {
 export type AccountRole = 'user' | 'admin'
 export type SpecialAccess = 'none' | 'master'
 
-export type PlanCode = 'pro' | 'premium'
+export type PlanCode = 'pro'
 export type SubscriptionStatus = 'active' | 'grace_period' | 'billing_retry' | 'expired' | 'revoked'
 
 export type Subscription = {
@@ -209,7 +209,7 @@ export type SubscriptionPlan = {
   is_active: boolean
 }
 
-export type ServiceTier = 'guest' | 'pro' | 'premium' | 'master' | 'admin'
+export type ServiceTier = 'guest' | 'pro' | 'master' | 'admin'
 
 export type Permissions = {
   serviceTier: ServiceTier

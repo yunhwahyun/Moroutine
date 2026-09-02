@@ -19,7 +19,7 @@ import type { PublicWordbook } from '@/types'
 // 노출된다(LANG_LABEL에 매핑이 없어 원본 문자열로 폴백) — 알 수 없는 값이면 비워서 복사한다.
 const VALID_LANGUAGES = new Set(['en-ko', 'ja-ko', 'zh-ko'])
 
-// docs/ADMIN_DESIGN.md §3 — Pro/Premium/Master 전용, Guest는 애초에 접근 불가.
+// docs/ADMIN_DESIGN.md §3 — Pro/Master 전용, Guest는 애초에 접근 불가.
 // docs/DECISION_LOG.md 2026-09-02 — "담기"는 열람 등록(enrollment) 토글이 아니라, 공용 단어장을
 // 사용자의 개인 wordbooks/words로 실제 복사하는 동작이다. 복사된 뒤에는 원본과 완전히 분리된
 // 개인 단어장이 되어(자유롭게 수정/삭제/추가), 원본이 나중에 수정돼도 더 이상 반영되지 않는다.
@@ -87,7 +87,7 @@ export default function PublicWordbookListPage() {
   if (!canUse) {
     return (
       <div className="flex flex-col items-center justify-center py-20 px-6 gap-3 text-center">
-        <p className="text-sm font-semibold text-gray-900">Pro/Premium/Master 전용 기능입니다</p>
+        <p className="text-sm font-semibold text-gray-900">Pro/Master 전용 기능입니다</p>
         <p className="text-xs text-gray-400">공용 단어장은 요금제를 업그레이드하면 이용할 수 있어요.</p>
         <button
           onClick={() => navigate('/pricing')}

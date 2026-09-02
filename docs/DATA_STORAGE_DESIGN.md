@@ -9,7 +9,7 @@
 ## 1. 확정 정책
 
 - Guest는 회원가입 없이 모든 개인 데이터를 **현재 기기의 로컬 저장소**에 저장한다. Supabase 사용자 DB에는 어떤 개인 데이터도 저장하지 않는다.
-- Pro/Premium/Master는 모든 개인 데이터를 Supabase DB/Storage에 저장한다.
+- Pro/Master는 모든 개인 데이터를 Supabase DB/Storage에 저장한다.
 - Guest 단어 등록 수는 인위적으로 제한하지 않는다. 로컬 저장 환경/용량이 사실상의 한계다.
 - 화면 컴포넌트는 데이터가 LocalDB에서 오는지 Supabase에서 오는지 알 필요가 없다 — Repository 계층으로 완전히 추상화.
 
@@ -138,7 +138,7 @@ class AdminContentRepository { /* public_wordbooks/public_words 전용, DataRepo
 function getRepository(tier: ServiceTier): DataRepository {
   switch (tier) {
     case 'guest': return localDataRepository
-    case 'pro': case 'premium': case 'master': return remoteDataRepository
+    case 'pro': case 'master': return remoteDataRepository
     case 'admin': throw new Error('Admin은 AdminContentRepository를 별도로 사용')
   }
 }
@@ -241,7 +241,7 @@ class LocalDB extends Dexie {
 |---|---|---|
 | 트랜잭션 | Dexie `db.transaction('rw', [...tables], async () => {...})` | RPC 함수 내 Postgres 트랜잭션(§4-2 `create_words_checked` 등) 또는 PostgREST 단건 요청 |
 | 에러 처리 | 저장 실패 시 사용자에게 재시도 유도, 용량 부족(QuotaExceededError) 별도 안내 | 네트워크 오류/RLS 거부/RPC 예외를 구분해 사용자 메시지 매핑 |
-| 오프라인 | Guest는 원래 오프라인 우선(로컬이 정본이므로 네트워크 불필요) | Pro/Premium/Master는 §25 동기화 정책의 오프라인 작업 큐 적용(MVP는 "오프라인 시 저장 실패 안내 + 재시도" 수준, 큐잉은 고도화 항목) |
+| 오프라인 | Guest는 원래 오프라인 우선(로컬이 정본이므로 네트워크 불필요) | Pro/Master는 §25 동기화 정책의 오프라인 작업 큐 적용(MVP는 "오프라인 시 저장 실패 안내 + 재시도" 수준, 큐잉은 고도화 항목) |
 | 캐시 정책 | 로컬이 정본이므로 별도 캐시 계층 불필요 | TanStack Query 캐시(기존 방식 유지), `staleTime`은 화면별 기존 값 유지 |
 
 ---
@@ -249,15 +249,15 @@ class LocalDB extends Dexie {
 ## 13. 데이터 내보내기 / 가져오기 (§20) ✅ 구현 완료(2026-07-19)
 
 **스코프 컷**: `docs/UI_FLOW.md` §3 등급별 표에서 "가져오기"/"로컬 데이터 초기화"는 Guest에만 있고
-Pro/Premium/Master는 "내보내기"만 있다 — Supabase가 이미 정본이라 별도 가져오기 UI가 필요 없기
+Pro/Master는 "내보내기"만 있다 — Supabase가 이미 정본이라 별도 가져오기 UI가 필요 없기
 때문. 그래서 **가져오기는 Guest(로컬) 전용으로만 구현**했다(`docs/DECISION_LOG.md` 2026-07-19).
 구현: `web/src/lib/dataExport.ts`(`buildBackup`/`downloadJson`/`downloadWordsCsv`/`parseBackupFile`/
 `importBackupToLocal`/`clearAllLocalData`), `web/src/pages/settings/SettingsPage.tsx`의 "데이터" 섹션.
-Guest 쪽 전체 스냅샷은 Phase 15의 `readLocalSnapshot()`을 그대로 재사용, Remote(Pro/Premium/Master)
+Guest 쪽 전체 스냅샷은 Phase 15의 `readLocalSnapshot()`을 그대로 재사용, Remote(Pro/Master)
 쪽은 Phase 16의 `remoteToLocalMigration.ts`와 동일한 패턴(직접 Supabase 조회)으로 모은다.
 **Playwright 실브라우저 검증**: Guest로 단어장/단어 생성 → JSON 백업 다운로드 → 로컬 데이터 초기화
 → 방금 받은 백업 파일로 가져오기 → 원래 데이터가 그대로 복원됨을 IndexedDB에서 직접 확인, CSV
-내보내기도 헤더/데이터 행 정확히 생성 확인, 콘솔 에러 0건. **한계**: Pro/Premium/Master의 "내보내기"는
+내보내기도 헤더/데이터 행 정확히 생성 확인, 콘솔 에러 0건. **한계**: Pro/Master의 "내보내기"는
 실제 계정이 없어 직접 검증 못함(코드 리뷰로 정확성 신뢰).
 
 ### 13-1. 포맷

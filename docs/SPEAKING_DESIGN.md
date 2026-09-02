@@ -19,7 +19,7 @@ TTS 발음 듣기       (기존 useTTS 훅 그대로 재사용)
 다시 녹음
 ```
 
-스피킹 문장은 관리자가 배포하는 콘텐츠가 아니라 **사용자 개인 데이터**다. 단어장/단어와 동일하게 Guest는 로컬에, Pro/Premium/Master는 서버에 저장한다(`docs/DATA_STORAGE_DESIGN.md` §2). 이전 버전에 있던 "관리자 과제 배정(`speaking_tasks`)", "오늘의 과제", "Beta/Free/Premium 접근 제한"은 전부 폐지 — **모든 등급(Guest 포함)이 스피킹 기능을 사용할 수 있다.** 등급에 따라 달라지는 것은 오직 저장 위치(로컬 vs 서버)뿐이다.
+스피킹 문장은 관리자가 배포하는 콘텐츠가 아니라 **사용자 개인 데이터**다. 단어장/단어와 동일하게 Guest는 로컬에, Pro/Master는 서버에 저장한다(`docs/DATA_STORAGE_DESIGN.md` §2). 이전 버전에 있던 "관리자 과제 배정(`speaking_tasks`)", "오늘의 과제", "Beta/Free/Premium 접근 제한"은 전부 폐지 — **모든 등급(Guest 포함)이 스피킹 기능을 사용할 수 있다.** 등급에 따라 달라지는 것은 오직 저장 위치(로컬 vs 서버)뿐이다.
 
 ---
 
@@ -62,7 +62,7 @@ Moroutine
 
 ## 4. 데이터 모델
 
-### 4-1. Remote (Supabase) — Pro/Premium/Master
+### 4-1. Remote (Supabase) — Pro/Master
 
 ```sql
 -- 마이그레이션 19(신규) — speaking_sentences
@@ -154,7 +154,7 @@ Guest는 Supabase Storage를 사용하지 않고 IndexedDB `recordingBlobs`에 B
 | 녹음 개수 | 문장당 1개 |
 | 다시 녹음 | 기존 녹음 덮어쓰기(UPSERT, 이력 보관 안 함) |
 | Guest 녹음 저장 위치 | 로컬 파일 시스템(IndexedDB Blob) |
-| Pro/Premium/Master 녹음 저장 위치 | Supabase Storage |
+| Pro/Master 녹음 저장 위치 | Supabase Storage |
 | 오디오 포맷 | Web: `audio/webm;codecs=opus` → `.webm` / Native Bridge: `audio/m4a` → `.m4a` (MIME Type 처리 기존 설계 유지) |
 | 녹음 파일 보관기간 | **결정 필요**(§9) — 평가 기능이 없어 이전 버전의 "7일 후 자동 삭제(Azure 비용 절감 목적)" 근거가 사라짐. 사용자가 자신의 녹음을 계속 듣고 싶어할 가능성이 높아 기본값은 "문장이 삭제될 때까지 보존"으로 잠정하되, Storage 비용 관리를 위한 TTL 재도입 여부는 별도 결정 |
 

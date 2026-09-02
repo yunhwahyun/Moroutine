@@ -13,9 +13,8 @@ import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2'
 const GRACE_PERIOD_DAYS = 16 // docs/SUBSCRIPTION_DESIGN.md §10 확정값 (Google Play 기본값)
 const RETENTION_MONTHS = 3
 
-const ENTITLEMENT_TO_PLAN: Record<string, 'pro' | 'premium'> = {
+const ENTITLEMENT_TO_PLAN: Record<string, 'pro'> = {
   pro: 'pro',
-  premium: 'premium',
 }
 
 type RevenueCatEvent = {
@@ -35,13 +34,12 @@ type SubscriptionRow = {
   billing_retry_started_at: string | null
 }
 
-function resolvePlanCode(event: RevenueCatEvent): 'pro' | 'premium' | null {
+function resolvePlanCode(event: RevenueCatEvent): 'pro' | null {
   for (const id of event.entitlement_ids ?? []) {
     const mapped = ENTITLEMENT_TO_PLAN[id]
     if (mapped) return mapped
   }
   const productId = event.product_id ?? ''
-  if (productId.includes('premium')) return 'premium'
   if (productId.includes('pro')) return 'pro'
   return null
 }

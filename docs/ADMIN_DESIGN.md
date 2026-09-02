@@ -86,7 +86,7 @@ throw를 우회하고 `remoteDataRepository`를 직접 사용). 관리자가 저
 단순화 요청에 따라 하나로 통합했다(마이그레이션 36) — `status`가 `'draft'|'default'|'published'|'archived'`
 4가지 값만 가지며, 예전 `is_sample=true`(+`status='published'`)의 의미를 `status='default'`(기본) 하나가
 대신한다. `default` 단어장은 `anon`(비로그인) role에도 RLS SELECT가 열려 있고(원래 공용 단어장은
-pro/premium/master 전용, Guest는 `canUsePublicWordbooks=false`), 동시에 pro/premium/master의 공용 단어장
+pro/master 전용, Guest는 `canUsePublicWordbooks=false`), 동시에 pro/master의 공용 단어장
 목록 조회에서도 `published`와 동등하게 노출된다(§3-4). Guest 클라이언트는 이 권한 모델 자체를 바꾸지
 않고 — 즉 Guest가 공용 단어장 열람/등록(enrollment) 기능을 상시로 쓰게 된 것은 아니고 — 앱 최초 진입 시
 1회(`SampleWordbookSeedGate`, `web/src/lib/sampleWordbookSeed.ts`) `default` 단어장을 자신의 로컬
@@ -254,6 +254,11 @@ Admin은 개인 데이터 테이블(`wordbooks`/`words`/`study_sessions`/`schedu
 > `default`가 `published`와 동등하게 사용자에게 노출되어야 하므로). 마이그레이션 33이 추가한
 > `is_sample=true` 기반 anon 정책 2건도 `status = 'default'` 단일 조건으로 교체됐다. 원문(위 코드
 > 블록)은 마이그레이션 17 당시 기록을 그대로 남겨둔다.
+>
+> **2026-09-02(마이그레이션 37)**: Premium 티어 폐지로 위 `public_wordbooks_select`/`public_words_select`
+> 및 `enrollments_all`/`public_word_progress_all`(§3-3 이전, 마이그레이션 18) 정책들의
+> `get_service_tier(auth.uid()) IN ('pro', 'premium', 'master')` 조건에서 `'premium'`이 빠지고
+> `IN ('pro', 'master')`가 됐다(`docs/DECISION_LOG.md` 2026-09-02).
 
 ---
 

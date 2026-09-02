@@ -71,7 +71,7 @@ export default function PublicWordbookViewPage() {
   if (!canUse) {
     return (
       <div className="flex flex-col items-center justify-center py-20 px-6 gap-3 text-center">
-        <p className="text-sm font-semibold text-gray-900">Pro/Premium/Master 전용 기능입니다</p>
+        <p className="text-sm font-semibold text-gray-900">Pro/Master 전용 기능입니다</p>
         <p className="text-xs text-gray-400">공용 단어장은 요금제를 업그레이드하면 이용할 수 있어요.</p>
         <button
           onClick={() => navigate('/pricing')}

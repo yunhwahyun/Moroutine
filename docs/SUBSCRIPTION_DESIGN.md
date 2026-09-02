@@ -6,16 +6,21 @@
 
 ---
 
-## 1. Pro / Premium 확정 정책
+## 1. Pro 확정 정책
 
-| 항목 | Pro | Premium |
-|---|---|---|
-| 가입 | 로그인 필수 | 로그인 필수 |
-| 저장 위치 | Supabase DB + Storage | Supabase DB + Storage |
-| 기기 간 동기화 | O | O |
-| 개인 단어 총등록 수 제한 | **있음** (`subscription_plans.pro.personal_word_limit`) | **없음**(`null`) |
-| 단어 일괄 등록 | O (한도 내) | O(무제한) |
-| 공용 단어장 이용 | O | O |
+> **2026-09-02**: Premium 티어는 폐지됐다(실 구독자 없이 제거, `docs/DECISION_LOG.md` 2026-09-02) —
+> 유료 요금제는 Pro 하나뿐이다. 이 문서 전체에서 "Premium"을 전제로 한 전이(§5-2, §7-2, §8-2 등)는
+> 더 이상 발생하지 않는다. 아래 §1 표를 포함해 원문에 남아있던 Pro/Premium 비교는 참고용으로 일부
+> 남겨두되, 실제로 유효한 경로만 본문에 반영했다.
+
+| 항목 | Pro |
+|---|---|
+| 가입 | 로그인 필수 |
+| 저장 위치 | Supabase DB + Storage |
+| 기기 간 동기화 | O |
+| 개인 단어 총등록 수 제한 | `subscription_plans.pro.personal_word_limit`(값 미확정, §10) |
+| 단어 일괄 등록 | O (한도 내) |
+| 공용 단어장 이용 | O |
 
 Pro 제한 포함/제외 대상(§4 참고 원문 그대로 확정):
 
@@ -34,7 +39,7 @@ expired        → 최종 구독 만료, 권한 종료 트리거
 revoked        → 환불/강제 취소, 권한 즉시 종료 트리거
 ```
 
-`get_service_tier()`(`docs/PERMISSION_DESIGN.md` §4-4)는 `active`/`grace_period`/`billing_retry` 3개 상태를 모두 "활성 구독"으로 취급해 Pro/Premium 권한을 유지한다. `expired`/`revoked`는 §6 만료 처리 절차를 트리거한다.
+`get_service_tier()`(`docs/PERMISSION_DESIGN.md` §4-4)는 `active`/`grace_period`/`billing_retry` 3개 상태를 모두 "활성 구독"으로 취급해 Pro 권한을 유지한다. `expired`/`revoked`는 §6 만료 처리 절차를 트리거한다.
 
 **확정(2026-07-18)**: Grace Period = **16일**(Google Play 기본값, iOS는 App Store가 자체적으로 최대 60일까지 재시도하므로 서버 값은 상한선 역할만 함). billing_retry 최대 기간 = **30일**(스토어 표준 재시도 주기) — 이 기간이 지나면 자동으로 `expired` 처리해야 하나, 실제 자동 전환용 스케줄 Edge Function(`subscription-retry-timeout`)은 Phase 18의 `retention-cleanup`과 같은 성격(pg_cron 등록 필요)이라 이번 스캐폴딩에서는 판단에 필요한 `subscriptions.billing_retry_started_at` 컬럼(마이그레이션 27)만 준비하고, 실제 크론 등록은 이후 세션으로 이월한다.
 
@@ -135,14 +140,14 @@ BEGIN
   END IF;
 
   v_tier := get_service_tier(v_user_id);
-  IF v_tier NOT IN ('pro', 'premium', 'master') THEN
-    RAISE EXCEPTION 'only pro/premium/master can register words via this function';
+  IF v_tier NOT IN ('pro', 'master') THEN
+    RAISE EXCEPTION 'only pro/master can register words via this function';
   END IF;
 
   -- 동시 등록 Race Condition 방지: 사용자 단위 advisory lock (트랜잭션 종료 시 자동 해제)
   PERFORM pg_advisory_xact_lock(hashtext(v_user_id::text));
 
-  -- premium/master는 subscription_plans 조회 없이 항상 무제한(IF 분기로 명시 — SELECT 결과가
+  -- master는 subscription_plans 조회 없이 항상 무제한(IF 분기로 명시 — SELECT 결과가
   -- 우연히 NULL이 아니게 되는 실수를 원천 차단)
   IF v_tier = 'pro' THEN
     SELECT personal_word_limit INTO v_limit FROM subscription_plans WHERE code = 'pro';
@@ -195,22 +200,22 @@ $$;
 - 오류 행: `.txt` 파싱 시 단어/뜻 중 하나라도 비어있는 줄.
 - 이 사전 계산은 UX용이며 최종 판정은 항상 RPC(서버)가 내린다(클라이언트 계산과 서버 계산이 어긋나면 서버가 우선 — 동시 등록 등으로 어긋날 경우 서버의 `blocked` 응답을 그대로 노출).
 - 단건 등록("+ 추가" 폼)도 동일하게 한도 대상이며, 초과 시 폼 하단에 에러 메시지로 안내(별도 미리보기 없이 즉시 실패 처리 — 1건이라 미리보기의 실익이 낮음).
-- Pro 등급에서는 `/wordbooks` 목록 화면 상단에 "개인 단어 N/한도개" 상시 배너를 노출하고, 한도 도달 시 Premium 업그레이드 유도 문구 + `/pricing`(Phase 21 placeholder) 링크를 표시한다.
+- Pro 등급에서는 `/wordbooks` 목록 화면 상단에 "개인 단어 N/한도개" 상시 배너를 노출한다. **2026-09-02**: Pro가 유일한 유료 요금제가 되면서 한도 도달 시 안내할 상위 요금제가 없어졌으므로, 기존에 있던 업그레이드 유도 CTA(`/pricing` 링크)는 제거하고 한도 도달 사실만 안내한다.
 
 **Playwright 실브라우저 검증(2026-07-18)**: 미리보기 계산 로직 자체는 tier와 무관한 순수 UI 코드라 Guest 경로에서 게이트를 임시로 우회해 검증(검증 후 즉시 원복) — 기존 단어 1개 + 업로드 파일(정상 3행/중복 2행/오류 1행) 조합에서 "현재 1개/추가 예정 3개/중복 제외 2개/오류 행 1개/등록 후 예상 4개"가 정확히 계산되고, 등록 후 실제 단어 수도 예상과 정확히 일치함을 확인. **다만 RPC 자체의 서버측 한도 차단(`blocked=true` 응답)은 실제 Pro 등급 Supabase 계정이 없어 이 세션에서는 직접 검증하지 못했다** — SQL 로직 리뷰로 정확성을 신뢰하고 있으나, 실제 Pro 계정으로 사후 검증을 권장한다.
 
 ---
 
-## 5. Guest → Pro/Premium 전환
+## 5. Guest → Pro 전환
 
 정책 절차(11단계, §9 원문)와 데이터 이전 엔진은 `docs/MIGRATION_DESIGN.md` §2 참고. 이 문서에서는 구독 관점의 트리거 조건만 기술.
 
 ```text
-1. Pro/Premium 상품 선택
+1. Pro 상품 선택
 2. 회원가입 또는 로그인 (Supabase Auth 계정 신규 생성)
 3. RevenueCat 결제 → Webhook 수신 → subscriptions 행 생성(§3)
 4. 클라이언트가 subscriptions 활성 상태를 폴링 또는 딜레이 후 재조회해 Entitlement 확정
-   (Webhook 도달 전 클라이언트가 낙관적으로 Premium을 가정하지 않는다 — 서버 확정 대기)
+   (Webhook 도달 전 클라이언트가 낙관적으로 활성 상태를 가정하지 않는다 — 서버 확정 대기)
 5~11. docs/MIGRATION_DESIGN.md §2 참고
 ```
 
@@ -221,16 +226,13 @@ $$;
 이전된 단어: 조회 / 학습 / 수정 / 삭제 가능
 신규 등록(개별/일괄/CSV/복사/API)만 차단 — §4-2 RPC의 blocked=true 응답으로 자연스럽게 처리됨
 개인 단어 수가 한도 이하로 내려가면(삭제 등으로) 신규 등록 자동 재허용
-Premium 업그레이드 안내 노출
 ```
 
 이전 자체는 한도를 검증하지 않는 별도 경로(`migrate_guest_words` RPC, `docs/MIGRATION_DESIGN.md` §3)를 사용한다 — §4-2의 `create_words_checked`는 신규 등록 전용이며 마이그레이션에는 사용하지 않는다(마이그레이션은 한도를 무시하고 전량 이전해야 하므로).
 
-화면 표시 항목: 현재 개인 단어 수 / Pro 단어 한도 / 초과 단어 수 / 신규 등록 제한 상태 / Premium 업그레이드 버튼.
+화면 표시 항목: 현재 개인 단어 수 / Pro 단어 한도 / 초과 단어 수 / 신규 등록 제한 상태(2026-09-02: 안내할 상위 요금제가 없어 업그레이드 버튼은 제거, §4-2 참고).
 
-### 5-2. Guest → Premium 전환
-
-한도 개념이 없으므로 전량 이전 후 즉시 신규 등록 허용. 대량 데이터·녹음 파일 이전 포함(`docs/MIGRATION_DESIGN.md` §2-3).
+> **2026-09-02**: 원문의 "5-2. Guest → Premium 전환"(한도 없이 전량 이전) 절은 Premium 폐지로 삭제됐다.
 
 ---
 
@@ -280,7 +282,7 @@ Guest로 전환된 이후에는 등록 제한이 없다(§3.4 Guest 정책과 �
 
 ---
 
-## 7. Pro/Premium 복원 (3개월 이내, §18.1)
+## 7. Pro 복원 (3개월 이내, §18.1)
 
 > **이월(2026-07-18)**: 이 절의 병합 로직은 이번 Phase 16 스캐폴딩 범위에서 제외했다. 중복 판정 UI,
 > 기기 선택 UX가 §7-1/§7-2 자체에 "결정 필요"로 남아 있어(아래 §10, `docs/MIGRATION_DESIGN.md` §9),
@@ -295,14 +297,11 @@ Guest 로컬 데이터(만료 후 계속 등록된 것 포함) 이전 가능
 기존 서버 단어 + 이전된 로컬 단어 모두 유지, 중복 제거하여 병합
 신규 등록만 차단 (한도 초과 상태 유지 시)
 한도 이하가 되면 신규 등록 재허용
-Premium 업그레이드 안내
 ```
 
 병합/중복 제거 알고리즘, Idempotency Key 처리는 `docs/MIGRATION_DESIGN.md` §6(3개월 이내 복원) 참고.
 
-### 7-2. Premium 복원
-
-한도 없음 → 모든 로컬 데이터를 제한 없이 병합, 신규 등록 즉시 허용.
+> **2026-09-02**: 원문의 "7-2. Premium 복원"(한도 없이 전량 병합) 절은 Premium 폐지로 삭제됐다.
 
 ---
 
@@ -315,37 +314,31 @@ Premium 업그레이드 안내
 | 전이 | 발생조건 | 인증상태 변화 | 저장모드 변화 | 데이터 이전 방향 | 사용자 확인 | 단어 한도 처리 | 실패 롤백 | 알림 | 로그아웃 |
 |---|---|---|---|---|---|---|---|---|---|
 | Guest→Pro | 결제 성공 + Webhook 확정 | anonymous→authenticated | Local→Remote | 로컬→서버(전량) | 필수(§9 안내) | 초과 시 신규 차단(§5-1) | 부분 실패 시 로컬 유지+재시도, 성공 검증 전 로컬 삭제 금지 | 없음(즉시 전환) | 없음 |
-| Guest→Premium | 결제 성공 + Webhook 확정 | anonymous→authenticated | Local→Remote | 로컬→서버(전량, 제한없음) | 필수 | 없음 | 동일 | 없음 | 없음 |
 | Guest→Master | Admin이 이메일로 초대 후 사용자가 초대 수락 | anonymous→authenticated(신규 가입) | Local→Remote(선택적, 이전 시점에 로컬 데이터 있으면 §9 절차 재사용) | 로컬→서버(전량, 제한없음) | 필수 | 없음 | 동일 | 초대 메일 | 없음 |
 
 ### 8-2. Pro ↔ Premium
 
-| 전이 | 발생조건 | 결제상태 | 데이터 이전 | 단어 한도 처리 | 서버데이터 보존 | UI 변경 |
-|---|---|---|---|---|---|---|
-| Pro→Premium | 업그레이드 결제 | 기존 Pro 구독 canceled → Premium 구독 active | 이전 불필요(동일 Remote, 행 재사용) | 한도 해제, 즉시 무제한 | 그대로 유지 | 한도 표시 UI 제거 |
-| Premium→Pro | 다운그레이드(사용자 선택 또는 결제 실패로 인한 강제 다운그레이드는 §6 만료 절차를 따름 — 여기서는 자발적 다운그레이드만) | 기존 Premium 구독 canceled → Pro 구독 active | 이전 불필요 | 즉시 한도 검증 적용. **기존 단어 수가 Pro 한도를 초과해도 삭제하지 않음** — §5-1과 동일한 "신규 등록만 차단" 규칙 적용 | 그대로 유지 | 한도 초과 시 §5-1 UI 노출 |
+> **2026-09-02**: Premium 폐지로 이 절은 더 이상 발생하지 않는 전이다(유료 요금제가 Pro 하나뿐이라
+> 요금제 간 업/다운그레이드 자체가 없음). 원문은 삭제.
 
 ### 8-3. 유료/Master → Guest
 
 | 전이 | 발생조건 | 처리 | 참고 |
 |---|---|---|---|
 | Pro→Guest | 구독 expired/revoked | §6 절차 | — |
-| Premium→Guest | 구독 expired/revoked | §6 절차 | — |
 | Master→Guest | Admin이 Master 권한 해제 **+ 유효한 유료 구독 없음** | `docs/MASTER_INVITATION_DESIGN.md` §4 절차(§6 절차와 동일한 로컬 이전 후 Guest 전환) | 유료 구독이 있으면 아래 8-4 참고 |
 
 ### 8-4. Master 해제 시 유료 구독 존재
 
 | 전이 | 발생조건 | 처리 |
 |---|---|---|
-| Master→Premium | Master 해제 + 유효 Premium 구독 존재 | `special_access='none'`으로 변경만 하고 Remote 유지, 재로그인/재이전 불필요(`get_service_tier`가 자동으로 premium 반환) |
-| Master→Pro | Master 해제 + 유효 Pro 구독 존재(Premium 없음) | 동일하되, 기존 단어 수가 Pro 한도 초과 시 §5-1 규칙 적용(삭제 없이 신규 등록만 차단) |
+| Master→Pro | Master 해제 + 유효 Pro 구독 존재 | `special_access='none'`으로 변경만 하고 Remote 유지, 재로그인/재이전 불필요(`get_service_tier`가 자동으로 pro 반환). 기존 단어 수가 Pro 한도 초과 시 §5-1 규칙 적용(삭제 없이 신규 등록만 차단) |
 
 ### 8-5. Master 승격
 
 | 전이 | 발생조건 | 처리 |
 |---|---|---|
-| Pro→Master | Admin이 기존 Pro 유료 사용자를 Master로 지정 | `special_access='master'` 부여. 기존 Pro 구독은 그대로 두거나(중복 유료 결제 낭비 방지를 위해 Admin이 사용자에게 구독 해지를 안내) 유지해도 무방 — `get_service_tier`가 Master를 Premium보다 우선하므로 실사용 권한에는 영향 없음. 결제 이중 부담 방지는 **결정 필요**(자동 환불/해지 연동 여부) |
-| Premium→Master | 동일 | 동일 |
+| Pro→Master | Admin이 기존 Pro 유료 사용자를 Master로 지정 | `special_access='master'` 부여. 기존 Pro 구독은 그대로 두거나(중복 유료 결제 낭비 방지를 위해 Admin이 사용자에게 구독 해지를 안내) 유지해도 무방 — `get_service_tier`가 Master를 Pro보다 우선하므로 실사용 권한에는 영향 없음. 결제 이중 부담 방지는 **결정 필요**(자동 환불/해지 연동 여부) |
 
 ### 8-6. 계정 역할 전이
 
@@ -358,8 +351,7 @@ Premium 업그레이드 안내
 
 ## 9. 설정 화면 반영 (§23 발췌)
 
-- Pro: 개인 단어 현재 수 / 한도 / 신규 등록 가능 여부 / 마지막 동기화 시간 / Premium 업그레이드 / 구독 관리 / 데이터 내보내기.
-- Premium: 무제한 표시 / 동기화 상태 / 구독 관리 / 데이터 내보내기.
+- Pro: 개인 단어 현재 수 / 한도 / 신규 등록 가능 여부 / 마지막 동기화 시간 / 구독 관리 / 데이터 내보내기.
 - Master: 결제 관리 메뉴 비노출, 무제한 표시, 동기화 상태.
 
 상세 화면 목록은 `docs/UI_FLOW.md` 참고.
