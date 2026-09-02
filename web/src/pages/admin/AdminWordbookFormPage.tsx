@@ -57,28 +57,30 @@ export default function AdminWordbookFormPage() {
             placeholder="단어장 이름"
             className={INPUT_CLASS}
           />
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            className={`${INPUT_CLASS} bg-white text-gray-700`}
-          >
-            {LANG_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as PublicWordbookStatus)}
-            className={`${INPUT_CLASS} bg-white text-gray-700`}
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex gap-2">
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className={`${INPUT_CLASS} bg-white text-gray-700 flex-1`}
+            >
+              {LANG_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as PublicWordbookStatus)}
+              className={`${INPUT_CLASS} bg-white text-gray-700 flex-1`}
+            >
+              {STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {error && <p className="text-xs text-red-500">{(error as { message?: string })?.message ?? '생성에 실패했습니다.'}</p>}
 

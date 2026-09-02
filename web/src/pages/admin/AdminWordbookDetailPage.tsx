@@ -191,28 +191,30 @@ export default function AdminWordbookDetailPage() {
             placeholder="단어장 이름"
             className={`${INPUT_CLASS} font-medium`}
           />
-          <select
-            value={metaForm.language}
-            onChange={(e) => setMetaForm({ ...metaForm, language: e.target.value })}
-            className={`${INPUT_CLASS} bg-white text-gray-700`}
-          >
-            {LANG_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as PublicWordbookStatus)}
-            className={`${INPUT_CLASS} bg-white text-gray-700`}
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex gap-2">
+            <select
+              value={metaForm.language}
+              onChange={(e) => setMetaForm({ ...metaForm, language: e.target.value })}
+              className={`${INPUT_CLASS} bg-white text-gray-700 flex-1`}
+            >
+              {LANG_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as PublicWordbookStatus)}
+              className={`${INPUT_CLASS} bg-white text-gray-700 flex-1`}
+            >
+              {STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <button
             onClick={() => saveMeta()}
             disabled={!metaForm.title.trim() || isSavingMeta}
