@@ -115,11 +115,10 @@ export default function PricingPage() {
             <p className="text-sm text-gray-500 mt-0.5">무료</p>
           </div>
           <div className="flex flex-col gap-1.5 text-xs text-gray-600">
-            <p>저장 위치: 이 기기에만 저장</p>
+            <p>저장 위치: 이 기기에만 저장(다른 기기와 동기화 안 됨)</p>
             <p>개인 단어 한도: 무제한</p>
             <p>일괄 등록: 불가</p>
             <p>공용 단어장: 이용 불가</p>
-            <p>기기 간 동기화: 미지원</p>
           </div>
         </div>
 
@@ -133,14 +132,13 @@ export default function PricingPage() {
             <p className="text-sm text-gray-500 mt-0.5">{PRO_PRICE_PLACEHOLDER}</p>
           </div>
           <div className="flex flex-col gap-1.5 text-xs text-gray-600">
-            <p>저장 위치: 클라우드 동기화</p>
+            <p>저장 위치: {proPlan?.sync_enabled ? '클라우드 저장(다른 기기에서도 동기화)' : '클라우드 저장'}</p>
             <p>
               개인 단어 한도:{' '}
               {proPlan ? (proPlan.personal_word_limit === null ? '무제한' : `${proPlan.personal_word_limit}개`) : '-'}
             </p>
             <p>일괄 등록: {proPlan?.bulk_import_enabled ? '가능' : '불가'}</p>
             <p>공용 단어장: {proPlan?.public_wordbook_enabled ? '이용 가능' : '이용 불가'}</p>
-            <p>기기 간 동기화: {proPlan?.sync_enabled ? '지원' : '미지원'}</p>
           </div>
           {showProButton && (
             isNative() ? (

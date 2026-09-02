@@ -273,7 +273,9 @@ Pro를 시작하면 데이터를 계정에 저장하고 다른 기기에서도 �
 - Guest가 설정의 "요금제 보기"에서 진입(§0 라우팅상 로그인 없이도 접근 가능한 공개 라우트).
 - Free vs Pro 비교표(2026-09-02: Premium 폐지로 Pro/Premium 비교에서 Free/Pro 비교로 전환,
   `docs/DECISION_LOG.md` 2026-09-02) — Free 카드는 Guest 권한(`GUEST_PERMISSIONS`)을 그대로 보여주는
-  고정 카드, Pro 카드만 `subscription_plans`에서 동적 로드(단어 한도/일괄 등록/공용 단어장/동기화).
+  고정 카드, Pro 카드만 `subscription_plans`에서 동적 로드(단어 한도/일괄 등록/공용 단어장). "저장 위치"
+  한 줄에 동기화 여부까지 함께 표기(이 앱에서는 저장 위치와 동기화가 1:1로 묶여 있어 별도 행으로
+  중복 표시하지 않음, 사용자 지적으로 2026-09-02 통합).
   **마이그레이션 31 필요**: 이 테이블의 기존 RLS SELECT 정책이 `TO authenticated`만 허용해 Guest(비로그인,
   `anon` 롤)는 전혀 읽을 수 없었다 — `TO anon, authenticated`로 확장(`docs/DECISION_LOG.md` 2026-07-19).
 - **가격 표시 편차**: `subscription_plans`에는애초에 가격 컬럼이 없다(한도/기능 플래그만 관리, 실제
