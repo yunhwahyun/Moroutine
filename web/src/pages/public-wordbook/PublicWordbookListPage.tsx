@@ -1,24 +1,34 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useAuthStore } from '@/stores/authStore'
+import { getRepository } from '@/repositories/factory'
 import {
   getPublishedPublicWordbooks,
   getEnrolledWordbookIds,
   enrollPublicWordbook,
-  unenrollPublicWordbook,
+  getPublicWords,
 } from '@/lib/publicWordbooks'
+import { BackIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
+import type { PublicWordbook } from '@/types'
 
 // docs/ADMIN_DESIGN.md §3 — Pro/Premium/Master 전용, Guest는 애초에 접근 불가.
-// docs/UI_FLOW.md "공용 단어장" — 원안은 단어장 화면 내 탭이지만 이번 세션은 별도 화면 + 링크로 단순화.
+// docs/DECISION_LOG.md 2026-09-02 — "담기"는 열람 등록(enrollment) 토글이 아니라, 공용 단어장을
+// 사용자의 개인 wordbooks/words로 실제 복사하는 동작이다. 복사된 뒤에는 원본과 완전히 분리된
+// 개인 단어장이 되어(자유롭게 수정/삭제/추가), 원본이 나중에 수정돼도 더 이상 반영되지 않는다.
+// 이미 복사한 단어장은 user_public_wordbook_enrollments에 마커로 남겨(취소 불가) 재복사를 막는다.
 export default function PublicWordbookListPage() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const { permissions } = usePermissions()
+  const tier = permissions?.serviceTier ?? null
+  const repository = tier && tier !== 'admin' ? getRepository(tier) : null
   const queryClient = useQueryClient()
 
   const canUse = permissions?.canUsePublicWordbooks ?? false
+  const [addError, setAddError] = useState('')
 
   const { data: wordbooks = [], isLoading } = useQuery({
     queryKey: ['public-wordbooks'],
@@ -32,18 +42,37 @@ export default function PublicWordbookListPage() {
     enabled: canUse && !!user,
   })
 
-  const invalidateEnrollments = () => {
-    queryClient.invalidateQueries({ queryKey: ['public-wordbook-enrollments', user?.id] })
-  }
+  const { mutate: addToMyWordbooks, isPending: isAdding, variables: addingWordbook } = useMutation({
+    mutationFn: async (wb: PublicWordbook) => {
+      if (!repository || !user) throw new Error('사용할 수 없습니다.')
+      const publicWords = await getPublicWords(wb.id)
+      const newWordbook = await repository.createWordbook({ name: wb.title, language: wb.language })
 
-  const { mutate: enroll, isPending: isEnrolling } = useMutation({
-    mutationFn: (wordbookId: string) => enrollPublicWordbook(user!.id, wordbookId),
-    onSuccess: invalidateEnrollments,
-  })
+      if (publicWords.length > 0) {
+        const result = await repository.bulkCreateWords({
+          wordbookId: newWordbook.id,
+          words: publicWords.map((w) => ({ term: w.term, definition: w.definition, description: w.description })),
+        })
+        if (result.blocked) {
+          await repository.deleteWordbook(newWordbook.id)
+          throw new Error(
+            `개인 단어 한도(${result.limitValue}개)를 초과해 추가할 수 없습니다. 현재 ${result.currentTotal}개.`,
+          )
+        }
+      }
 
-  const { mutate: unenroll, isPending: isUnenrolling } = useMutation({
-    mutationFn: (wordbookId: string) => unenrollPublicWordbook(user!.id, wordbookId),
-    onSuccess: invalidateEnrollments,
+      await enrollPublicWordbook(user.id, wb.id)
+      return newWordbook
+    },
+    onSuccess: (newWordbook) => {
+      queryClient.invalidateQueries({ queryKey: ['public-wordbook-enrollments', user?.id] })
+      queryClient.invalidateQueries({ queryKey: ['wordbooks'] })
+      navigate(`/wordbooks/${newWordbook.id}`)
+    },
+    onError: (err) => {
+      console.error('[public wordbook add error]', err)
+      setAddError((err as { message?: string })?.message ?? '추가에 실패했습니다.')
+    },
   })
 
   if (!canUse) {
@@ -63,9 +92,19 @@ export default function PublicWordbookListPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-white px-4 pt-6 pb-4 border-b border-gray-100">
+      <div className="bg-white px-4 pt-6 pb-4 border-b border-gray-100 flex items-center gap-2">
+        <button onClick={() => navigate(-1)} className="p-1 -ml-1 text-gray-600" aria-label="뒤로">
+          <BackIcon />
+        </button>
         <h1 className="text-lg font-bold text-gray-900">공용 단어장</h1>
       </div>
+
+      {addError && (
+        <div className="bg-red-50 px-4 py-2.5 flex items-center justify-between">
+          <p className="text-red-500 text-xs">{addError}</p>
+          <button onClick={() => setAddError('')} className="text-red-400 text-xs ml-3 shrink-0">닫기</button>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
         {isLoading && (
@@ -79,28 +118,27 @@ export default function PublicWordbookListPage() {
         )}
 
         {wordbooks.map((wb) => {
-          const isEnrolled = enrolledIds?.has(wb.id) ?? false
+          const isAdded = enrolledIds?.has(wb.id) ?? false
+          const isAddingThis = isAdding && addingWordbook?.id === wb.id
           return (
             <div key={wb.id} className="bg-white rounded-2xl shadow-sm p-4">
               <button className="text-left w-full" onClick={() => navigate(`/public-wordbooks/${wb.id}`)}>
-                <div className="flex items-center gap-2">
-                  {wb.category && (
-                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{wb.category}</span>
-                  )}
-                  <span className="text-xs text-gray-400">단어 {wb.word_count}개</span>
-                </div>
+                <span className="text-xs text-gray-400">단어 {wb.word_count}개</span>
                 <p className="text-sm font-semibold text-gray-900 mt-1">{wb.title}</p>
-                {wb.description && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{wb.description}</p>}
               </button>
-              <button
-                onClick={() => (isEnrolled ? unenroll(wb.id) : enroll(wb.id))}
-                disabled={isEnrolling || isUnenrolling}
-                className={`mt-3 w-full py-2 rounded-lg text-xs font-medium disabled:opacity-50 ${
-                  isEnrolled ? 'border border-gray-200 text-gray-600' : 'bg-gray-900 text-white'
-                }`}
-              >
-                {isEnrolled ? '담기 해제' : '내 단어장에 담기'}
-              </button>
+              {isAdded ? (
+                <div className="mt-3 w-full py-2 rounded-lg text-xs font-medium text-center text-gray-400 border border-gray-100">
+                  추가됨
+                </div>
+              ) : (
+                <button
+                  onClick={() => addToMyWordbooks(wb)}
+                  disabled={isAdding}
+                  className="mt-3 w-full py-2 rounded-lg text-xs font-medium bg-gray-900 text-white disabled:opacity-50"
+                >
+                  {isAddingThis ? '추가 중...' : '내 단어장에 추가'}
+                </button>
+              )}
             </div>
           )
         })}

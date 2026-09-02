@@ -184,19 +184,13 @@ export async function getEnrolledWordbookIds(userId: string): Promise<Set<string
   return new Set((data ?? []).map((row) => row.wordbook_id))
 }
 
+// docs/DECISION_LOG.md 2026-09-02 — "담기"는 개인 wordbooks/words로 실제 복사하는 동작으로 바뀌었고
+// (PublicWordbookListPage.tsx), 이 테이블은 이제 "이 사용자가 이 공용 단어장을 이미 복사했는지" 표시용
+// 마커로만 쓰인다(복사 완료 후 1회 insert, 취소/해제 기능 없음 — unenroll 함수는 제거됨).
 export async function enrollPublicWordbook(userId: string, wordbookId: string): Promise<void> {
   const { error } = await supabase
     .from('user_public_wordbook_enrollments')
     .insert({ user_id: userId, wordbook_id: wordbookId })
-  if (error) throw error
-}
-
-export async function unenrollPublicWordbook(userId: string, wordbookId: string): Promise<void> {
-  const { error } = await supabase
-    .from('user_public_wordbook_enrollments')
-    .delete()
-    .eq('user_id', userId)
-    .eq('wordbook_id', wordbookId)
   if (error) throw error
 }
 

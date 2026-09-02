@@ -38,7 +38,7 @@ authenticated + admin
 | 퀴즈 완료 | `/quiz/complete` | — | Guest 포함 전체 | 정답률 + 완료 개수 |
 | 단어장 | `/wordbooks` | 단어장 | Guest 포함 전체 | 복습컬렉션 + 단어장 다중 선택, 학습/퀴즈 진입 |
 | 단어장 상세 | `/wordbooks/:id` | — | Guest 포함 전체 | 단어 목록 + 추가/수정/삭제, 일괄등록은 Pro↑만 노출 |
-| 공용 단어장 ✅ 구현 완료(2026-07-19) | `/public-wordbooks`, `/public-wordbooks/:id` | `WordbookListPage` 헤더 링크(탭 아님, 편차) | Pro/Premium/Master | 열람·담기(enrollment) + 학습하기/퀴즈 연동까지 완료 |
+| 공용 단어장 ✅ 구현 완료(2026-07-19, 2026-09-02 "담기"→복사 방식 전환) | `/public-wordbooks`, `/public-wordbooks/:id` | `WordbookListPage` 헤더 링크(탭 아님, 편차) | Pro/Premium/Master | 열람·미리보기 학습하기/퀴즈 + 개인 단어장으로 복사("내 단어장에 추가") |
 | 스피킹 | `/speaking` | 스피킹 | Guest 포함 전체 | 등록 문장 목록(`docs/SPEAKING_DESIGN.md`) |
 | 스피킹 문장 등록 | `/speaking/new` | — | Guest 포함 전체 | 문장 등록/수정 |
 | 스피킹 녹음 | `/speaking/:id/record` | — | Guest 포함 전체 | TTS + 녹음 + 재생 |
@@ -370,14 +370,18 @@ Pro 또는 Premium을 시작하면 데이터를 계정에 저장하고 다른 �
 ### 공용 단어장 (`/public-wordbooks`) ✅ 구현 완료(2026-07-19, `docs/ADMIN_DESIGN.md` §3)
 
 Pro/Premium/Master 전용(`permissions.canUsePublicWordbooks` 아니면 업그레이드 안내 + `/pricing` 유도,
-`/public-wordbooks`와 `/public-wordbooks/:id` 둘 다 동일하게 게이트). 게시된(`status='published'`)
-공용 단어장 목록 → 단어장별 "내 단어장에 담기/담기 해제" 토글(`user_public_wordbook_enrollments`) →
-`/public-wordbooks/:id`(`PublicWordbookViewPage`)에서 원본 참조 방식으로 단어 목록 열람(제목/단어
-수정 불가, 원본 삭제 불가) + **"학습하기"/"퀴즈 풀기" 버튼**(2026-07-19 연동 완료) — 클릭 시
-`toStudyWord()` 어댑터로 `PublicWord`+`user_public_word_progress`를 `Word` 형태로 변환해 기존
-`/learn`, `/quiz` 화면을 그대로 재사용한다(진행 상태는 `user_public_word_progress`에만 저장, 개인
-`study_sessions`/`study_results`에는 기록 안 함). **범위 밖**: "오늘의 복습"에 공용 단어 합치기,
-여러 공용 단어장 동시 선택 학습(`docs/DECISION_LOG.md` 2026-07-19).
+`/public-wordbooks`와 `/public-wordbooks/:id` 둘 다 동일하게 게이트). 게시(`published`) 또는 기본
+(`default`) 상태인 공용 단어장 목록에 뒤로가기 버튼 + 단어장별 **"내 단어장에 추가"** 버튼
+(2026-09-02부터: 등록/해제 토글이 아니라 개인 `wordbooks`/`words`로 실제 **복사** — `docs/ADMIN_DESIGN.md`
+§3-1) → 복사 성공 시 `/wordbooks/:id`(방금 만들어진 개인 단어장 상세)로 이동, 이후 일반 단어장과 완전히
+동일하게 수정·삭제·단어 추가 가능. 이미 추가한 단어장은 "추가됨" 표시(비활성, 재추가/취소 불가).
+`/public-wordbooks/:id`(`PublicWordbookViewPage`)는 여전히 원본을 참조 방식으로 미리보기 열람(제목/단어
+수정 불가, 원본 삭제 불가) + **"학습하기"/"퀴즈 풀기" 버튼**(2026-07-19 연동 완료, "담기" 여부와 무관하게
+항상 사용 가능) — 클릭 시 `toStudyWord()` 어댑터로 `PublicWord`+`user_public_word_progress`를 `Word`
+형태로 변환해 기존 `/learn`, `/quiz` 화면을 그대로 재사용한다(진행 상태는 `user_public_word_progress`에만
+저장, 개인 `study_sessions`/`study_results`에는 기록 안 함 — "담기"로 복사된 사본의 학습은 반대로 일반
+개인 단어장과 동일하게 이 경로를 탄다). **범위 밖**: "오늘의 복습"에 공용 단어 합치기, 여러 공용 단어장
+동시 선택 학습(`docs/DECISION_LOG.md` 2026-07-19).
 
 ---
 
