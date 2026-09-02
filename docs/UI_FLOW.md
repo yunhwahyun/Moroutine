@@ -374,7 +374,8 @@ Pro/Premium/Master 전용(`permissions.canUsePublicWordbooks` 아니면 업그�
 (`default`) 상태인 공용 단어장 목록에 뒤로가기 버튼 + 단어장별 **"내 단어장에 추가"** 버튼
 (2026-09-02부터: 등록/해제 토글이 아니라 개인 `wordbooks`/`words`로 실제 **복사** — `docs/ADMIN_DESIGN.md`
 §3-1) → 복사 성공 시 `/wordbooks/:id`(방금 만들어진 개인 단어장 상세)로 이동, 이후 일반 단어장과 완전히
-동일하게 수정·삭제·단어 추가 가능. 이미 추가한 단어장은 "추가됨" 표시(비활성, 재추가/취소 불가).
+동일하게 수정·삭제·단어 추가 가능. 버튼은 항상 다시 누를 수 있고(실수로 삭제했거나 다시 받고 싶은 경우
+대비), 이미 담은 적이 있으면 제목 옆에 체크 배지만 표시된다(취소 기능은 없음).
 `/public-wordbooks/:id`(`PublicWordbookViewPage`)는 여전히 원본을 참조 방식으로 미리보기 열람(제목/단어
 수정 불가, 원본 삭제 불가) + **"학습하기"/"퀴즈 풀기" 버튼**(2026-07-19 연동 완료, "담기" 여부와 무관하게
 항상 사용 가능) — 클릭 시 `toStudyWord()` 어댑터로 `PublicWord`+`user_public_word_progress`를 `Word`

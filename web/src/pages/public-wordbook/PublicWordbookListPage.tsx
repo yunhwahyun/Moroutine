@@ -23,7 +23,8 @@ const VALID_LANGUAGES = new Set(['en-ko', 'ja-ko', 'zh-ko'])
 // docs/DECISION_LOG.md 2026-09-02 — "담기"는 열람 등록(enrollment) 토글이 아니라, 공용 단어장을
 // 사용자의 개인 wordbooks/words로 실제 복사하는 동작이다. 복사된 뒤에는 원본과 완전히 분리된
 // 개인 단어장이 되어(자유롭게 수정/삭제/추가), 원본이 나중에 수정돼도 더 이상 반영되지 않는다.
-// 이미 복사한 단어장은 user_public_wordbook_enrollments에 마커로 남겨(취소 불가) 재복사를 막는다.
+// 버튼은 항상 눌러서 다시 담을 수 있다(실수로 삭제했거나 다시 받고 싶은 경우) — 이미 담은 적이
+// 있으면 제목 옆에 체크 배지만 표시하고 user_public_wordbook_enrollments에는 중복 삽입하지 않는다.
 export default function PublicWordbookListPage() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
@@ -67,7 +68,9 @@ export default function PublicWordbookListPage() {
         }
       }
 
-      await enrollPublicWordbook(user.id, wb.id)
+      if (!enrolledIds?.has(wb.id)) {
+        await enrollPublicWordbook(user.id, wb.id)
+      }
       return newWordbook
     },
     onSuccess: (newWordbook) => {
@@ -130,21 +133,27 @@ export default function PublicWordbookListPage() {
             <div key={wb.id} className="bg-white rounded-2xl shadow-sm p-4">
               <button className="text-left w-full" onClick={() => navigate(`/public-wordbooks/${wb.id}`)}>
                 <span className="text-xs text-gray-400">단어 {wb.word_count}개</span>
-                <p className="text-sm font-semibold text-gray-900 mt-1">{wb.title}</p>
+                <p className="text-sm font-semibold text-gray-900 mt-1 flex items-center gap-1.5">
+                  {wb.title}
+                  {isAdded && (
+                    <span
+                      className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-900 shrink-0"
+                      aria-label="추가됨"
+                    >
+                      <svg width="8" height="6" viewBox="0 0 10 8" fill="none">
+                        <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </span>
+                  )}
+                </p>
               </button>
-              {isAdded ? (
-                <div className="mt-3 w-full py-2 rounded-lg text-xs font-medium text-center text-gray-400 border border-gray-100">
-                  추가됨
-                </div>
-              ) : (
-                <button
-                  onClick={() => addToMyWordbooks(wb)}
-                  disabled={isAdding}
-                  className="mt-3 w-full py-2 rounded-lg text-xs font-medium bg-gray-900 text-white disabled:opacity-50"
-                >
-                  {isAddingThis ? '추가 중...' : '내 단어장에 추가'}
-                </button>
-              )}
+              <button
+                onClick={() => addToMyWordbooks(wb)}
+                disabled={isAdding}
+                className="mt-3 w-full py-2 rounded-lg text-xs font-medium bg-gray-900 text-white disabled:opacity-50"
+              >
+                {isAddingThis ? '추가 중...' : '내 단어장에 추가'}
+              </button>
             </div>
           )
         })}

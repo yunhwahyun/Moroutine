@@ -48,7 +48,7 @@
   추가" 버튼 하나로 바꿔 클릭 시 공용 단어장의 단어를 사용자의 **개인** `wordbooks`/`words`로 실제
   복사한다(`getRepository(tier).createWordbook()` + `bulkCreateWords()` 재사용). 복사 성공 시 방금 만든
   개인 단어장 상세로 이동하며, 이후에는 사용자가 직접 만든 단어장과 완전히 동일하게 수정·삭제·단어 추가가
-  자유롭다. 재복사/취소는 없음 — 이미 추가한 단어장은 "추가됨"으로 비활성 표시.
+  자유롭다.
 - **이유**: 기존 "원본 참조 방식"(관리자가 수정하면 즉시 반영, Pro 한도 미포함)은 사용자 입장에서
   "내 단어장에 담았는데 왜 수정도 삭제도 못 하나"라는 혼란을 준다는 사용자 피드백. "담기 = 내 것으로
   복사"가 더 직관적인 멘탈 모델이라고 판단.
@@ -57,8 +57,12 @@
   포함된다**(원본 자체는 여전히 미포함). `PublicWordbookViewPage`의 미리보기 학습하기/퀴즈풀기(원본을
   참조 방식으로 직접 학습, `user_public_word_progress`에 진행 상태 저장)는 그대로 유지 — "담기" 여부와
   무관하게 항상 사용 가능한 별도 기능으로 남는다.
-- **재복사 방지**: `user_public_wordbook_enrollments` 테이블을 그대로 재사용하되 의미를 "이미 복사했는지"
-  마커로 바꿨다(신규 마이그레이션 없음, `unenrollPublicWordbook()` 함수는 삭제).
+- **버튼은 항상 다시 누를 수 있음(같은 날 수정)**: 처음에는 이미 담은 단어장의 버튼을 "추가됨"으로
+  비활성화해 재복사를 막았으나, 실수로 사본을 삭제했거나 원본을 다시 받고 싶을 수 있다는 사용자 지적에
+  따라 버튼은 항상 클릭 가능한 원래 모양("내 단어장에 추가")으로 유지하고, 이미 담은 적이 있으면 제목
+  옆에 작은 체크 배지만 표시하는 것으로 바꿨다. `user_public_wordbook_enrollments`는 여전히 "이미
+  복사했는지" 마커로 재사용하되(신규 마이그레이션 없음), 이미 마커가 있으면 재삽입만 건너뛰고 복사
+  자체(개인 wordbook/word 생성)는 매번 다시 수행한다. `unenrollPublicWordbook()` 함수는 삭제됐다.
 - **영향 범위**: `web/src/pages/public-wordbook/PublicWordbookListPage.tsx`, `web/src/lib/publicWordbooks.ts`
   (`unenrollPublicWordbook` 제거, `enrollPublicWordbook` 주석 갱신), `docs/ADMIN_DESIGN.md` §3-1,
   `docs/UI_FLOW.md`.
