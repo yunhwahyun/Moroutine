@@ -14,6 +14,11 @@ import { BackIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
 import type { PublicWordbook } from '@/types'
 
+// WordbookListPage.tsx의 LANG_OPTIONS와 동일한 값 집합. 이보다 예전에 관리자가 'en-US' 같은 구 방식
+// 코드로 만들어 둔 공용 단어장을 복사할 때, 그 값을 그대로 넘기면 사용자 화면에서 "en-US"가 그대로
+// 노출된다(LANG_LABEL에 매핑이 없어 원본 문자열로 폴백) — 알 수 없는 값이면 비워서 복사한다.
+const VALID_LANGUAGES = new Set(['en-ko', 'ja-ko', 'zh-ko'])
+
 // docs/ADMIN_DESIGN.md §3 — Pro/Premium/Master 전용, Guest는 애초에 접근 불가.
 // docs/DECISION_LOG.md 2026-09-02 — "담기"는 열람 등록(enrollment) 토글이 아니라, 공용 단어장을
 // 사용자의 개인 wordbooks/words로 실제 복사하는 동작이다. 복사된 뒤에는 원본과 완전히 분리된
@@ -46,7 +51,8 @@ export default function PublicWordbookListPage() {
     mutationFn: async (wb: PublicWordbook) => {
       if (!repository || !user) throw new Error('사용할 수 없습니다.')
       const publicWords = await getPublicWords(wb.id)
-      const newWordbook = await repository.createWordbook({ name: wb.title, language: wb.language })
+      const language = VALID_LANGUAGES.has(wb.language) ? wb.language : null
+      const newWordbook = await repository.createWordbook({ name: wb.title, language })
 
       if (publicWords.length > 0) {
         const result = await repository.bulkCreateWords({
