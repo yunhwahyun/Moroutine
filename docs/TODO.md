@@ -231,7 +231,7 @@ _현재 진행 중인 작업 없음_
 - [x] "구독 관리" 버튼: 새 브리지 메시지 없이 웹은 `window.open`으로 스토어 URL, 네이티브는 안내 문구만(`docs/DECISION_LOG.md` 2026-07-19)
 - [x] `tsc -b`/`eslint .`/`vite build` 통과. **Playwright 실브라우저 검증**: Guest로 `/settings`(콘솔 에러 0건) + `/pricing` 방문 — `/pricing`에서 `subscription_plans` 조회가 401(마이그레이션 31 미적용 상태라 예상된 결과, 적용 후 해소됨) 외 정상 렌더링 확인
 - [x] Supabase 프로젝트에 마이그레이션 31 적용 완료(사용자 확인, Dashboard SQL Editor 경유, 2026-07-19)
-- [ ] **한계**: 실제 Pro/Premium 계정으로 구매/업그레이드 플로우 전체 미검증
+- [ ] **한계**: 실제 Pro 계정으로 구매 플로우 전체 미검증(2026-09-02: Premium 폐지로 업그레이드 플로우는 더 이상 대상 아님)
 
 ### Phase 22 — 데이터 내보내기/가져오기 (`docs/DATA_STORAGE_DESIGN.md` §13) ✅ 완료 2026-07-19
 - [x] `web/src/lib/dataExport.ts` — `buildBackup(tier, repository)`(Guest는 `readLocalSnapshot()` 재사용, Remote는 `remoteToLocalMigration.ts`와 동일한 직접 Supabase 조회 패턴) + `downloadJson`/`downloadWordsCsv`(BOM 포함 CSV) + `parseBackupFile`(schemaVersion 검증, 손상 시 전체 거부) + `importBackupToLocal`(Guest 전용, `bulkPut`으로 원본 ID 보존) + `clearAllLocalData`
@@ -252,7 +252,8 @@ _현재 진행 중인 작업 없음_
 - [x] `guestToRemoteMigration.ts`/`remoteToLocalMigration.ts` — 설정값이 어느 방향으로도 이전되지 않던 기존 공백을 발견해 양방향 추가(로컬↔서버 우선순위는 다른 엔티티와 동일 원칙)
 - [x] Migration 35: 재구독 시 `migrate_*` RPC 6종이 기존 서버 데이터를 중복 생성하던 기존 버그를 발견해 "local_id가 본인 소유 기존 서버 행과 같으면 재사용" 조건 추가
 - [x] `tsc -b`/`eslint .`/`vite build`(web) 통과
-- [ ] **한계**: 이번 세션 환경에 Playwright가 없어 실브라우저 검증 미수행(코드 리뷰 + 타입체크/빌드만). 마이그레이션 34/35는 Supabase Dashboard SQL Editor로 사용자가 직접 적용 필요(미적용 상태). 상세는 `docs/DECISION_LOG.md` 2026-09-01
+- [x] 마이그레이션 34/35 Supabase 프로젝트에 실제 적용 완료(사용자 확인, 2026-09-02)
+- [ ] **한계**: 이번 세션 환경에 Playwright가 없어 실브라우저 검증 미수행(코드 리뷰 + 타입체크/빌드만). 상세는 `docs/DECISION_LOG.md` 2026-09-01
 
 ### Phase 21 후속 — Premium 티어 폐지 ✅ 완료 2026-09-02
 - [x] 실 Premium 구독자 없음 확인(사용자 확인) 후 데이터 이관 없이 바로 제거
@@ -264,7 +265,8 @@ _현재 진행 중인 작업 없음_
 - [x] Migration 37: `subscription_plans`/`subscriptions`에서 premium 행 삭제 + `get_service_tier()`/`create_words_checked()`/공용 단어장 RLS 4건(마이그레이션 36, 18)에서 premium 제거
 - [x] `revenuecat-webhook` Edge Function — `ENTITLEMENT_TO_PLAN`/`resolvePlanCode()`에서 premium 매핑 제거
 - [x] `tsc -b`(web+mobile)/`eslint .`/`vite build` 통과
-- [ ] **한계**: 실브라우저 검증 미수행. 마이그레이션 37은 34/35/36과 함께 Supabase Dashboard SQL Editor로 사용자가 직접 적용 필요(미적용 상태). 상세는 `docs/DECISION_LOG.md` 2026-09-02
+- [x] 마이그레이션 37 34/35/36과 함께 Supabase 프로젝트에 실제 적용 완료(사용자 확인, 2026-09-02)
+- [ ] **한계**: 실브라우저 검증 미수행. 상세는 `docs/DECISION_LOG.md` 2026-09-02
 
 ### Phase 23 — 스피킹 재구현 (`docs/SPEAKING_DESIGN.md`) ⏸ 보류 2026-09-01
 - [ ] WebView 녹음 환경 검증 6개 항목(§7, Azure 관련 2개 항목 제거됨)
