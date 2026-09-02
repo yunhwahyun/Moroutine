@@ -59,6 +59,12 @@
 
 "나중에 하기" 선택 시: 로그인은 유지하되 로컬 데이터는 그대로 두고 Remote 신규 계정으로 시작(빈 상태). 로컬 데이터는 앱 내 "이전 대기 중" 배너로 계속 노출해 재시도 가능하게 한다.
 
+**설정값도 8단계에 포함(2026-09-01 추가)** — `docs/ADMIN_DESIGN.md` §2-1을 설계하며 확인한 결과, 그동안
+단어장/단어/일정/학습기록만 이전 대상이었고 설정값(`profiles`의 `quiz_mode` 등)은 어느 방향으로도 전혀
+이전되지 않던 공백이었다. 이제 두 방향 모두 다른 엔티티와 동일한 원칙을 따른다: Local→Remote는 "로컬이
+이긴다"(이 기기의 현재 설정을 `profiles`에 덮어씀), Remote→Local(§6)은 "서버가 이긴다"(서버 설정을
+로컬에 덮어씀). 요약 화면(6단계)의 개수 카운트에는 포함하지 않는다(단일 행이라 "몇 건" 개념이 없음).
+
 ---
 
 ## 3. 이전 실행 세부 규칙
@@ -98,6 +104,15 @@ CREATE POLICY "migration_jobs_update" ON migration_jobs FOR UPDATE TO authentica
 
 - 재실행(네트워크 재연결 후) 시 동일 `migration_id`로 이어서 처리 → 이미 `migration_id_map`에 매핑이 있는 레코드는 스킵, 없는 레코드부터 재개.
 - 서버 ID 충돌(3개월 이내 복원처럼 기존 서버 데이터가 이미 존재하는 경우)이 감지되면 신규 UUID를 발급해 매핑 테이블에 기록한다(`docs/DATA_STORAGE_DESIGN.md` §9).
+
+**두 번째 idempotency 층 — "같은 migration_id 안"을 넘어선 재실행(2026-09-01, 마이그레이션 35)**: 위
+스킵 규칙은 **같은 `migration_id`** 안에서만 유효하다. 그런데 구독 해제(§6, 서버 UUID를 로컬 id로 그대로
+재사용)→재구독→"계정으로 이전" 재실행은 **새 `migration_id`**로 시작하므로, 구독 해제 전부터 서버에 있던
+행이 위 규칙을 통과해 `gen_random_uuid()`로 매번 새로 INSERT되어 중복 생성되는 문제가 있었다. 로컬 id는
+항상 `crypto.randomUUID()`(서버와 동일한 UUID 공간)로 생성되므로, `migrate_*` RPC 6종은 이제 "local_id가
+**이전을 요청한 본인 소유**의 기존 서버 행 id와 정확히 같은가"를 추가로 판정해(`owned` CTE), 같으면 새
+UUID를 발급하지 않고 그대로 재사용 매핑만 `migration_id_map`에 추가한다 — 새 `migration_id`로도 안전하게
+재실행할 수 있는 진짜 idempotency가 된다. `docs/DATA_STORAGE_DESIGN.md` §9 참고.
 
 ### 3-2. 부모·자식 이전 순서
 

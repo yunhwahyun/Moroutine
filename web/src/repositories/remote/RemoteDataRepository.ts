@@ -48,7 +48,7 @@ function requireUserId(): string {
   return user.id
 }
 
-function settingsRowToUserSettings(row: Record<string, unknown> | null): UserSettings {
+export function settingsRowToUserSettings(row: Record<string, unknown> | null): UserSettings {
   if (!row) return { ...DEFAULT_SETTINGS }
   return {
     nickname: (row.nickname as string | null) ?? null,

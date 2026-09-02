@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { localDB, type LocalStudyResult, type LocalStudySession } from '@/repositories/local/schema'
+import { localDataRepository } from '@/repositories/local/LocalDataRepository'
+import { remoteDataRepository } from '@/repositories/remote/RemoteDataRepository'
 import { getOrCreateDeviceId } from '@/lib/deviceId'
 import type { NotificationRecord, Schedule, ScheduleException, Word, Wordbook } from '@/types'
 import type { MigrationEntityType, MigrationProgress } from './types'
@@ -148,6 +150,15 @@ export async function runRemoteToLocalMigration(
         ])
       },
     )
+
+    // docs/MIGRATION_DESIGN.md §2 — 설정값은 "서버가 이긴다": 다른 7개 엔티티와 동일한 원칙으로
+    // profiles의 현재 값을 로컬에 덮어쓴다. 실패해도 나머지 다운로드 결과를 막지 않는다.
+    try {
+      const remoteSettings = await remoteDataRepository.getSettings()
+      await localDataRepository.saveSettings(remoteSettings)
+    } catch (err) {
+      console.error('[downgrade] 설정 다운로드 실패', err)
+    }
 
     const deviceId = getOrCreateDeviceId()
     const { error: deviceStatusError } = await supabase

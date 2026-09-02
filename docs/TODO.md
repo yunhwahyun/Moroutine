@@ -240,7 +240,21 @@ _현재 진행 중인 작업 없음_
 - [x] `tsc -b`/`eslint .`/`vite build` 통과. **Playwright 실브라우저 검증**: Guest로 단어장/단어 생성 → JSON 백업 다운로드 → 로컬 데이터 초기화(0건 확인) → 방금 받은 백업으로 가져오기 → 원래 데이터 정확히 복원 확인, CSV 내보내기도 헤더/데이터 행 정확 확인, 콘솔 에러 0건
 - [ ] **한계**: Pro/Premium/Master의 "내보내기"는 실제 계정이 없어 직접 검증 못함(코드 리뷰로 정확성 신뢰). 녹음 파일 ZIP 내보내기는 스피킹 기능(Phase 23) 미착수라 범위 밖
 
-### Phase 23 — 스피킹 재구현 (`docs/SPEAKING_DESIGN.md`)
+### Phase 20 후속 — 사용자/관리자 메뉴 분리 + 관리자 설정값 기본값화 ✅ 완료 2026-09-01
+- [x] `BottomNav.tsx` — `serviceTier==='admin'`이면 탭을 단어장/Master/LOG/설정으로 자동 전환(홈/일정 제외), `getActiveIndex()`를 tabs 파라미터화해 일반화
+- [x] `AdminLayout.tsx` 단순화 — 상단 pill 탭 + "앱으로 돌아가기" 링크 제거, `AppLayout`과 동일한 `main+BottomNav` 구조
+- [x] `UserRouteGuard.tsx`(신규) — 사용자 라우트 그룹 전체를 감싸 Admin의 직접 URL 접근을 `/admin/wordbooks`로 리다이렉트, `/settings`는 가드 밖에서 양쪽이 공유
+- [x] `routes/index.tsx` 재구성, `/admin` → `/admin/wordbooks` 리다이렉트로 대체, `AdminHomePage.tsx` 삭제
+- [x] 관리자 화면 라벨 통일 — `AdminWordbookListPage`/`AdminWordbookFormPage`의 "공용 단어장" → "단어장"(`/public-wordbooks`는 그대로 유지)
+- [x] Migration 34: `handle_new_user()`가 신규 가입자에게 role='admin' 최초 계정의 설정값을 복사(기존 가입자 영향 없음) + `get_admin_default_settings()` RPC(anon 전용)
+- [x] `useUserSettings.ts` — admin에 한해 `remoteDataRepository`를 직접 사용해 설정 저장/로드가 실제로 동작하게 함(단어장 등 다른 게이트는 무변경)
+- [x] `web/src/lib/settingsSeed.ts` + `SettingsSeedGate.tsx`(신규) — Guest 최초 진입 시 관리자 설정값을 로컬에 1회 시딩(`SampleWordbookSeedGate`와 동일 패턴)
+- [x] `guestToRemoteMigration.ts`/`remoteToLocalMigration.ts` — 설정값이 어느 방향으로도 이전되지 않던 기존 공백을 발견해 양방향 추가(로컬↔서버 우선순위는 다른 엔티티와 동일 원칙)
+- [x] Migration 35: 재구독 시 `migrate_*` RPC 6종이 기존 서버 데이터를 중복 생성하던 기존 버그를 발견해 "local_id가 본인 소유 기존 서버 행과 같으면 재사용" 조건 추가
+- [x] `tsc -b`/`eslint .`/`vite build`(web) 통과
+- [ ] **한계**: 이번 세션 환경에 Playwright가 없어 실브라우저 검증 미수행(코드 리뷰 + 타입체크/빌드만). 마이그레이션 34/35는 Supabase Dashboard SQL Editor로 사용자가 직접 적용 필요(미적용 상태). 상세는 `docs/DECISION_LOG.md` 2026-09-01
+
+### Phase 23 — 스피킹 재구현 (`docs/SPEAKING_DESIGN.md`) ⏸ 보류 2026-09-01
 - [ ] WebView 녹음 환경 검증 6개 항목(§7, Azure 관련 2개 항목 제거됨)
 - [ ] Migration 23~24: speaking_sentences, speaking_recordings
 - [ ] `SpeakingListPage` / `SpeakingSentenceFormPage` / `SpeakingRecordPage`

@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { refreshScheduleNotifications } from '@/lib/notificationScheduler'
 import { remoteDataRepository } from '@/repositories/remote/RemoteDataRepository'
+import { localDataRepository } from '@/repositories/local/LocalDataRepository'
 import { readLocalSnapshot } from './localSnapshot'
 import type { LocalSnapshot, MigrationEntityType, MigrationProgress } from './types'
 
@@ -245,6 +246,16 @@ export async function runGuestToRemoteMigration(
     void sessionMap // 결과 매핑 자체는 후속 단계에서 쓰지 않지만 반환값 형태를 다른 엔티티와 통일해 둔다.
 
     onProgress?.({ phase: 'verifying', currentEntity: null, processedRecords: progressBase.processed, totalRecords, errorMessage: null })
+
+    // docs/MIGRATION_DESIGN.md §2 — 설정값은 "로컬이 이긴다": 이 기기의 현재 설정(게스트가 직접 바꿨든,
+    // 관리자 기본값이 시딩됐든)을 그대로 profiles에 반영해, handle_new_user() 트리거가 가입 시점에 넣어둔
+    // 값을 덮어쓴다. 단일 행 upsert라 재시도해도 안전하고, 실패해도 나머지 이전 결과를 막지 않는다.
+    try {
+      const localSettings = await localDataRepository.getSettings()
+      await remoteDataRepository.saveSettings(localSettings)
+    } catch (err) {
+      console.error('[migration] 설정 이전 실패', err)
+    }
 
     // docs/MIGRATION_DESIGN.md §5 — 로컬 레코드 수 vs 매핑 성공 수 비교(부모 누락으로 인한 스킵은 경고만).
     if (wordbookMap.size < snapshot.wordbooks.length) {

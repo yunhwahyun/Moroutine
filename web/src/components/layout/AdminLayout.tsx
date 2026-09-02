@@ -1,44 +1,17 @@
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { Outlet } from 'react-router-dom'
+import BottomNav from './BottomNav'
 
-const TABS = [
-  { to: '/admin', label: '홈' },
-  { to: '/admin/wordbooks', label: '공용 단어장' },
-  { to: '/admin/masters', label: 'Master 관리' },
-  { to: '/admin/audit-log', label: '감사 로그' },
-]
-
-// docs/ADMIN_DESIGN.md §2 — 일반 사용자 라우트(AppLayout, 하단 탭)와 완전히 분리된 관리자 전용 레이아웃.
+// docs/ADMIN_DESIGN.md §2 — 사용자용 AppLayout과 동일한 구조(main+BottomNav)를 쓰되,
+// BottomNav 자신이 tier에 따라 관리자용 탭(단어장/Master/LOG/설정)으로 분기한다.
+// 상단 pill 탭과 "앱으로 돌아가기" 링크는 제거됐다 — 관리자는 UserRouteGuard로 사용자 URL 접근이
+// 막혀 있으므로 그쪽으로 "돌아갈" 출구를 굳이 둘 필요가 없다.
 export default function AdminLayout() {
-  const location = useLocation()
-
   return (
-    <div className="min-h-dvh bg-gray-50">
-      <div
-        className="bg-white border-b border-gray-100 px-6 flex items-center justify-between"
-        style={{ paddingTop: 'env(safe-area-inset-top)' }}
-      >
-        <nav className="flex gap-1 py-3">
-          {TABS.map((tab) => {
-            const isActive =
-              tab.to === '/admin' ? location.pathname === '/admin' : location.pathname.startsWith(tab.to)
-            return (
-              <Link
-                key={tab.to}
-                to={tab.to}
-                className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
-                  isActive ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100'
-                }`}
-              >
-                {tab.label}
-              </Link>
-            )
-          })}
-        </nav>
-        <Link to="/" className="text-xs text-gray-400">
-          앱으로 돌아가기
-        </Link>
-      </div>
-      <Outlet />
+    <div className="flex flex-col min-h-dvh bg-gray-50" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <main className="flex-1 pb-24">
+        <Outlet />
+      </main>
+      <BottomNav />
     </div>
   )
 }

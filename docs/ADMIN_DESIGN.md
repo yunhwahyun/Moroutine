@@ -23,18 +23,44 @@ Admin은 **공용 학습 콘텐츠와 Master 회원만** 관리한다. 사용자
 
 ---
 
-## 2. IA / 화면 목록 ✅ 구현 완료(2026-07-19)
+## 2. IA / 화면 목록 ✅ 구현 완료(2026-09-01, 사용자/관리자 메뉴 분리 반영)
 
 ```
 /admin (Admin 전용, role='admin' 아니면 ProtectedRoute requireRole="admin"이 홈으로 리다이렉트)
-├── /admin/wordbooks               — 공용 단어장 목록(draft/published/hidden/archived 필터)
+├── /admin                         — /admin/wordbooks로 리다이렉트("홈" 개념 없음, §2-1)
+├── /admin/wordbooks               — 단어장 목록(draft/published/hidden/archived 필터, 사용자용과 동일 라벨)
 ├── /admin/wordbooks/:id           — 단어장 상세: 메타 수정 + 단어 목록/순서 관리
 ├── /admin/wordbooks/new           — 신규 단어장 생성
 ├── /admin/masters                 — Master 목록 + 초대 폼
 └── /admin/audit-log               — 관리자 작업 감사 로그 조회(읽기 전용)
 ```
 
-일반 사용자 라우트(`/wordbooks`, `/settings` 등)와 완전히 분리된 `AdminLayout`(`web/src/components/layout/AdminLayout.tsx`, 하단 탭 없음, 상단 탭 홈/공용 단어장/Master 관리/감사 로그 + "앱으로 돌아가기")을 사용한다. **편차**: `/admin/wordbooks/:id/words/new`(단어 추가 별도 라우트)와 `/admin/masters/invitations`(초대 상태 분리 목록)는 각각 상세 페이지 인라인 폼과 `AdminMastersPage` 단일 화면으로 통합해 별도 라우트를 만들지 않았다(Phase 19/17에서 이미 확정된 단순화). Admin이 일반 학습 기능에 접근할지는 §6 결정 필요 항목(미해결, `/admin` 홈은 학습 기능과 무관하게 관리 섹션 3개로만 구성).
+일반 사용자 라우트(`/wordbooks`, `/schedules` 등)와 URL 레벨에서 완전히 분리되어 있다 —
+`UserRouteGuard`(`web/src/components/layout/UserRouteGuard.tsx`)가 사용자 라우트 그룹을 감싸고, 관리자가
+주소창으로 직접 접근해도 `/admin/wordbooks`로 되돌려보낸다. `AdminLayout`(`web/src/components/layout/AdminLayout.tsx`)은
+더 이상 자체 상단 탭을 그리지 않고 `AppLayout`과 동일하게 `main + BottomNav`만 렌더링한다 —
+`BottomNav`(`web/src/components/layout/BottomNav.tsx`)가 `serviceTier==='admin'`일 때 하단 탭을
+**단어장(`/admin/wordbooks`) / Master(`/admin/masters`) / LOG(`/admin/audit-log`) / 설정(`/settings`,
+사용자와 공유)**로 자동 전환한다. "앱으로 돌아가기" 탈출구는 제거했다(관리자↔사용자 계정 분리 원칙과
+상충, `docs/DECISION_LOG.md` 2026-09-01). **편차**: `/admin/wordbooks/:id/words/new`(단어 추가 별도
+라우트)와 `/admin/masters/invitations`(초대 상태 분리 목록)는 각각 상세 페이지 인라인 폼과
+`AdminMastersPage` 단일 화면으로 통합해 별도 라우트를 만들지 않았다(Phase 19/17에서 이미 확정된
+단순화). Admin이 일반 학습 기능(단어장/퀴즈 등)에 접근할지는 §6 결정 필요 항목(미해결) — 단, **설정만
+예외적으로 허용**한다(§2-1).
+
+### 2-1. 관리자 설정값 → 신규 가입자 기본값 ✅ 구현 완료(2026-09-01)
+
+관리자와 개인 학습 계정은 분리 유지하되(§6, 사용자 결정), Admin도 `/settings` 화면에서 자신의
+`profiles` 설정을 실제로 저장/로드할 수 있다(`useUserSettings.ts`가 admin에 한해 `getRepository()`의
+throw를 우회하고 `remoteDataRepository`를 직접 사용). 관리자가 저장한 값은:
+
+- **신규 가입자**: `handle_new_user()` 트리거(마이그레이션 34)가 role='admin' 중 가장 먼저 만들어진
+  계정의 현재 설정값을 신규 `profiles` 행에 그대로 복사한다(기존 가입자는 영향 없음).
+- **Guest(비로그인)**: `SettingsSeedGate`/`seedAdminSettingsForGuest()`(`web/src/lib/settingsSeed.ts`)가
+  §3의 샘플 단어장 시딩과 동일한 패턴으로, 최초 진입 시 1회 `get_admin_default_settings()` RPC(anon 호출
+  가능, 마이그레이션 34)로 관리자 설정값을 로컬(IndexedDB)에 복사한다.
+- **Guest↔Remote 전환**: 설정값도 `docs/MIGRATION_DESIGN.md` §2의 다른 엔티티와 동일한 방향별 우선순위로
+  마이그레이션 엔진에 편입됐다(로컬↔서버 어느 방향도 이전에는 대상이 아니었던 기존 공백을 이번에 수정).
 
 ---
 
@@ -264,7 +290,7 @@ CREATE POLICY "admin_audit_log_select" ON admin_audit_log
 
 | 항목 | 비고 |
 |---|---|
-| Admin의 일반 학습 기능(단어장/퀴즈 등) 사용 여부 | 허용 시 Admin도 개인 `wordbooks`/`words` 행을 가져야 하므로, `RemoteDataRepository`를 Admin에게도 열어줄지 결정 필요(`docs/PERMISSION_DESIGN.md` §8과 동일 항목) |
+| Admin의 일반 학습 기능(단어장/퀴즈 등) 사용 여부 | 단어장/퀴즈/일정 등은 여전히 미해결(`docs/PERMISSION_DESIGN.md` §8과 동일 항목). **설정(Settings)만 2026-09-01에 예외적으로 허용**(§2-1) — 관리 계정과 개인 학습 계정을 분리하고 싶다는 사용자 결정에 따라 나머지는 그대로 둠 |
 | 집계 통계 제공 범위 | §5 참고, 운영 필요성에 따라 확정 |
 
 ---

@@ -11,6 +11,7 @@ import GuestMigrationGate from '@/components/migration/GuestMigrationGate'
 import DowngradeGate from '@/components/migration/DowngradeGate'
 import SignupPricingGate from '@/components/onboarding/SignupPricingGate'
 import SampleWordbookSeedGate from '@/components/onboarding/SampleWordbookSeedGate'
+import SettingsSeedGate from '@/components/onboarding/SettingsSeedGate'
 import AppRoutes from '@/routes'
 
 const queryClient = new QueryClient({
@@ -51,6 +52,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       {children}
       <SignupPricingGate />
       <SampleWordbookSeedGate />
+      <SettingsSeedGate />
       <GuestMigrationGate />
       <DowngradeGate />
     </>

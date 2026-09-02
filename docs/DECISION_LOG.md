@@ -4,6 +4,50 @@
 
 ---
 
+## 2026-09-01
+
+### Admin+Master 겸용 계정에서 개인 학습 기능이 막혀 있던 것은 버그가 아니라 설계대로 — 계정 분리 유지
+
+- **현상**: 관리자 계정에 `special_access='master'`를 추가로 지정했더니 단어장 추가 시
+  `Cannot read properties of null (reading 'createWordbook')`, 일정/설정 저장도 실패.
+- **원인**: `resolveServiceTier()`(`docs/PERMISSION_DESIGN.md` §3)는 `role='admin'`을 `special_access='master'`보다 항상 우선 판정하고, Admin tier의 개인 학습 기능 Repository는 어디서나 의도적으로 `null`이다(§8 "결정 필요 항목", 잠정 `false`).
+- **결정**: Admin+Master를 합쳐 Admin도 개인 학습 기능 전부를 쓰게 하는 방안을 제안했으나, **사용자가 명시적으로 거절**("아니오, 관리용 계정과 개인 학습용 계정을 분리하고 싶어요"). 코드 변경 없이 해당 계정의 `special_access`를 `'none'`으로 되돌리는 SQL만 안내하고, 개인 학습 테스트는 별도 Master 계정을 쓰도록 권장.
+- **영향**: 이후 진행한 모든 관리자 관련 작업(아래 항목들)에서 "Admin은 단어장/퀴즈/일정 등 개인 학습 기능에 접근하지 않는다"를 불변 제약으로 유지했다. 유일한 예외는 아래 설정(Settings) 항목.
+
+### 사용자/관리자 메뉴·라우트 완전 분리 + 관리자 설정값을 신규 가입자 기본값으로
+
+- **배경**: 위 계정 분리 결정과 별개로, 애초에 Admin이 사용자용 URL(`/`, `/wordbooks`, `/schedules`)에
+  접근 가능했던 것 자체가 위 에러의 근본 원인이었다. 관리자와 사용자의 메뉴/라우트를 아예 분리해달라는
+  요청.
+- **결정**: `BottomNav`가 `serviceTier==='admin'`이면 탭 목록 자체를 관리자용(단어장/Master/LOG/설정)으로
+  바꾸고, 신규 `UserRouteGuard`가 사용자 라우트 그룹 전체를 감싸 Admin의 직접 URL 접근을
+  `/admin/wordbooks`로 리다이렉트한다. `AdminLayout`의 기존 상단 탭 + "앱으로 돌아가기" 링크는 계정 분리
+  원칙과 상충해 제거. 관리자 화면의 "공용 단어장" 라벨은 사용자용과 동일하게 "단어장"으로 통일
+  (`/public-wordbooks`처럼 사용자가 본인 단어장과 구분해야 하는 화면은 그대로 유지).
+- **설정(Settings)만 예외**: "관리자가 설정 안 한 사용자에게 기본값으로 적용되는" 요구사항은, 위 계정
+  분리 원칙을 깨지 않는 선에서 **설정 화면 하나에 한해서만** `useUserSettings.ts`가 `getRepository()`의
+  admin-throw를 우회하고 `remoteDataRepository`를 직접 쓰도록 예외를 뒀다(단어장/일정 등 다른 게이트는
+  손대지 않음). "사용자가 설정 안 했을 때 관리자 값 적용"은 **신규 가입자부터만** 적용하기로 결정(옵션:
+  (a) 신규 가입자만 vs (b) `has_customized_settings` 플래그로 기존 사용자도 동적 폴백 — **사용자가 (a)
+  선택**, 이유: DB 플래그 추가 없이 단순하고 기존 사용자 설정을 건드리지 않음). `handle_new_user()`
+  트리거(마이그레이션 34)가 가입 시점에 role='admin' 중 최초 계정의 설정값을 복사한다.
+- **Guest도 동일하게 처리(사용자 질문으로 확장)**: "단어장은 샘플로 게스트에게 시딩되는데 왜 설정은
+  안 되냐"는 질문을 받고, 이미 있는 `SampleWordbookSeedGate` 1회 로컬 복사 패턴을 설정에도 그대로
+  적용(`SettingsSeedGate`/`seedAdminSettingsForGuest()`) — `get_admin_default_settings()` RPC(anon
+  전용, 마이그레이션 34)로 Guest도 관리자 설정값을 로컬에 1회 복사받는다.
+- **Guest↔Remote 마이그레이션 엔진의 기존 공백 발견 및 수정**: 위 논의 중 기존 `guestToRemoteMigration.ts`/`remoteToLocalMigration.ts`가 설정값을 아예 이전 대상에서 빠뜨리고 있었음을 발견 — 두 방향 모두 다른 엔티티와 같은 우선순위 원칙(Local→Remote는 로컬이 이김, Remote→Local은 서버가 이김)으로 편입.
+- **재구독 시 데이터 중복 생성 버그 발견 및 수정**: "재구독 시 로컬이 최신이면 로컬로 마이그레이션돼야
+  한다"는 사용자 확인 과정에서, 구독 해제(서버 UUID를 로컬 id로 재사용해 다운로드) 후 재구독해 다시
+  "계정으로 이전"을 실행하면 `migrate_*` RPC 6종(마이그레이션 26)이 매번 `gen_random_uuid()`로 새 행을
+  INSERT해 구독 해제 전부터 있던 단어장/단어/일정이 전부 복제되는 기존 버그를 발견. 마이그레이션 35로
+  "local_id가 이전 요청자 본인 소유의 기존 서버 행 id와 같으면 재사용" 조건을 6개 RPC에 추가해 해결.
+- **영향 범위**: `web/src/components/layout/{BottomNav,AdminLayout}.tsx`, `web/src/components/layout/UserRouteGuard.tsx`(신규), `web/src/routes/index.tsx`, `web/src/pages/admin/{AdminWordbookListPage,AdminWordbookFormPage}.tsx`, `web/src/pages/admin/AdminHomePage.tsx`(삭제), `web/src/hooks/useUserSettings.ts`, `web/src/repositories/remote/RemoteDataRepository.ts`(`settingsRowToUserSettings` export), `web/src/lib/settingsSeed.ts`(신규), `web/src/components/onboarding/SettingsSeedGate.tsx`(신규), `web/src/App.tsx`, `web/src/lib/migration/{guestToRemoteMigration,remoteToLocalMigration}.ts`, `supabase/migrations/34_admin_settings_defaults.sql`(신규), `supabase/migrations/35_migration_rpcs_dedup_by_id.sql`(신규), `docs/ADMIN_DESIGN.md`, `docs/UI_FLOW.md`, `docs/DB_SCHEMA.md`, `docs/PERMISSION_DESIGN.md`, `docs/DATA_STORAGE_DESIGN.md`, `docs/MIGRATION_DESIGN.md`.
+- **미해결로 남긴 것**: `docs/DB_SCHEMA.md`가 마이그레이션 12(`profiles_short_answer_input`)로 문서화한
+  파일이 실제 `supabase/migrations/`에는 존재하지 않음을 이번에 발견(대시보드로 직접 적용되고 파일만
+  누락된 것으로 추정) — 이번 작업과 무관해 손대지 않았으나 사용자에게 별도 보고.
+
+---
+
 ## 2026-07-19
 
 ### 샘플 단어장 — Guest 기본 제공은 "권한 확장"이 아니라 "1회 로컬 복사"로 구현

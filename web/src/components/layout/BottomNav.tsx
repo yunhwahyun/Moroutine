@@ -1,24 +1,34 @@
 import { useRef, useLayoutEffect, useEffect, useState, useCallback } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import { usePermissions } from '@/hooks/usePermissions'
 
-const tabs = [
+const userTabs = [
   { to: '/',          label: '홈',    no: '01' },
   { to: '/wordbooks', label: '단어장', no: '02' },
   { to: '/schedules', label: '일정',  no: '03' },
   { to: '/settings',  label: '설정',  no: '04' },
 ]
 
-function getActiveIndex(pathname: string) {
-  if (pathname === '/') return 0
-  const idx = tabs.findIndex((tab, i) =>
-    i > 0 && (pathname === tab.to || pathname.startsWith(tab.to + '/'))
-  )
-  return idx === -1 ? 0 : idx
+// docs/ADMIN_DESIGN.md §2 — 관리자는 사용자용 메뉴(홈/일정)를 보지 않고, 관리자 전용 메뉴(Master/LOG)만 본다.
+const adminTabs = [
+  { to: '/admin/wordbooks', label: '단어장', no: '02' },
+  { to: '/admin/masters',   label: 'Master', no: 'master' },
+  { to: '/admin/audit-log', label: 'LOG',    no: 'log' },
+  { to: '/settings',        label: '설정',   no: '04' },
+]
+
+function getActiveIndex(tabs: typeof userTabs, pathname: string) {
+  const exact = tabs.findIndex((tab) => pathname === tab.to)
+  if (exact !== -1) return exact
+  const prefix = tabs.findIndex((tab) => tab.to !== '/' && pathname.startsWith(tab.to + '/'))
+  return prefix === -1 ? 0 : prefix
 }
 
 export default function BottomNav() {
   const { pathname } = useLocation()
-  const activeIndex = getActiveIndex(pathname)
+  const { permissions } = usePermissions()
+  const tabs = permissions?.serviceTier === 'admin' ? adminTabs : userTabs
+  const activeIndex = getActiveIndex(tabs, pathname)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const itemRefs = useRef<(HTMLDivElement | null)[]>([])

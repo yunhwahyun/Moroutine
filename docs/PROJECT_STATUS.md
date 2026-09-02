@@ -1,6 +1,6 @@
 # Project Status
 
-> 최종 업데이트: 2026-07-19
+> 최종 업데이트: 2026-09-01
 
 ---
 
@@ -46,6 +46,8 @@
 | **Phase 22 — 데이터 내보내기/가져오기** | `web/src/lib/dataExport.ts` 신설(`buildBackup`은 Guest가 `readLocalSnapshot()`, Remote가 `remoteToLocalMigration.ts`와 동일한 직접 Supabase 조회 패턴 재사용) + `downloadJson`/`downloadWordsCsv`(BOM 포함)/`parseBackupFile`(schemaVersion 검증)/`importBackupToLocal`/`clearAllLocalData` + `SettingsPage`에 "데이터" 섹션 신설(전 등급 내보내기, Guest 전용 가져오기+초기화). **편차**: 가져오기는 Guest 전용(Pro/Premium/Master는 `docs/UI_FLOW.md` §3 표대로 내보내기만 필요), 중복은 항상 덮어쓰기 고정(`docs/DECISION_LOG.md` 2026-07-19). `tsc -b`/`eslint .`/`vite build` 통과. **Playwright 실브라우저 검증**: 단어장/단어 생성 → JSON 백업 → 로컬 초기화(0건) → 가져오기로 원본 데이터 정확히 복원 확인, CSV 내보내기도 정확 확인, 콘솔 에러 0건. **한계**: Pro/Premium/Master 내보내기는 실제 계정 없이 미검증 |
 | **샘플 단어장(Guest 기본 제공) — Phase 19 후속** | 마이그레이션 33(`public_wordbooks.is_sample` + `is_sample=true` 단어장에 한해 `anon`에게 SELECT를 여는 RLS) + `AdminWordbookFormPage`/`AdminWordbookDetailPage`에 "샘플로 지정" 체크박스 + `AdminWordbookListPage` 배지 + `web/src/lib/sampleWordbookSeed.ts`(Guest 최초 진입 시 로컬로 1회 복사) + `SampleWordbookSeedGate`(`App.tsx`). **설계 결정**: Guest 권한 모델(`canUsePublicWordbooks`)은 바꾸지 않고 1회성 로컬 복사로 구현(`docs/DECISION_LOG.md` 2026-07-19). RLS는 실제 관리자 세션으로 샘플 단어장 생성 후 anon 세션으로 curl 재현 검증 완료(테스트 데이터 삭제함), `tsc -b`/`eslint .`/`vite build` 통과, Supabase 마이그레이션 33 적용 완료. **한계**: 실제 Guest 브라우저(빈 IndexedDB)로 시딩 전체 플로우 미검증, Admin이 나중에 단어장을 샘플로 추가 지정해도 이미 시딩된 기존 Guest 기기에는 소급 적용 안 됨 |
 
+| **Phase 20 후속 — 사용자/관리자 메뉴 완전 분리 + 관리자 설정값 신규 가입자 기본값화** | `BottomNav`가 `serviceTier==='admin'`이면 탭을 단어장/Master/LOG/설정으로 자동 전환(홈/일정 제외) + 신규 `UserRouteGuard`(사용자 라우트 전체를 감싸 Admin의 직접 URL 접근을 `/admin/wordbooks`로 리다이렉트) + `AdminLayout` 단순화(상단 탭·"앱으로 돌아가기" 제거, `AppLayout`과 동일한 `main+BottomNav` 구조) + `/admin` → `/admin/wordbooks` 리다이렉트로 대체(`AdminHomePage` 삭제) + 관리자 화면 "공용 단어장" 라벨을 사용자용과 동일하게 "단어장"으로 통일. **설정값**: `useUserSettings.ts`가 admin에 한해 `remoteDataRepository`를 직접 써서 실제로 저장/로드되게 함(마이그레이션 34 `handle_new_user()`가 신규 가입자에게 role='admin' 최초 계정의 설정값을 복사, `get_admin_default_settings()` RPC로 Guest도 `SettingsSeedGate`가 동일 패턴으로 1회 시딩) + Guest↔Remote 마이그레이션 엔진에 설정값 이전이 아예 빠져있던 기존 공백을 발견해 양방향 추가(`guestToRemoteMigration.ts`/`remoteToLocalMigration.ts`) + 재구독 시 마이그레이션 RPC가 기존 서버 데이터를 중복 생성하던 기존 버그를 발견해 마이그레이션 35로 수정(local_id가 본인 소유 기존 서버 행과 같으면 재사용). 배경/근거는 `docs/DECISION_LOG.md` 2026-09-01. `tsc -b`/`eslint .`/`vite build`(web) 전체 통과. **한계**: 이번 세션 환경에 Playwright/브라우저 자동화 도구가 설치되어 있지 않아 실브라우저 검증은 수행하지 못함(코드 리뷰 + 타입체크/빌드로만 확인) — 위 "검증 방법"에 정리된 시나리오(Admin 리다이렉트, 하단 탭 전환, 설정 저장, 재구독 중복 방지)는 사후 실제 계정으로 검증 권장. 마이그레이션 34/35는 Supabase Dashboard SQL Editor로 사용자가 직접 적용 필요(미적용 상태) |
+
 > 구 "Speaking 설계 완료(Azure 평가 포함)" 항목은 위 재설계로 대체되어 제거함. 두 설계 모두 실제 코드/마이그레이션 파일로 구현된 적은 없었음(`docs/DECISION_LOG.md` 참고).
 
 ---
@@ -78,6 +80,9 @@
 | Phase 21 — 실제 Pro/Premium 계정 구매 플로우 실증 | 코드 구현 완료, 직접 검증 미완 | RevenueCat 실계정 준비 후 네이티브 앱에서 구매/업그레이드 전체 플로우 사후 검증 권장 |
 | Phase 22 — Pro/Premium/Master 내보내기 실증 | 코드 구현 완료, 직접 검증 미완 | 실제 계정으로 전체 백업/CSV 내보내기 결과 사후 검증 권장 |
 | Phase 16 후속 — 회원가입 직후 `/pricing` 강제 라우팅 전체 플로우 실증 | 코드 구현 완료, 직접 검증 미완 | 실제 이메일 인증을 거친 신규 가입 계정으로 "가입→인증→`/pricing` 강제 이동→무료 계속/결제 선택" 전체 시나리오 사후 검증 권장(실계정 생성 부작용 때문에 이번 세션에서 미시도) |
+| Phase 20 후속 — 관리자/사용자 메뉴 분리 실증 | 코드 구현 완료, 직접 검증 미완 | 이번 세션 환경에 Playwright가 설치되어 있지 않아 실브라우저 검증 불가(`tsc -b`/`eslint`/`vite build`만 통과). Admin 리다이렉트·하단 탭 전환·설정 저장·재구독 중복 방지(마이그레이션 35) 전부 사후 검증 필요 |
+| Phase 20 후속 — 마이그레이션 34/35 미적용 | 파일 작성 완료, Supabase 프로젝트 미적용 | `34_admin_settings_defaults.sql`, `35_migration_rpcs_dedup_by_id.sql` — Dashboard SQL Editor로 사용자가 직접 적용 필요(기존 관례) |
+| 마이그레이션 12(`profiles_short_answer_input`) 파일 누락 | **✅ 복구 완료(2026-09-01)** | `supabase/migrations/12_profiles_short_answer_input.sql`을 `docs/DB_SCHEMA.md` 원문 그대로 복원. DB에는 사용자 확인상 이미 컬럼이 존재해(실제 사용 중인 기능 — 퀴즈 주관식 입력 방식) 재적용 불필요, 저장소 이력만 맞춘 것 |
 
 ---
 
@@ -100,6 +105,6 @@
 | — | Phase 20 | ✅ 완료 (`AdminLayout` + `AdminHomePage` + `AdminAuditLogPage`, 기존 Master/공용 단어장 화면 재구성, 개인 데이터 미노출 검증). **잔여**: 실제 Admin 계정 실증(위 In Progress 참고) |
 | — | Phase 21 | ✅ 완료 (`SettingsPage` 등급별 섹션 + `PricingPage` 동적 로드 + 마이그레이션 31 Supabase 적용 완료). **잔여**: 실제 구매 플로우 실증(위 In Progress 참고) |
 | — | Phase 22 | ✅ 완료 (`dataExport.ts` + `SettingsPage` "데이터" 섹션, Guest 전용 가져오기). **잔여**: Pro/Premium/Master 내보내기 실증(위 In Progress 참고) |
-| 1 | Phase 23 | ▶ 다음 작업 — 스피킹 재구현(평가 없는 신규 버전) — DB는 Phase 13에서 이미 완료, WebView 녹음 환경 검증(`docs/SPEAKING_DESIGN.md` §7) 선행 후 Repository/화면 구현 |
+| — | Phase 23 | ⏸ **보류(2026-09-01, 사용자 결정)** — 스피킹 재구현(평가 없는 신규 버전). DB는 Phase 13에서 이미 완료, 재개 시 WebView 녹음 환경 검증(`docs/SPEAKING_DESIGN.md` §7) 선행 후 Repository/화면 구현 |
 | 2 | Phase 24 | 동기화 고도화(오프라인 큐 등, MVP 이후) |
 | — | 병행 | APK 재빌드(StatusBar), iOS/Android 알림 권한 실기기 테스트, 기존 RLS 최종 점검, service_role 키 노출 점검 — 정책 개편과 무관하게 계속 진행 |

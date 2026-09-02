@@ -38,7 +38,7 @@ export default function AdminWordbookFormPage() {
     <div className="min-h-dvh bg-white px-6 py-8">
       <div className="max-w-lg mx-auto flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold text-gray-900">공용 단어장 생성</h1>
+          <h1 className="text-lg font-bold text-gray-900">단어장 생성</h1>
           <Link to="/admin/wordbooks" className="text-sm text-gray-400">
             목록으로
           </Link>

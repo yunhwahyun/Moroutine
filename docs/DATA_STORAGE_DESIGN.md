@@ -147,6 +147,9 @@ function getRepository(tier: ServiceTier): DataRepository {
 - Factory는 `usePermissions()`(`docs/PERMISSION_DESIGN.md` §9)의 `serviceTier`를 기준으로 선택한다. 화면/훅은 `getRepository(tier)`가 반환한 구현체만 사용하고, Supabase 클라이언트를 직접 호출하지 않는다. `WordbookListPage.tsx`/`WordbookDetailPage.tsx`/`HomePage.tsx`/`QuizPage.tsx`/`LearnPage.tsx`/`useStudyWords.ts`/`wordStatus.ts`는 Phase 12.5(2026-07-18)에 이 계층 경유로 전환 완료(`docs/TODO.md` 참고). `ScheduleListPage.tsx`/`useUserSettings.ts`(설정 영구 저장)는 아직 미전환.
 - `RemoteDataRepository.bulkCreateWords()`는 내부적으로 `create_words_checked` RPC(`docs/SUBSCRIPTION_DESIGN.md` §4-2)를 호출한다. `LocalDataRepository.bulkCreateWords()`는 한도 검증 없이 항상 성공(Guest는 무제한).
 - `AdminContentRepository`는 `DataRepository`와 형태가 다르다(공용 콘텐츠 CRUD + Master 관리, `docs/ADMIN_DESIGN.md` 참고) — 동일 인터페이스로 억지로 통일하지 않는다.
+- **예외(2026-09-01)**: `useUserSettings.ts`만 admin에 한해 `getRepository()`의 throw를 우회하고
+  `remoteDataRepository`(같은 `profiles` 테이블 구현체)를 직접 사용한다 — Admin도 설정만은 저장/로드하되
+  단어장 등 나머지 화면은 여전히 `getRepository('admin')`이 throw하는 그대로다(`docs/ADMIN_DESIGN.md` §2-1).
 
 ---
 
@@ -207,7 +210,8 @@ class LocalDB extends Dexie {
 ## 9. Local ID와 Server UUID 전략
 
 - Local(Guest) 신규 레코드는 클라이언트에서 UUID v4를 생성해 `id`로 사용한다(`crypto.randomUUID()`). Remote UUID와 충돌 가능성은 사실상 0이므로, **Guest→Remote 이전 시 로컬 ID를 그대로 서버 PK로 사용해도 무방**하다.
-- 다만 이전 과정에서 이미 서버에 존재하는 레코드(예: 3개월 이내 복원 시나리오의 기존 서버 데이터)와 충돌 가능성이 있으므로, 이전 엔진은 항상 **"서버에 해당 ID가 이미 존재하면 신규 UUID를 재발급하고 로컬↔서버 ID 매핑 테이블을 유지"**하는 방식을 기본으로 한다. 상세는 `docs/MIGRATION_DESIGN.md` §3(로컬 ID ↔ 서버 UUID 매핑) 참고.
+- 다만 이전 과정에서 이미 서버에 존재하는 레코드(예: 3개월 이내 복원 시나리오의 기존 서버 데이터)와 충돌 가능성이 있으므로, 이전 엔진은 기본적으로 **"서버에 해당 ID가 이미 존재하면 신규 UUID를 재발급하고 로컬↔서버 ID 매핑 테이블을 유지"**하는 방식을 쓴다. 상세는 `docs/MIGRATION_DESIGN.md` §3(로컬 ID ↔ 서버 UUID 매핑) 참고.
+- **예외(2026-09-01, 마이그레이션 35)**: "재발급" 원칙을 예외 없이 적용하면, 구독 해제→로컬 다운로드(서버 UUID를 로컬 id로 그대로 재사용)→재구독→재이전 흐름에서 다운로드 당시 이미 서버에 있던 행이 매번 새 UUID로 재삽입되어 **중복 생성**된다(재발급 대상이 "다른 사용자의 우연한 충돌"이 아니라 "본인이 방금 내려받은 자기 행"이기 때문). 이를 막기 위해 local_id가 **이전을 요청한 본인 소유**의 기존 서버 행 id와 정확히 같은 경우에 한해서만 예외적으로 재발급하지 않고 그대로 재사용한다(마이그레이션 26의 `migrate_*` RPC 6종에 `owned` 판정 추가). 타인 데이터와의 우연한 충돌(사실상 발생하지 않음)이나 순수 신규 로컬 레코드는 기존 "재발급" 원칙 그대로 적용된다.
 
 ---
 

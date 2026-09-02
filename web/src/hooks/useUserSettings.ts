@@ -1,12 +1,18 @@
 import { useEffect } from 'react'
-import { useSettingsStore, DEFAULT_SETTINGS } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getRepository } from '@/repositories/factory'
-import type { UserSettings } from '@/types'
+import { remoteDataRepository } from '@/repositories/remote/RemoteDataRepository'
+import type { DataRepository } from '@/repositories/types'
+import type { ServiceTier, UserSettings } from '@/types'
 
 // docs/DATA_STORAGE_DESIGN.md §6 — Guest는 LocalDataRepository(IndexedDB), 그 외는 RemoteDataRepository(profiles
 // 테이블)로 설정을 읽고 쓴다. snake_case↔camelCase 매핑은 각 Repository 구현체 내부 책임(이 훅은 모른다).
-// Admin은 §8 결정 필요 항목(일반 학습 기능 사용 여부) 확정 전까지 기본 설정만 사용하고 영구 저장하지 않는다.
+// Admin은 getRepository()가 throw하므로(docs/ADMIN_DESIGN.md — 단어장/일정 등 개인 학습 기능은 여전히
+// 미제공), 설정 화면에 한해서만 같은 profiles 테이블을 쓰는 remoteDataRepository를 직접 사용한다.
+function settingsRepositoryFor(tier: ServiceTier): DataRepository {
+  return tier === 'admin' ? remoteDataRepository : getRepository(tier)
+}
 
 // 앱 전체에서 한 번만 호출 (App.tsx > AuthProvider)
 export function useLoadSettings() {
@@ -16,11 +22,7 @@ export function useLoadSettings() {
 
   useEffect(() => {
     if (!tier) return
-    if (tier === 'admin') {
-      setSettings({ ...DEFAULT_SETTINGS })
-      return
-    }
-    getRepository(tier)
+    settingsRepositoryFor(tier)
       .getSettings()
       .then(setSettings)
       .catch((err) => console.error('[settings load error]', err))
@@ -35,9 +37,9 @@ export function useUserSettings() {
 
   const update = async (partial: Partial<UserSettings>) => {
     patchSettings(partial)  // 낙관적 업데이트
-    if (!tier || tier === 'admin') return
+    if (!tier) return
     try {
-      await getRepository(tier).saveSettings(partial)
+      await settingsRepositoryFor(tier).saveSettings(partial)
     } catch (err) {
       console.error('[settings update error]', err)
     }

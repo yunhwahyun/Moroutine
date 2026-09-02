@@ -10,6 +10,7 @@
 anonymous(Guest)
   → 로그인 없이 앱 진입, LocalDataRepository로 즉시 사용 가능
   → 최초 진입 시 Admin이 지정한 샘플 단어장을 로컬 단어장으로 1회 자동 복사(`docs/ADMIN_DESIGN.md` §3, 2026-07-19) — 공용 단어장 화면 접근이 열리는 것은 아니고 복사된 결과만 일반 단어장처럼 보유
+  → 최초 진입 시 Admin이 저장해 둔 설정값도 로컬 기본값으로 1회 자동 복사(`docs/ADMIN_DESIGN.md` §2-1, 2026-09-01) — 위 샘플 단어장과 동일한 패턴
   → 접근 불가: 공용 단어장(위 자동 복사 제외), 일괄등록, /admin, /speaking(등록/녹음 자체는 가능 — §3.4상 Guest 허용 기능이므로 접근 가능. 저장만 로컬)
 
 authenticated + pro/premium/master
@@ -17,10 +18,13 @@ authenticated + pro/premium/master
   → Pro만 개인 단어 한도 UI 노출
 
 authenticated + admin
-  → /admin 진입 가능, 일반 학습 화면 접근 여부는 docs/ADMIN_DESIGN.md §6 결정 필요 항목
+  → /admin(→/admin/wordbooks로 리다이렉트) 진입 가능. UserRouteGuard가 사용자 라우트(/, /wordbooks,
+    /schedules 등) 직접 접근을 /admin/wordbooks로 되돌려보낸다(2026-09-01, `docs/ADMIN_DESIGN.md` §2).
+  → 일반 학습 화면(단어장/퀴즈/일정) 접근 여부는 docs/ADMIN_DESIGN.md §6 결정 필요 항목(여전히 미해결)
+  → 설정(`/settings`)만 예외적으로 사용 가능하고 값이 실제로 저장된다(`docs/ADMIN_DESIGN.md` §2-1)
 ```
 
-`ProtectedRoute`는 "로그인 필수 라우트"에만 적용한다(`/settings`의 계정 관리 등 극히 일부, `/admin/**`). 홈/단어장/학습/퀴즈/일정/스피킹은 Guest도 접근 가능한 **공개 라우트**로 전환하고, 내부에서 `usePermissions()`의 `serviceTier`로 Repository만 분기한다(`docs/DATA_STORAGE_DESIGN.md` §6).
+`ProtectedRoute`는 "로그인 필수 라우트"에만 적용한다(`/settings`의 계정 관리 등 극히 일부, `/admin/**`). 홈/단어장/학습/퀴즈/일정/스피킹은 Guest도 접근 가능한 **공개 라우트**로 전환하고, 내부에서 `usePermissions()`의 `serviceTier`로 Repository만 분기한다(`docs/DATA_STORAGE_DESIGN.md` §6). 이 공개 라우트 그룹은 `UserRouteGuard`(`web/src/components/layout/UserRouteGuard.tsx`)로 감싸져 있어, Admin이 이 그룹의 URL에 직접 접근하면 `/admin/wordbooks`로 리다이렉트된다. `/settings`만 `UserRouteGuard` 밖의 별도 라우트로 두어 두 역할이 공유한다.
 
 ---
 
@@ -42,56 +46,63 @@ authenticated + admin
 | 요금제 비교 | `/pricing` | — | 전체(로그인 유도용) | Guest/Pro/Premium 비교, 결제 진입 |
 | 로그인 | `/login` | — | 비로그인 상태에서만 | Pro/Premium 결제 진입 시 또는 "기존 회원 로그인" |
 | 설정 | `/settings` | 설정 | Guest 포함 전체 | 등급별 섹션 분기(§4) |
-| 관리자 홈 ✅ 구현 완료(2026-07-19) | `/admin` | — | Admin만(`ProtectedRoute` + role 체크) | `AdminLayout` 안 3개 섹션(공용 단어장/Master 관리/감사 로그) 카드 목록 |
-| Master 관리 ✅ 구현 완료(2026-07-18) | `/admin/masters` | — | Admin만(`ProtectedRoute requireRole="admin"`) | 초대 폼 + 초대 목록 + 현재 Master 목록을 한 페이지에 |
-| 감사 로그 ✅ 구현 완료(2026-07-19) | `/admin/audit-log` | — | Admin만(`ProtectedRoute requireRole="admin"`) | `admin_audit_log` 최신 200건 읽기 전용 조회 |
+| 관리자 진입점 ✅ 구현 완료(2026-09-01) | `/admin` | — | Admin만(`ProtectedRoute` + role 체크) | `/admin/wordbooks`로 즉시 리다이렉트("홈" 개념 없음 — 관리자 하단 탭에서도 제외, `docs/ADMIN_DESIGN.md` §2) |
+| 단어장(관리자) ✅ 구현 완료(2026-09-01, 라벨 통일) | `/admin/wordbooks` | 단어장 | Admin만(`ProtectedRoute requireRole="admin"`) | 단어장 목록(draft/published/hidden/archived 필터), 라벨을 사용자용과 동일하게 "단어장"으로 통일 |
+| Master 관리 ✅ 구현 완료(2026-07-18) | `/admin/masters` | Master | Admin만(`ProtectedRoute requireRole="admin"`) | 초대 폼 + 초대 목록 + 현재 Master 목록을 한 페이지에 |
+| 감사 로그 ✅ 구현 완료(2026-07-19) | `/admin/audit-log` | LOG | Admin만(`ProtectedRoute requireRole="admin"`) | `admin_audit_log` 최신 200건 읽기 전용 조회 |
 | Master 초대 수락 ✅ 구현 완료(2026-07-18) | `/master/accept` | — | 세션 기반(§2 편차로 토큰 아님) | `docs/MASTER_INVITATION_DESIGN.md` §4-3, 편차는 상단 참고 |
 
 ### 라우팅 구조
 
-> Phase 20까지 완료(2026-07-19). `/master/accept`(세션 기반), `/admin`(`AdminLayout` + `AdminHomePage`),
-> `/admin/masters`(`AdminMastersPage` 단일 페이지), `/admin/wordbooks*`(`AdminWordbookListPage`/
-> `AdminWordbookFormPage`/`AdminWordbookDetailPage`, `:id/words/new` 별도 라우트 없이 상세 페이지
-> 인라인 폼으로 통합), `/admin/audit-log`(`AdminAuditLogPage`), `/public-wordbooks`·
-> `/public-wordbooks/:id` 전부 구현 완료. `/admin/masters/invitations`(초대 상태 별도 분리 목록)만
-> 편차로 만들지 않음(`AdminMastersPage`에 이미 통합돼 있어 불필요).
+> Phase 20까지 완료(2026-07-19), 사용자/관리자 메뉴 분리는 2026-09-01 추가. `/master/accept`(세션 기반),
+> `/admin`(→`/admin/wordbooks` 리다이렉트, "홈" 개념 폐지), `/admin/masters`(`AdminMastersPage` 단일
+> 페이지), `/admin/wordbooks*`(`AdminWordbookListPage`/`AdminWordbookFormPage`/`AdminWordbookDetailPage`,
+> `:id/words/new` 별도 라우트 없이 상세 페이지 인라인 폼으로 통합), `/admin/audit-log`(`AdminAuditLogPage`),
+> `/public-wordbooks`·`/public-wordbooks/:id` 전부 구현 완료. `/admin/masters/invitations`(초대 상태
+> 별도 분리 목록)만 편차로 만들지 않음(`AdminMastersPage`에 이미 통합돼 있어 불필요).
+>
+> 아래 코드 블록은 `web/src/routes/index.tsx`의 실제 라우트 구조를 요약한 것이다(`/speaking*`,
+> `/wordbooks/:id/words/*`는 아직 구현되지 않은 별도 계획 문서상의 예시라 실제 코드에는 없음 — 이
+> 표/코드 블록의 오래된 부분은 이번 작업 범위 밖).
 
 ```tsx
 <Routes>
   <Route path="/login" element={<LoginPage />} />
+
+  {/* Guest 포함 공개 라우트 — UserRouteGuard가 Admin을 /admin/wordbooks로 되돌려보낸다 */}
+  <Route element={<UserRouteGuard />}>
+    <Route element={<AppLayout />}>
+      <Route path="/"           element={<HomePage />} />
+      <Route path="/wordbooks"  element={<WordbookListPage />} />
+      <Route path="/public-wordbooks" element={<PublicWordbookListPage />} />
+      <Route path="/schedules"  element={<ScheduleListPage />} />
+    </Route>
+    <Route path="/learn"                 element={<LearnPage />} />
+    <Route path="/quiz"                  element={<QuizPage />} />
+    <Route path="/quiz/complete"         element={<QuizCompletePage />} />
+    <Route path="/wordbooks/:id"         element={<WordbookDetailPage />} />
+    <Route path="/public-wordbooks/:id"  element={<PublicWordbookViewPage />} />
+    <Route path="/schedules/new"         element={<ScheduleFormPage />} />
+    <Route path="/schedules/:id/edit"    element={<ScheduleFormPage />} />
+    <Route path="/pricing"               element={<PricingPage />} />
+  </Route>
+
+  {/* /settings는 사용자/관리자 공유 — UserRouteGuard 밖 */}
+  <Route element={<AppLayout />}>
+    <Route path="/settings" element={<SettingsPage />} />
+  </Route>
+
   <Route path="/master/accept" element={<MasterAcceptPage />} />
 
-  {/* Guest 포함 공개 라우트 — Repository는 usePermissions()로 내부 분기 */}
-  <Route element={<AppLayout />}>
-    <Route path="/"           element={<HomePage />} />
-    <Route path="/wordbooks"  element={<WordbookListPage />} />
-    <Route path="/speaking"   element={<SpeakingListPage />} />
-    <Route path="/schedules"  element={<ScheduleListPage />} />
-    <Route path="/settings"   element={<SettingsPage />} />
-  </Route>
-  <Route path="/learn"                         element={<LearnPage />} />
-  <Route path="/quiz"                          element={<QuizPage />} />
-  <Route path="/quiz/complete"                 element={<QuizCompletePage />} />
-  <Route path="/wordbooks/:id"                 element={<WordbookDetailPage />} />
-  <Route path="/wordbooks/:id/words/new"       element={<WordFormPage />} />
-  <Route path="/wordbooks/:id/words/:wid/edit" element={<WordFormPage />} />
-  <Route path="/public-wordbooks"              element={<PublicWordbookListPage />} />
-  <Route path="/public-wordbooks/:id"          element={<PublicWordbookViewPage />} />
-  <Route path="/speaking/new"                  element={<SpeakingSentenceFormPage />} />
-  <Route path="/speaking/:id/record"           element={<SpeakingRecordPage />} />
-  <Route path="/schedules/new"                 element={<ScheduleFormPage />} />
-  <Route path="/schedules/:id/edit"            element={<ScheduleFormPage />} />
-  <Route path="/pricing"                       element={<PricingPage />} />
-
-  {/* 관리자 전용 — AdminLayout(하단 탭 없음, 상단 탭 홈/공용 단어장/Master 관리/감사 로그) */}
+  {/* 관리자 전용 — AdminLayout(AppLayout과 동일 구조, BottomNav가 tier로 관리자 탭 자동 전환) */}
   <Route element={<ProtectedRoute requireRole="admin" />}>
     <Route element={<AdminLayout />}>
-      <Route path="/admin"                        element={<AdminHomePage />} />
-      <Route path="/admin/wordbooks"               element={<AdminWordbookListPage />} />
-      <Route path="/admin/wordbooks/:id"            element={<AdminWordbookDetailPage />} />
-      <Route path="/admin/wordbooks/new"            element={<AdminWordbookFormPage />} />
-      <Route path="/admin/masters"                  element={<AdminMastersPage />} />
-      <Route path="/admin/audit-log"                element={<AdminAuditLogPage />} />
+      <Route path="/admin"              element={<Navigate to="/admin/wordbooks" replace />} />
+      <Route path="/admin/masters"      element={<AdminMastersPage />} />
+      <Route path="/admin/wordbooks"    element={<AdminWordbookListPage />} />
+      <Route path="/admin/wordbooks/new" element={<AdminWordbookFormPage />} />
+      <Route path="/admin/wordbooks/:id" element={<AdminWordbookDetailPage />} />
+      <Route path="/admin/audit-log"    element={<AdminAuditLogPage />} />
     </Route>
   </Route>
 </Routes>
@@ -104,10 +115,16 @@ authenticated + admin
 ## 2. 하단 탭
 
 ```
-[ 홈 ]  [ 단어장 ]  [ 스피킹 ]  [ 일정 ]  [ 설정 ]
+사용자: [ 홈 ]  [ 단어장 ]  [ 일정 ]  [ 설정 ]
+관리자: [ 단어장 ]  [ Master ]  [ LOG ]  [ 설정 ]
 ```
 
-기존 "Phase 10 이후 추가 예정"이었던 5탭 구성을 이번 개편에서 확정한다(평가 기능이 빠지면서 스피킹 탭 자체의 복잡도는 오히려 낮아짐). Admin은 하단 탭 대신 `/admin` 전용 레이아웃을 사용(§0).
+기존 "Phase 10 이후 추가 예정"이었던 5탭(스피킹 포함) 구성은 아직 스피킹 탭이 구현되지 않아 실제로는
+4탭이다. **Admin은 별도 레이아웃이 아니라 같은 `BottomNav`(`web/src/components/layout/BottomNav.tsx`)를
+공유하되, `usePermissions().serviceTier==='admin'`이면 탭 목록 자체가 자동으로 관리자용으로 바뀐다**
+(2026-09-01) — 홈/일정 대신 Master/LOG를 보여주고, 단어장은 `/admin/wordbooks`로, 설정은 사용자와 동일한
+`/settings`를 그대로 가리킨다(§0). Master/LOG 아이콘은 `web/public/menu-master(.svg/-on.svg)`,
+`menu-log(.svg/-on.svg)`.
 
 > BottomNav 레이아웃: `w-fit mx-auto` (fit-content 중앙 정렬) + `gap-5` 아이콘 간격 + 하단 `max(calc(env(safe-area-inset-bottom) + 10px), 1.25rem)` 패딩
 

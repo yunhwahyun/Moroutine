@@ -346,7 +346,7 @@ CREATE TRIGGER trg_prevent_self_privilege_escalation
 | 항목 | 비고 |
 |---|---|
 | Pro `personal_word_limit` 실제 값 | `subscription_plans` 테이블 값으로만 관리, 코드에 하드코딩 금지 |
-| Admin의 일반 학습 기능(단어장/퀴즈 등) 사용 여부 | 사용 허용 시 `usesRemoteStorage`/데이터 저장 위치 재설계 필요 — 현재는 `false`로 잠정 처리 |
+| Admin의 일반 학습 기능(단어장/퀴즈 등) 사용 여부 | 단어장/퀴즈/일정 등은 여전히 미해결(`false` 잠정 유지, 관리 계정과 개인 학습 계정을 분리하고 싶다는 사용자 결정, `docs/DECISION_LOG.md` 2026-09-01). **설정(Settings)만 예외적으로 허용**(2026-09-01) — Admin도 `remoteDataRepository`로 자신의 `profiles` 설정을 저장/로드하며, 이 값이 신규 가입자의 초기 기본값이 된다(`handle_new_user()` 트리거, 마이그레이션 34) |
 | Custom Claims 병행 도입 여부(트래픽 증가 시) | §5 참고, 병행 시 세션 강제 무효화 보완책 필수 |
 
 ---

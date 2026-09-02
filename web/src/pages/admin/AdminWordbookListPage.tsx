@@ -31,7 +31,7 @@ export default function AdminWordbookListPage() {
   return (
     <div className="min-h-dvh bg-white px-6 py-8">
       <div className="max-w-lg mx-auto flex flex-col gap-6">
-        <h1 className="text-lg font-bold text-gray-900">공용 단어장 관리</h1>
+        <h1 className="text-lg font-bold text-gray-900">단어장</h1>
 
         <div className="flex items-center justify-between">
           <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
