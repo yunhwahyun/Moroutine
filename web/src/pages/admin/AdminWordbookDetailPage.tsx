@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getAdminPublicWordbook,
@@ -9,6 +9,7 @@ import {
   bulkCreatePublicWords,
   archivePublicWord,
 } from '@/lib/publicWordbooks'
+import { BackIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
 import type { Difficulty, PublicWordbookStatus } from '@/types'
 
@@ -47,6 +48,7 @@ function parseWordsTxt(content: string): { parsed: ParsedWord[]; errorCount: num
 
 export default function AdminWordbookDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -183,16 +185,28 @@ export default function AdminWordbookDetailPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-white px-6 py-8">
-      <div className="max-w-lg mx-auto flex flex-col gap-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold text-gray-900">단어장 상세</h1>
-          <Link to="/admin/wordbooks" className="text-sm text-gray-400">
-            목록으로
-          </Link>
+    <div className="flex flex-col bg-gray-50">
+      {/* 헤더 — WordbookDetailPage.tsx와 동일 톤 */}
+      <div className="sticky top-0 z-10 bg-white flex items-center justify-between px-4 pt-3 pb-3 border-b border-gray-100">
+        <button onClick={() => navigate('/admin/wordbooks')} className="p-1 -ml-1 text-gray-600" aria-label="뒤로">
+          <BackIcon />
+        </button>
+        <h1 className="text-base font-semibold text-gray-900 truncate max-w-[160px]">
+          {wordbook?.title ?? '단어장 상세'}
+        </h1>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={handleBulkImportClick}
+            className="text-xs text-gray-500 px-2.5 py-1.5 rounded-md border border-gray-200"
+          >
+            .txt 일괄등록
+          </button>
         </div>
+        <input ref={fileInputRef} type="file" accept=".txt" className="hidden" onChange={handleFileChange} />
+      </div>
 
-        <div className="flex flex-col gap-2 border border-gray-100 rounded-lg p-4">
+      <div className="flex-1 px-4 py-4 flex flex-col gap-3 pb-6">
+        <div className="flex flex-col gap-2 bg-white rounded-2xl shadow-sm p-4">
           <input
             value={metaForm.title}
             onChange={(e) => setMetaForm({ ...metaForm, title: e.target.value })}
@@ -248,21 +262,12 @@ export default function AdminWordbookDetailPage() {
           </button>
         </div>
 
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-gray-900">단어 목록</h2>
-          <button
-            onClick={handleBulkImportClick}
-            className="text-xs text-gray-600 px-2.5 py-1.5 rounded-md border border-gray-200"
-          >
-            .txt 일괄등록
-          </button>
-          <input ref={fileInputRef} type="file" accept=".txt" className="hidden" onChange={handleFileChange} />
-        </div>
+        <h2 className="text-sm font-bold text-gray-900 px-0.5">단어 목록</h2>
 
         {bulkError && <p className="text-xs text-red-500">{bulkError}</p>}
 
         {bulkPreview && (
-          <div className="border border-gray-200 rounded-lg p-4 flex flex-col gap-2">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-col gap-2">
             <p className="text-sm font-semibold text-gray-900">일괄등록 미리보기</p>
             <p className="text-xs text-gray-600">
               등록 예정 {bulkPreview.parsed.length}개 · 오류 행 {bulkPreview.errorCount}개
@@ -285,7 +290,7 @@ export default function AdminWordbookDetailPage() {
           </div>
         )}
 
-        <div className="flex flex-col gap-2 border border-gray-100 rounded-lg p-4">
+        <div className="flex flex-col gap-2 bg-white rounded-2xl shadow-sm p-4">
           <input
             value={newWord.term}
             onChange={(e) => setNewWord({ ...newWord, term: e.target.value })}
@@ -323,7 +328,7 @@ export default function AdminWordbookDetailPage() {
 
         <div className="flex flex-col gap-3">
           {words.map((word) => (
-            <div key={word.id} className="border border-gray-100 rounded-lg p-4">
+            <div key={word.id} className="bg-white rounded-2xl shadow-sm p-4">
               <div className="flex items-start justify-between gap-2">
                 <span className="text-sm font-semibold text-gray-900">{word.term}</span>
                 {word.status === 'archived' ? (

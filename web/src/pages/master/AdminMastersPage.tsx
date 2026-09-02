@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { Section, Row } from '@/components/ui/SettingsList'
 
 type MasterInvitation = {
   id: string
@@ -32,8 +33,8 @@ async function fetchMasters(): Promise<MasterEntry[]> {
   return (data ?? []) as MasterEntry[]
 }
 
-// docs/ADMIN_DESIGN.md, docs/MASTER_INVITATION_DESIGN.md — Phase 20("/admin/** 라우트 + 전용 레이아웃")
-// 이전의 최소 기능 placeholder(PricingPage와 같은 성격). 전용 레이아웃 없이 단독 페이지로 둔다.
+// docs/ADMIN_DESIGN.md, docs/MASTER_INVITATION_DESIGN.md — SettingsPage.tsx의 Section/Row 톤과
+// 통일(사용자·관리자 디자인 통일감, 2026-09-02).
 export default function AdminMastersPage() {
   const queryClient = useQueryClient()
   const [email, setEmail] = useState('')
@@ -49,8 +50,7 @@ export default function AdminMastersPage() {
   }
 
   // 기본 동작 — 이미 가입된 사용자에 한해 이메일 없이 즉시 Master 권한을 부여한다.
-  const handleAddExisting = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleAddExisting = async () => {
     setInviteError('')
     const trimmed = email.trim()
     if (!trimmed) return
@@ -104,59 +104,68 @@ export default function AdminMastersPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-white px-6 py-8">
-      <div className="max-w-lg mx-auto flex flex-col gap-8">
+    <div className="flex flex-col min-h-full bg-gray-50">
+      {/* 헤더 */}
+      <div className="bg-white flex items-center justify-between px-4 pt-6 pb-4 border-b border-gray-100">
         <h1 className="text-lg font-bold text-gray-900">Master 관리</h1>
+      </div>
 
-        <form onSubmit={handleAddExisting} className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-gray-700">Master 추가 (이미 가입된 사용자)</label>
-          <div className="flex gap-2">
+      <div className="flex-1 overflow-y-auto pb-8">
+        <Section title="Master 추가 (이미 가입된 사용자)">
+          <Row label="이메일">
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="이메일"
-              className="flex-1 border border-gray-200 rounded-lg px-4 py-3 text-sm outline-none focus:border-gray-400"
+              className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm outline-none focus:border-gray-400 w-40"
             />
-            <button
-              type="submit"
-              disabled={pendingAction === 'add-existing' || !email.trim()}
-              className="px-4 py-3 rounded-lg bg-gray-900 text-white text-sm font-medium disabled:opacity-50"
-            >
-              추가
-            </button>
-          </div>
+          </Row>
           <button
-            type="button"
+            onClick={handleAddExisting}
+            disabled={pendingAction === 'add-existing' || !email.trim()}
+            className="w-full flex items-center px-4 py-3.5 min-h-[52px] disabled:opacity-50"
+          >
+            <span className="text-sm text-gray-900 font-medium">
+              {pendingAction === 'add-existing' ? '추가 중...' : '추가'}
+            </span>
+          </button>
+          <button
             onClick={handleInvite}
             disabled={pendingAction === 'invite' || !email.trim()}
-            className="w-full text-xs text-gray-600 border border-gray-200 rounded-lg px-4 py-2.5 disabled:opacity-50"
+            className="w-full flex items-center px-4 py-3.5 min-h-[52px] disabled:opacity-50"
           >
-            초대 메일 보내기
+            <span className="text-sm text-gray-800">
+              {pendingAction === 'invite' ? '발송 중...' : '초대 메일 보내기'}
+            </span>
           </button>
-          {inviteError && <p className="text-xs text-red-500">{inviteError}</p>}
-        </form>
+          {inviteError && (
+            <div className="px-4 py-3">
+              <p className="text-xs text-red-500">{inviteError}</p>
+            </div>
+          )}
+        </Section>
 
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-bold text-gray-900">초대 목록</h2>
-          {invitationsQuery.data?.length === 0 && <p className="text-xs text-gray-400">초대 내역이 없습니다.</p>}
+        <Section title="초대 목록">
+          {invitationsQuery.data?.length === 0 && (
+            <div className="px-4 py-3.5">
+              <p className="text-xs text-gray-400">초대 내역이 없습니다.</p>
+            </div>
+          )}
           {invitationsQuery.data?.map((inv) => (
-            <div
-              key={inv.id}
-              className="flex items-center justify-between border border-gray-100 rounded-lg px-4 py-3"
-            >
+            <div key={inv.id} className="flex items-center justify-between px-4 py-3.5 min-h-[52px]">
               <div className="flex flex-col">
-                <span className="text-sm text-gray-900">{inv.email}</span>
+                <span className="text-sm text-gray-800">{inv.email}</span>
                 <span className="text-xs text-gray-400">
                   {inv.status} · 만료 {new Date(inv.expires_at).toLocaleDateString()}
                 </span>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 shrink-0">
                 {(inv.status === 'sent' || inv.status === 'expired') && (
                   <button
                     onClick={() => handleResend(inv.id)}
                     disabled={pendingAction === inv.id}
-                    className="text-xs text-gray-600 border border-gray-200 rounded px-3 py-1.5 disabled:opacity-50"
+                    className="text-xs text-gray-600 border border-gray-200 rounded-md px-3 py-1.5 disabled:opacity-50"
                   >
                     재발송
                   </button>
@@ -165,7 +174,7 @@ export default function AdminMastersPage() {
                   <button
                     onClick={() => handleRevokeInvite(inv.id)}
                     disabled={pendingAction === inv.id}
-                    className="text-xs text-red-500 border border-red-200 rounded px-3 py-1.5 disabled:opacity-50"
+                    className="text-xs text-red-500 border border-red-200 rounded-md px-3 py-1.5 disabled:opacity-50"
                   >
                     취소
                   </button>
@@ -173,18 +182,18 @@ export default function AdminMastersPage() {
               </div>
             </div>
           ))}
-        </section>
+        </Section>
 
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-bold text-gray-900">현재 Master</h2>
-          {mastersQuery.data?.length === 0 && <p className="text-xs text-gray-400">Master가 없습니다.</p>}
+        <Section title="현재 Master">
+          {mastersQuery.data?.length === 0 && (
+            <div className="px-4 py-3.5">
+              <p className="text-xs text-gray-400">Master가 없습니다.</p>
+            </div>
+          )}
           {mastersQuery.data?.map((m) => (
-            <div
-              key={m.user_id}
-              className="flex items-center justify-between border border-gray-100 rounded-lg px-4 py-3"
-            >
+            <div key={m.user_id} className="flex items-center justify-between px-4 py-3.5 min-h-[52px]">
               <div className="flex flex-col">
-                <span className="text-sm text-gray-900">{m.email}</span>
+                <span className="text-sm text-gray-800">{m.email}</span>
                 {m.granted_at && (
                   <span className="text-xs text-gray-400">{new Date(m.granted_at).toLocaleDateString()} 부여</span>
                 )}
@@ -192,13 +201,13 @@ export default function AdminMastersPage() {
               <button
                 onClick={() => handleRevokeMaster(m.user_id)}
                 disabled={pendingAction === m.user_id}
-                className="text-xs text-red-500 border border-red-200 rounded px-3 py-1.5 disabled:opacity-50"
+                className="text-xs text-red-500 border border-red-200 rounded-md px-3 py-1.5 disabled:opacity-50 shrink-0"
               >
                 권한 해제
               </button>
             </div>
           ))}
-        </section>
+        </Section>
       </div>
     </div>
   )

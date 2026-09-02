@@ -7,6 +7,7 @@ import { useUserSettings } from '@/hooks/useUserSettings'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getRepository } from '@/repositories/factory'
 import { isNative } from '@/bridge'
+import { Section, Row } from '@/components/ui/SettingsList'
 import {
   buildBackup,
   downloadJson,
@@ -42,28 +43,6 @@ const REVIEW_INTERVAL_OPTIONS = [
 ]
 
 // ─── UI 공통 컴포넌트 ─────────────────────────────────────────
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 pt-5 pb-2">
-        {title}
-      </p>
-      <div className="bg-white border-y border-gray-100 divide-y divide-gray-100">
-        {children}
-      </div>
-    </div>
-  )
-}
-
-function Row({ label, children }: { label: string; children?: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between px-4 py-3.5 min-h-[52px]">
-      <span className="text-sm text-gray-800">{label}</span>
-      {children && <div className="flex items-center gap-2">{children}</div>}
-    </div>
-  )
-}
 
 function SegmentControl<T extends string>({
   value,
