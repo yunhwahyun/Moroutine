@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import { buildPermissions, GUEST_PERMISSIONS } from '@/lib/permissions'
+import { fetchAppConfig } from '@/hooks/useAppConfig'
 import type {
   AccountRole,
   PlanCode,
@@ -27,10 +28,11 @@ type PermissionsQueryData = {
   specialAccess: SpecialAccess
   subscription: Pick<Subscription, 'plan_code' | 'status'> | null
   plans: Partial<Record<PlanCode, SubscriptionPlan>>
+  paymentsEnabled: boolean
 }
 
 async function fetchPermissionsData(userId: string): Promise<PermissionsQueryData> {
-  const [profileResult, subscriptionResult, plansResult] = await Promise.all([
+  const [profileResult, subscriptionResult, plansResult, appConfig] = await Promise.all([
     supabase.from('profiles').select('role, special_access').eq('id', userId).single(),
     supabase
       .from('subscriptions')
@@ -40,6 +42,7 @@ async function fetchPermissionsData(userId: string): Promise<PermissionsQueryDat
       .limit(1)
       .maybeSingle(),
     supabase.from('subscription_plans').select('*'),
+    fetchAppConfig(),
   ])
 
   if (profileResult.error) throw profileResult.error
@@ -56,6 +59,7 @@ async function fetchPermissionsData(userId: string): Promise<PermissionsQueryDat
     specialAccess: (profileResult.data?.special_access as SpecialAccess | undefined) ?? 'none',
     subscription: subscriptionResult.data,
     plans,
+    paymentsEnabled: appConfig.paymentsEnabled,
   }
 }
 
@@ -91,6 +95,7 @@ export function usePermissions(): { permissions: Permissions | null; isLoading: 
       pro: query.data.plans.pro ?? FAIL_SAFE_PLAN_LIMITS,
     },
     isAuthenticated: true,
+    paymentsEnabled: query.data.paymentsEnabled,
   })
 
   return { permissions, isLoading: false }

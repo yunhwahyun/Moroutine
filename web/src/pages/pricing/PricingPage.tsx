@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { bridge, isNative, registerBridgeListener } from '@/bridge'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useAppConfig } from '@/hooks/useAppConfig'
 import { useAuthStore } from '@/stores/authStore'
 import { useSubscriptionDowngrade } from '@/hooks/useSubscriptionDowngrade'
 import { clearSignupPending, isSignupPending } from '@/lib/signupFlow'
@@ -34,6 +35,7 @@ export default function PricingPage() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const { permissions } = usePermissions()
+  const { paymentsEnabled } = useAppConfig()
   const tier = permissions?.serviceTier ?? 'guest'
   const [purchaseState, setPurchaseState] = useState<PurchaseState>('idle')
   const [purchaseError, setPurchaseError] = useState('')
@@ -80,7 +82,11 @@ export default function PricingPage() {
   }
 
   const isProCurrent = tier === 'pro'
-  const showProButton = !isProCurrent && tier !== 'master' && tier !== 'admin'
+  // docs/SUBSCRIPTION_DESIGN.md §11 — 결제가 아직 없는 무료 출시 기간에는 구매 버튼 자체를 숨긴다
+  // (사업자 등록 전 앱 심사에 결제 UI가 노출되지 않도록). 로그인 사용자는 이미 tier==='pro'라
+  // isProCurrent가 true가 되어 어차피 버튼이 필요 없다 — 이 분기가 실질적으로 가리는 대상은
+  // 아직 가입하지 않은 Guest뿐이다.
+  const showProButton = paymentsEnabled && !isProCurrent && tier !== 'master' && tier !== 'admin'
 
   return (
     <div className="px-6 py-8" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1.5rem)' }}>
@@ -93,6 +99,12 @@ export default function PricingPage() {
         뒤로
       </button>
       <h1 className="text-lg font-bold text-gray-900 mb-6">요금제 비교</h1>
+
+      {!paymentsEnabled && (
+        <div className="bg-gray-50 rounded-lg px-4 py-3 mb-4 text-sm text-gray-600">
+          출시 기념으로 지금 가입하면 Pro 기능을 무료로 이용할 수 있어요!
+        </div>
+      )}
 
       {purchaseState === 'processing' && (
         <div className="bg-gray-50 rounded-lg px-4 py-3 mb-4 text-sm text-gray-600">처리 중이에요...</div>
@@ -129,7 +141,9 @@ export default function PricingPage() {
               Pro
               {isProCurrent && <span className="ml-2 text-xs font-normal text-gray-400">현재 요금제</span>}
             </p>
-            <p className="text-sm text-gray-500 mt-0.5">{PRO_PRICE_PLACEHOLDER}</p>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {paymentsEnabled ? PRO_PRICE_PLACEHOLDER : '무료 체험 중(출시 기념)'}
+            </p>
           </div>
           <div className="flex flex-col gap-1.5 text-xs text-gray-600">
             <p>저장 위치: {proPlan?.sync_enabled ? '클라우드 저장(다른 기기에서도 동기화)' : '클라우드 저장'}</p>
@@ -153,10 +167,18 @@ export default function PricingPage() {
               <p className="text-xs text-gray-400 text-center py-2">모바일 앱에서 구독을 시작할 수 있어요.</p>
             )
           )}
+          {!paymentsEnabled && !user && (
+            <button
+              onClick={() => navigate('/login')}
+              className="w-full py-3 rounded-lg bg-gray-900 text-white text-sm font-medium"
+            >
+              무료로 회원가입하기
+            </button>
+          )}
         </div>
       </div>
 
-      {isNative() && (
+      {paymentsEnabled && isNative() && (
         <button onClick={handleRestore} disabled={purchaseState === 'processing'} className="w-full mt-4 py-3 text-sm text-gray-400 disabled:opacity-50">
           구매 복원
         </button>

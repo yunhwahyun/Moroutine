@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import { useUserSettings } from '@/hooks/useUserSettings'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useAppConfig } from '@/hooks/useAppConfig'
 import { getRepository } from '@/repositories/factory'
 import { isNative } from '@/bridge'
 import { Section, Row } from '@/components/ui/SettingsList'
@@ -186,6 +187,7 @@ export default function SettingsPage() {
   const { user } = useAuthStore()
   const { settings, update } = useUserSettings()
   const { permissions } = usePermissions()
+  const { paymentsEnabled } = useAppConfig()
   const tier = permissions?.serviceTier ?? 'guest'
   const repository = tier !== 'admin' ? getRepository(tier) : null
 
@@ -352,7 +354,9 @@ export default function SettingsPage() {
               <Row label="동기화">
                 <span className="text-sm text-gray-400">실시간 동기화 중</span>
               </Row>
-              {tier !== 'master' && (
+              {/* 결제가 아직 없는 무료 출시 기간에는 실제 구독이 없으므로 "구독 관리" 자체를 숨긴다
+                  (docs/SUBSCRIPTION_DESIGN.md §11 — 사업자 등록 전 앱 심사에 결제 UI 비노출). */}
+              {tier !== 'master' && paymentsEnabled && (
                 <>
                   {isNative() ? (
                     <Row label="구독 관리">

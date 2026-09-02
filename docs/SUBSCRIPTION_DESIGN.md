@@ -367,3 +367,44 @@ Guest 로컬 데이터(만료 후 계속 등록된 것 포함) 이전 가능
 | Master 승격 시 기존 유료 구독 자동 해지 여부 | 이중 결제 방지 정책 |
 | Pro `personal_word_limit` 값 | `docs/PERMISSION_DESIGN.md` §8과 동일 항목 |
 | §7 3개월 이내 복원 병합 UX(중복 판정, 기기 선택) | Phase 16 이월 — 다음 세션 |
+
+---
+
+## 11. 무료 출시 기간 → 유료 전환 스위치 ✅ 구현 완료(2026-09-02)
+
+사업자 등록 전에 먼저 앱을 출시하기 위한 전략. 사용자별 체험판 타이머가 아니라 **앱 전체에 대한
+단일 스위치**다 — `app_config.payments_enabled`(싱글턴 테이블, 마이그레이션 38) 하나가 전부를
+결정한다.
+
+```text
+payments_enabled = false (출시 초기, 기본값)
+  → get_service_tier(): admin/master/실제 pro 구독이 아닌 모든 "인증된" 사용자를 'pro'로 취급
+  → 회원가입만 하면 클라우드 저장/동기화, 단어 한도 없음, 일괄 등록, 공용 단어장이 전부 무료로 열림
+  → 결제를 트리거하는 화면(PricingPage의 구매 버튼, SettingsPage의 "구독 관리")은 렌더링 자체를 숨김
+    (사업자 등록 없이 앱 심사를 받아야 하므로 결제 관련 UI가 전혀 노출되면 안 됨)
+
+payments_enabled = true (다음 업데이트, 사업자 등록 후)
+  → get_service_tier()가 원래 로직으로 복귀: 실제 pro 구독이 없으면 guest
+  → 결제 이력 없이 무료로 쓰던 1차 가입자들이 다음 permissions 재조회 시 자동으로 guest 판정
+  → 이미 있는 SignupPricingGate/DowngradeGate가 코드 변경 없이 "유료 전환" 안내(/pricing 강제 이동
+    또는 "유효한 구독이 없습니다 / 무료로 계속 사용하시겠습니까?" 모달)를 자동으로 다시 담당
+  → PricingPage/SettingsPage의 결제 UI도 같은 스위치로 자동 복귀
+```
+
+**전환에 필요한 실제 작업**(코드 변경 없음): (1) 사업자 등록 + RevenueCat/App Store Connect/Play
+Console 구독 상품 등록, (2) `REVENUECAT_WEBHOOK_TOKEN`/`EXPO_PUBLIC_REVENUECAT_API_KEY_*` 시크릿 등록,
+(3) `UPDATE app_config SET payments_enabled = true;`(Dashboard SQL Editor, 앱 재배포 불필요).
+
+- 구현: `supabase/migrations/38_launch_free_access.sql`(`app_config` 테이블 + `get_service_tier()`
+  교체), `web/src/hooks/useAppConfig.ts`(신규), `web/src/lib/permissions.ts`(`resolveServiceTier()`에
+  분기 1개 추가 — 반드시 `isAuthenticated`와 함께 체크해야 비로그인 Guest까지 Pro로 승격되는 것을
+  막을 수 있음), `web/src/hooks/usePermissions.ts`(`fetchPermissionsData()`에 `app_config` 조회 추가),
+  `web/src/pages/pricing/PricingPage.tsx`(구매 버튼 숨김 + 무료 안내 배너 + 회원가입 CTA),
+  `web/src/pages/settings/SettingsPage.tsx`("구독 관리" 행 숨김).
+- **의도적으로 손대지 않은 곳**: `SignupPricingGate.tsx`/`DowngradeGate.tsx`/`DowngradeModal.tsx`/
+  `useSubscriptionDowngrade.ts`(스위치 전환만으로 자동 재작동), `create_words_checked()`/공용 단어장
+  RLS(이미 `get_service_tier() IN ('pro','master')`로 판정해 무수정으로 자동 반영), 모바일
+  `mobile/App.tsx`의 RevenueCat 연동(API 키 없으면 이미 안전하게 스킵하도록 되어 있어 그대로 둠).
+- **한계**: 실브라우저 검증 미수행. 전환 시점의 안내 문구(`DowngradeModal.tsx`의 "유효한 구독이
+  없습니다")는 지금도 의미가 통하지만, 원하면 전환 시점에 "무료 체험 기간이 종료되었습니다" 식으로
+  다듬을 수 있다(선택 사항, 이번 구현 범위 아님).

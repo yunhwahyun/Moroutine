@@ -268,6 +268,17 @@ _현재 진행 중인 작업 없음_
 - [x] 마이그레이션 37 34/35/36과 함께 Supabase 프로젝트에 실제 적용 완료(사용자 확인, 2026-09-02)
 - [ ] **한계**: 실브라우저 검증 미수행. 상세는 `docs/DECISION_LOG.md` 2026-09-02
 
+### Phase 21 후속 — 무료 출시 기간 → 유료 전환 스위치 ✅ 완료 2026-09-02
+- [x] Migration 38: `app_config` 싱글턴 테이블(`payments_enabled boolean DEFAULT false`, anon도 SELECT 가능, Admin만 쓰기) + `get_service_tier()`에 "결제 미활성 시 로그인 사용자는 Pro" 분기 추가
+- [x] `web/src/hooks/useAppConfig.ts`(신규) — `app_config` 조회 훅, 로딩/에러 시 `paymentsEnabled: false`로 fail-safe(결제 UI를 안전한 쪽으로 숨김)
+- [x] `permissions.ts`의 `resolveServiceTier()`에 동일 분기 추가 — 반드시 `isAuthenticated`와 함께 체크(비로그인 Guest까지 Pro로 승격되는 것 방지)
+- [x] `usePermissions.ts`의 `fetchPermissionsData()`에 `app_config` 조회 추가
+- [x] `PricingPage.tsx` — `paymentsEnabled=false`면 구매 버튼/구매 복원 버튼을 렌더링하지 않고, "출시 기념 무료 이용" 안내 배너 + (비로그인 시) 회원가입 CTA로 대체
+- [x] `SettingsPage.tsx` — `paymentsEnabled=false`면 "구독 관리" 행 숨김
+- [x] `tsc -b`/`eslint .`/`vite build` 통과
+- [x] **의도적으로 무변경**: `SignupPricingGate.tsx`/`DowngradeGate.tsx`/`DowngradeModal.tsx`/`useSubscriptionDowngrade.ts`(스위치 전환만으로 자동 재작동해 "유료 전환 안내"를 담당), `create_words_checked()`/공용 단어장 RLS(이미 `get_service_tier()`로 판정해 자동 반영), `mobile/App.tsx`의 RevenueCat 연동, `revenuecat-webhook` Edge Function
+- [ ] **한계**: 실브라우저 검증 미수행. 마이그레이션 38 미적용(Dashboard 적용 필요). 2차 전환(결제 붙이기) 시 실제로 할 일: 사업자 등록 + RevenueCat/스토어 상품 등록 + 시크릿 설정 + `UPDATE app_config SET payments_enabled = true;`(코드 변경 없음). 상세는 `docs/SUBSCRIPTION_DESIGN.md` §11, `docs/DECISION_LOG.md` 2026-09-02
+
 ### Phase 23 — 스피킹 재구현 (`docs/SPEAKING_DESIGN.md`) ⏸ 보류 2026-09-01
 - [ ] WebView 녹음 환경 검증 6개 항목(§7, Azure 관련 2개 항목 제거됨)
 - [ ] Migration 23~24: speaking_sentences, speaking_recordings

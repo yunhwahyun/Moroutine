@@ -59,10 +59,18 @@ master   — profiles.special_access = 'master'
 role = 'admin'                        → Admin
 special_access = 'master'             → Master
 활성 Pro 구독 존재                     → Pro
+app_config.payments_enabled = false   → Pro (2026-09-02, 아래 참고)
 그 외 (anonymous, 또는 authenticated인데 위 어디에도 해당 없음) → Guest
 ```
 > 2026-09-02 이전에는 Master와 Pro 사이에 "활성 Premium 구독 존재 → Premium" 단계가 있었다. Premium
 > 폐지로 제거됨(`docs/DECISION_LOG.md` 2026-09-02).
+>
+> **2026-09-02(마이그레이션 38)**: 사업자 등록 전 무료 출시 기간을 위한 스위치가 추가됐다 —
+> `app_config.payments_enabled`(싱글턴 테이블)가 `false`인 동안은 위 "활성 Pro 구독 존재" 판정에
+> 실패하더라도(즉 실제 구독이 없어도) **인증된 사용자라면** Guest로 떨어지지 않고 Pro로 판정한다.
+> Guest(비인증)는 이 분기와 무관하게 항상 Guest — 클라이언트 쪽(`resolveServiceTier()`,
+> `web/src/lib/permissions.ts`)에서 이 분기는 반드시 `isAuthenticated`와 함께 체크해야 한다. 상세는
+> `docs/SUBSCRIPTION_DESIGN.md` §11.
 
 - 우선순위는 상호 배타적이지 않다. 예: Admin이면서 과거 Pro 구독 이력이 있을 수 있으나, 최종 서비스 등급은 항상 최상단 매칭값을 따른다(Admin > Master > Pro > Guest).
 - `role='admin'`인 계정도 `special_access`, `subscriptions` 행을 가질 수 있다(예: 관리자가 개인적으로 Pro를 구독). 다만 최종 판정은 Admin이 우선한다. 관리자 화면 접근은 role만으로 판단하고, 개인 학습 기능 사용 시의 데이터 저장 모드(Remote/AdminContent)는 §8에서 결정.
@@ -211,6 +219,10 @@ $$;
 >
 > **2026-09-02**: 위 `get_service_tier()` 원문은 마이그레이션 15 당시 것이다. 현재(마이그레이션 37)는
 > `plan_code = 'premium'` 분기가 제거되어 `admin > master > pro > guest` 순서로 판정한다.
+>
+> **2026-09-02(마이그레이션 38)**: `pro` 판정과 `guest`로 떨어지는 사이에 분기가 하나 더 추가됐다 —
+> `app_config.payments_enabled = false`(사업자 등록 전 무료 출시 기간)면 실제 구독이 없어도 인증된
+> 사용자를 `pro`로 판정한다. 상세는 `docs/SUBSCRIPTION_DESIGN.md` §11.
 
 ---
 

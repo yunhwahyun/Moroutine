@@ -97,6 +97,45 @@
   순수 역사적 언급은 그대로 둠).
 - **영향 범위**: 위 각 항목의 파일 전부, `supabase/migrations/37_remove_premium_tier.sql`(신규).
 
+### 무료 출시 기간 → 유료 전환을 앱 전체 단일 스위치로 구현
+
+- **배경**: 사업자 등록 전에 먼저 앱을 출시하고 싶다는 요청 — 약 3개월 정도는 결제를 붙이지 않고
+  회원가입만 하면 Pro 기능을 전부 무료로 이용할 수 있게 하고, 사업자 등록 후 다음 업데이트에서 결제를
+  붙이면서 그동안 가입한 사용자에게 유료 전환 안내를 띄우고 싶어함. 사업자 등록이 없는 동안은 앱 심사
+  중에 결제/구독 관련 화면이 전혀 노출되면 안 되고, 나중에 결제를 붙일 때 큰 로직 수정이 없어야 함.
+- **결정**: "무료 기간"을 사용자별 타이머가 아니라 **앱 전체에 대한 단일 DB 스위치**
+  (`app_config.payments_enabled`, 마이그레이션 38)로 구현했다. 이 스위치를 가장 상류인
+  `get_service_tier()`/`resolveServiceTier()`(티어 판정) 한 곳에만 심어, 꺼져 있는 동안 로그인한
+  사용자 전원을 `pro`로 판정하게 했다 — 단어 한도·일괄 등록·공용 단어장·클라우드 동기화 등 Pro에
+  연동된 모든 기능이 기존 게이트 로직을 통해 자동으로 풀리므로 기능별로 따로 손댈 필요가 없었다.
+- **"큰 로직 수정 없이 결제를 붙인다"는 요구사항의 실제 근거**: 스위치를 켜는 순간(`UPDATE app_config
+  SET payments_enabled = true`, 앱 재배포 불필요) 실제 구독이 없는 1차 가입자들의 티어가 자동으로
+  `guest`로 재판정되고, **이미 구현되어 있던** `SignupPricingGate.tsx`/`DowngradeGate.tsx`(+
+  `DowngradeModal.tsx`, `useSubscriptionDowngrade.ts` — 만료/미결제 가입을 감지해 `/pricing`으로
+  보내거나 "유효한 구독이 없습니다 / 무료로 계속 사용하시겠습니까?" 모달을 띄우는 기존 인프라)가 코드
+  변경 없이 다시 작동해 "유료 전환 안내 창" 역할을 그대로 수행한다 — 새 모달을 만들 필요가 없었다.
+- **결제 UI 비노출**: 결제를 실제로 트리거하는 지점은 `PricingPage.tsx`(구매 버튼)와
+  `SettingsPage.tsx`("구독 관리" 행) 두 곳뿐이었다. 둘 다 `useAppConfig()`(신규 훅, `app_config` 조회)
+  로 `paymentsEnabled`를 읽어 `false`면 버튼/행 자체를 렌더링하지 않도록 했다 — 안 보이게 숨기는 게
+  아니라 아예 DOM에 없게 만들어, 결제로 이어지는 진입점이 전혀 존재하지 않는 상태로 심사를 받을 수
+  있게 했다. `useAppConfig()`는 로딩/에러 시 `paymentsEnabled: false`로 fail-safe한다(반대로 `true`
+  기본값을 쓰면 실제로는 꺼져 있는데 잠깐이라도 구매 버튼이 보일 위험이 있음) — 반면
+  `usePermissions.ts`가 티어 판정에 쓰는 값은 조회 실패 시 그냥 에러로 막아 permissions 자체가
+  `null`이 되게 둔다(기존 `FAIL_SAFE_PLAN_LIMITS`와 같은 "실패하면 더 적은 권한 쪽으로" 원칙).
+- **`resolveServiceTier()` 구현 시 주의점**: 서버 SQL(`get_service_tier()`)은 admin/master/pro 판정을
+  통과하면 이미 "인증된 사용자"이므로 `payments_enabled=false` 분기를 바로 추가해도 안전하지만,
+  클라이언트 쪽 `resolveServiceTier()`는 `GUEST_PERMISSIONS`(비인증)도 같은 함수를 거치므로 반드시
+  `isAuthenticated`를 함께 확인해야 한다 — 안 그러면 로그인하지 않은 방문자까지 Pro로 승격되는
+  버그가 생긴다(계획 단계에서는 놓쳤다가 구현 중 발견해 수정).
+- **모바일/RevenueCat Edge Function은 그대로 둠**: `mobile/App.tsx`의 RevenueCat 연동은 이미
+  `EXPO_PUBLIC_REVENUECAT_API_KEY_*`가 없으면 `Purchases.configure()`를 스킵하게 되어 있고, 웹 쪽
+  구매 버튼이 안 보이면 애초에 브리지 `PURCHASE_REQUEST`가 전송될 일이 없다. `revenuecat-webhook` Edge
+  Function도 무변경 — 2차 전환 때 API 키/시크릿만 채우면 기존 코드가 그대로 동작한다.
+- **영향 범위**: `supabase/migrations/38_launch_free_access.sql`(신규), `web/src/hooks/useAppConfig.ts`
+  (신규), `web/src/lib/permissions.ts`, `web/src/hooks/usePermissions.ts`,
+  `web/src/pages/pricing/PricingPage.tsx`, `web/src/pages/settings/SettingsPage.tsx`,
+  `docs/SUBSCRIPTION_DESIGN.md`(§11 신설), `docs/PERMISSION_DESIGN.md`(§3, §4-4), `docs/DB_SCHEMA.md`.
+
 ---
 
 ## 2026-09-01
