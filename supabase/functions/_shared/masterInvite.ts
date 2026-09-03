@@ -39,6 +39,6 @@ export async function sendInviteEmail(
 }
 
 export function inviteRedirectTo(): string {
-  const siteUrl = Deno.env.get('SITE_URL') ?? 'https://moroutine.vercel.app'
+  const siteUrl = Deno.env.get('SITE_URL') ?? 'https://www.moroutine.kr'
   return `${siteUrl}/master/accept`
 }

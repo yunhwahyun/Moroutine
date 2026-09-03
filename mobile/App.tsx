@@ -11,7 +11,7 @@ import Constants from 'expo-constants'
 import type { BridgeOutbound, BridgeInbound } from './src/types/bridge'
 
 function getWebAppUrl(): string {
-  if (!__DEV__) return 'https://moroutine.vercel.app'
+  if (!__DEV__) return 'https://www.moroutine.kr'
 
   if (Platform.OS === 'android') return 'http://10.0.2.2:5173'
 
