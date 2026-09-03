@@ -42,11 +42,22 @@ export default function LoginPage() {
 
     try {
       if (mode === 'magic') {
-        const { error } = await supabase.auth.signInWithOtp({ email })
+        // emailRedirectTo를 명시하지 않으면 Supabase Dashboard의 Site URL(기본값이 localhost일 수
+        // 있음)로 보내버린다 — 항상 지금 접속 중인 실제 주소로 돌아오도록 명시한다. 단, Dashboard의
+        // Authentication → URL Configuration → Redirect URLs 허용 목록에 이 주소가 등록돼 있어야
+        // Supabase가 실제로 받아준다(안 그러면 여전히 Site URL로 폴백됨).
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+          options: { emailRedirectTo: window.location.origin },
+        })
         if (error) throw error
         setMessage('이메일을 확인하세요. 로그인 링크를 보냈습니다.')
       } else if (mode === 'signup') {
-        const { data, error } = await supabase.auth.signUp({ email, password })
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: window.location.origin },
+        })
         if (error) throw error
         // 이미 가입(인증 완료)된 이메일로 회원가입을 시도하면 Supabase는 계정 존재 여부를 노출하지
         // 않기 위해 에러 없이 "가짜 성공" 응답을 준다 — 이때 identities가 빈 배열로 온다. 이 경우
