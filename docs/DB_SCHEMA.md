@@ -61,6 +61,10 @@
                                      실패해도 회원가입(auth.users INSERT) 자체는 항상 성공하도록 수정
                                      ("Database error saving new user" 회원가입 실패 버그 수정,
                                      docs/DECISION_LOG.md 2026-09-03)
+40. handle_new_user_schema_qualify  ← handle_new_user()/get_admin_default_settings()의 profiles 참조를
+                                     public.profiles로 스키마 명시 + SET search_path 고정 (실제 근본
+                                     원인 수정 — "relation profiles does not exist" 42P01,
+                                     docs/DECISION_LOG.md 2026-09-03)
 ```
 
 > `is_admin()` / `get_service_tier()` SQL 함수(`docs/PERMISSION_DESIGN.md` §4-4)는 마이그레이션 13 직후, 이를 참조하는 모든 RLS 정책(14번 이후)보다 먼저 생성한다.

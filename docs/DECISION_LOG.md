@@ -16,20 +16,35 @@
   (`handle_new_user`, `docs/DECISION_LOG.md` 2026-09-01에서 관리자 설정값을 신규 가입자에게 복사하도록
   수정)가 예외를 던질 때 그대로 노출하는 일반 메시지다. 관리자 설정값 복사 로직이 어떤 이유로든
   실패하면 `profiles` 행 생성이 막히고 `auth.users` INSERT까지 롤백되어, 부가 기능(설정값 복사) 하나
-  때문에 "계정 생성"이라는 핵심 기능 전체가 막히는 구조였다. 정확한 실패 원인(예: 트리거 소유자의
-  RLS/권한 문제 등)은 실제 Postgres 로그로 확인이 필요하나, 원인과 무관하게 이 결합 자체가 근본
-  문제라고 판단해 방어적으로 재작성.
-- **결정**: `docs/DECISION_LOG.md` 2026-07-19의 master-invite 계열 Edge Function 수정과 동일한 방어
-  원칙(예외를 삼키지 않고 최상위에서 잡아 최소한의 성공 경로를 보장)을 트리거에도 적용했다
-  (마이그레이션 39) — 관리자 설정값 복사가 실패해도 예외를 잡아 기본값 `profiles` 행만이라도 반드시
-  생성하고, 실패 원인은 `RAISE WARNING`으로 Postgres 로그에 남겨 사후 진단이 가능하게 했다.
+  때문에 "계정 생성"이라는 핵심 기능 전체가 막히는 구조였다.
+- **1차 조치(마이그레이션 39)**: 원인 확정 전, `docs/DECISION_LOG.md` 2026-07-19의 master-invite 계열
+  Edge Function 수정과 동일한 방어 원칙(예외를 삼키지 않고 최상위에서 잡아 최소한의 성공 경로를
+  보장)을 트리거에 적용 — 관리자 설정값 복사가 실패해도 예외를 잡아 기본값 `profiles` 행만이라도
+  반드시 생성하고, 실패 원인은 `RAISE WARNING`으로 Postgres 로그에 남기게 했다. **적용 후에도 동일
+  에러가 재현**되어(fallback INSERT까지 실패), 더 근본적인 원인이 있다고 판단.
+- **실제 원인 확정(Postgres 로그 확인, 2026-09-03)**: `relation "profiles" does not exist`(SQLSTATE
+  `42P01`). 원본(마이그레이션 01)은 `insert into public.profiles (...)`처럼 스키마를 명시했었는데,
+  마이그레이션 34에서 관리자 설정값 복사 로직으로 재작성하며 `public.`을 빠뜨리고 스키마 미명시
+  `profiles`만 사용했다. `auth.users` INSERT를 트리거하는 GoTrue의 연결 세션은 `search_path`에
+  `public` 스키마가 기본 포함되어 있지 않아, 스키마 미명시 테이블명을 찾지 못해 실패한 것 — 반면
+  PostgREST 경유 호출(REST API, `.rpc()`)은 별도 연결 경로라 `search_path`에 `public`이 정상 포함되어
+  있어 같은 문제가 나타나지 않았다(그래서 `GET /rest/v1/profiles`는 200으로 정상 응답하면서 회원가입
+  트리거만 실패하는 대조적인 증상이 나타남). 마이그레이션 39의 fallback INSERT도 스키마 미명시
+  `profiles`를 그대로 썼기 때문에 똑같은 이유로 실패를 반복했다.
+- **최종 수정(마이그레이션 40)**: `handle_new_user()`/`get_admin_default_settings()`(둘 다 마이그레이션
+  34에서 신설)의 모든 테이블 참조를 `public.profiles`로 명시하고, SECURITY DEFINER 함수의 일반적인
+  안전 수칙에 따라 `SET search_path = public, pg_temp`도 함께 고정해 같은 문제가 재발하지 않게 했다.
+  다른 SECURITY DEFINER 함수(`get_service_tier()`, `create_words_checked()`, `is_admin()`)도 테이블을
+  스키마 미명시로 참조하지만, 전부 PostgREST 경유(RLS 정책 평가, `.rpc()` 호출)로만 실행되고 그 경로는
+  `search_path`에 `public`이 정상 포함되어 있어(지금까지 이 함수들 관련 오류 보고가 없었던 것과 일치)
+  이번에는 손대지 않았다 — `auth.users` 트리거처럼 GoTrue가 직접 여는 연결 경로만 특이 케이스였다.
 - **회원가입 에러 메시지 한국어화**: `LoginPage.tsx`에 Supabase Auth(GoTrue) 영문 에러 메시지 →
   한국어 매핑(`AUTH_ERROR_MESSAGES`)을 추가(매핑에 없는 메시지는 원문 그대로 표시 — 억지로 오역하는
   것보다 안전). 회원가입 시 `signUp()` 응답의 `data.user.identities`가 빈 배열이면(이미 가입된 이메일)
   "인증 링크를 보냈습니다" 대신 "이미 가입된 이메일입니다. 로그인해주세요."를 보여주도록 분기 추가 —
   실제로 메일이 발송되지 않았는데 발송됐다고 안내하던 부정확한 메시지를 바로잡음.
-- **영향 범위**: `supabase/migrations/39_handle_new_user_defensive.sql`(신규),
-  `web/src/pages/auth/LoginPage.tsx`.
+- **영향 범위**: `supabase/migrations/39_handle_new_user_defensive.sql`,
+  `supabase/migrations/40_handle_new_user_schema_qualify.sql`(신규), `web/src/pages/auth/LoginPage.tsx`.
 
 ---
 
