@@ -57,6 +57,10 @@
                                      premium 제거 (docs/DECISION_LOG.md 2026-09-02)
 38. launch_free_access             ← app_config 싱글턴 테이블(payments_enabled) 신설 + get_service_tier()에
                                      "결제 미활성 시 로그인 사용자는 Pro" 분기 추가 (docs/SUBSCRIPTION_DESIGN.md §11)
+39. handle_new_user_defensive       ← handle_new_user()의 관리자 설정값 복사 로직을 예외 처리로 감싸,
+                                     실패해도 회원가입(auth.users INSERT) 자체는 항상 성공하도록 수정
+                                     ("Database error saving new user" 회원가입 실패 버그 수정,
+                                     docs/DECISION_LOG.md 2026-09-03)
 ```
 
 > `is_admin()` / `get_service_tier()` SQL 함수(`docs/PERMISSION_DESIGN.md` §4-4)는 마이그레이션 13 직후, 이를 참조하는 모든 RLS 정책(14번 이후)보다 먼저 생성한다.

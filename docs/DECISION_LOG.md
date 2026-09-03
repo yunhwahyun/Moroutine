@@ -4,6 +4,35 @@
 
 ---
 
+## 2026-09-03
+
+### 회원가입 "Database error saving new user" — handle_new_user() 트리거를 방어적으로 재작성
+
+- **현상**: 신규 이메일로 회원가입 시 Supabase가 "Database error saving new user"를 반환하며 계정
+  생성 자체가 실패. 별개로, 이미 가입된 이메일로 다시 회원가입을 시도하면 "인증 링크를 보냈습니다"라고
+  안내하지만 실제 메일은 오지 않음(Supabase가 계정 존재 여부를 노출하지 않으려고 에러 없이 성공처럼
+  응답하는 표준 동작 — 실제로는 메일을 보내지 않는다).
+- **원인**: "Database error saving new user"는 GoTrue가 `auth.users` INSERT에 걸린 트리거
+  (`handle_new_user`, `docs/DECISION_LOG.md` 2026-09-01에서 관리자 설정값을 신규 가입자에게 복사하도록
+  수정)가 예외를 던질 때 그대로 노출하는 일반 메시지다. 관리자 설정값 복사 로직이 어떤 이유로든
+  실패하면 `profiles` 행 생성이 막히고 `auth.users` INSERT까지 롤백되어, 부가 기능(설정값 복사) 하나
+  때문에 "계정 생성"이라는 핵심 기능 전체가 막히는 구조였다. 정확한 실패 원인(예: 트리거 소유자의
+  RLS/권한 문제 등)은 실제 Postgres 로그로 확인이 필요하나, 원인과 무관하게 이 결합 자체가 근본
+  문제라고 판단해 방어적으로 재작성.
+- **결정**: `docs/DECISION_LOG.md` 2026-07-19의 master-invite 계열 Edge Function 수정과 동일한 방어
+  원칙(예외를 삼키지 않고 최상위에서 잡아 최소한의 성공 경로를 보장)을 트리거에도 적용했다
+  (마이그레이션 39) — 관리자 설정값 복사가 실패해도 예외를 잡아 기본값 `profiles` 행만이라도 반드시
+  생성하고, 실패 원인은 `RAISE WARNING`으로 Postgres 로그에 남겨 사후 진단이 가능하게 했다.
+- **회원가입 에러 메시지 한국어화**: `LoginPage.tsx`에 Supabase Auth(GoTrue) 영문 에러 메시지 →
+  한국어 매핑(`AUTH_ERROR_MESSAGES`)을 추가(매핑에 없는 메시지는 원문 그대로 표시 — 억지로 오역하는
+  것보다 안전). 회원가입 시 `signUp()` 응답의 `data.user.identities`가 빈 배열이면(이미 가입된 이메일)
+  "인증 링크를 보냈습니다" 대신 "이미 가입된 이메일입니다. 로그인해주세요."를 보여주도록 분기 추가 —
+  실제로 메일이 발송되지 않았는데 발송됐다고 안내하던 부정확한 메시지를 바로잡음.
+- **영향 범위**: `supabase/migrations/39_handle_new_user_defensive.sql`(신규),
+  `web/src/pages/auth/LoginPage.tsx`.
+
+---
+
 ## 2026-09-02
 
 ### 관리자 화면 디자인을 사용자 화면과 통일
