@@ -56,13 +56,11 @@ export default function App() {
   const sttSubs = useRef<{ remove: () => void }[]>([])
   const autoplayRef = useRef<AutoplaySession | null>(null)
   const autoplayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // keepAlivePlayer.play()/pause()를 우리 코드가 직접 호출했을 때는 아래 상태 동기화 effect가
-  // 그걸 "잠금화면에서 외부로 눌린 것"으로 오인하지 않도록 무시하는 플래그.
-  const ignoreNextPlayerStatusRef = useRef(false)
 
   // 무음 루프 — 실제 소리는 Speech.speak가 담당하고, 이 플레이어는 백그라운드 오디오
-  // 세션/잠금화면 컨트롤을 유지시켜 화면이 꺼져도 자동재생이 계속되게 하는 용도다. 잠금화면의
-  // 재생/일시정지 버튼은 OS가 이 플레이어에 직접 play()/pause()를 호출하는 방식으로 동작한다.
+  // 세션/잠금화면 컨트롤을 유지시켜 화면이 꺼져도 자동재생이 계속되게 하는 용도다. 잠금화면/
+  // 제어센터/이어폰 리모컨의 재생·일시정지 버튼은 전부 OS가 이 플레이어에 직접 play()/pause()를
+  // 호출하는 방식으로 동작한다.
   const keepAlivePlayer = useAudioPlayer(require('./assets/silence.wav'))
   const keepAlivePlayerStatus = useAudioPlayerStatus(keepAlivePlayer)
   useEffect(() => {
@@ -70,8 +68,8 @@ export default function App() {
     keepAlivePlayer.volume = 0
   }, [keepAlivePlayer])
 
+  // 앱 내 버튼이든 잠금화면/이어폰이든, keepAlivePlayer의 play()/pause()가 유일한 진입점이다.
   function setKeepAlivePlaying(playing: boolean) {
-    ignoreNextPlayerStatusRef.current = true
     if (playing) keepAlivePlayer.play()
     else keepAlivePlayer.pause()
   }
@@ -83,28 +81,24 @@ export default function App() {
     }
   }
 
-  // 잠금화면/제어센터 등 우리 코드를 거치지 않고 외부에서 재생 상태가 바뀐 경우를 감지해
-  // Speech 쪽 상태와 웹 UI를 동기화한다.
+  // Speech 쪽 재생/정지는 오직 이 effect 하나에서만 다룬다 — 호출 주체(앱 내 버튼 vs 잠금화면/
+  // 제어센터/이어폰)를 구분해서 한쪽을 "무시"하려 하면, 상태 갱신 이벤트가 비동기로 지연 도착할 때
+  // 자체 변경과 외부 변경이 뒤섞여 상태가 꼬일 수 있다(실기기에서 확인된 버그) — 그래서 구분 자체를
+  // 없애고, keepAlivePlayer.playing 값 하나만 진실로 삼아 항상 거기에 맞춘다(레벨 트리거).
   useEffect(() => {
-    if (ignoreNextPlayerStatusRef.current) {
-      ignoreNextPlayerStatusRef.current = false
-      return
-    }
     const session = autoplayRef.current
     if (!session) return
-    const wantPlaying = !session.paused
-    if (keepAlivePlayerStatus.playing === wantPlaying) return
-    if (keepAlivePlayerStatus.playing) {
-      session.paused = false
-      session.gen += 1
+    const shouldPlay = keepAlivePlayerStatus.playing
+    if (shouldPlay === !session.paused) return  // 이미 반영된 상태(자체 변경 포함) — 아무 것도 안 함
+    session.paused = !shouldPlay
+    session.gen += 1
+    sendToWeb({ type: 'AUTOPLAY_PLAYING_CHANGED', payload: { playing: shouldPlay } })
+    if (shouldPlay) {
       speakAutoplayWord(session.gen)
     } else {
       clearAutoplayTimeout()
       Speech.stop()
-      session.paused = true
-      session.gen += 1
     }
-    sendToWeb({ type: 'AUTOPLAY_PLAYING_CHANGED', payload: { playing: keepAlivePlayerStatus.playing } })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keepAlivePlayerStatus.playing])
 
@@ -333,25 +327,14 @@ export default function App() {
         break
       }
 
+      // 실제 정지/재개 처리는 keepAlivePlayer.playing을 관찰하는 effect 하나가 전담한다(위 참고)
+      // — 여기서는 플레이어 상태만 바꾸고, 앱 내 버튼과 잠금화면/이어폰을 동일하게 취급한다.
       case 'AUTOPLAY_PAUSE':
-        clearAutoplayTimeout()
-        Speech.stop()
-        if (autoplayRef.current) {
-          autoplayRef.current.paused = true
-          autoplayRef.current.gen += 1
-        }
         setKeepAlivePlaying(false)
         break
 
       case 'AUTOPLAY_RESUME':
-        if (autoplayRef.current) {
-          clearAutoplayTimeout()
-          Speech.stop()
-          autoplayRef.current.paused = false
-          autoplayRef.current.gen += 1
-          setKeepAlivePlaying(true)
-          speakAutoplayWord(autoplayRef.current.gen)
-        }
+        setKeepAlivePlaying(true)
         break
 
       case 'AUTOPLAY_STEP': {
