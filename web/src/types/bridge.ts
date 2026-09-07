@@ -96,6 +96,10 @@ export type AutoplayWordChangedPayload = {
   index: number
 }
 
+export type AutoplayPlayingChangedPayload = {
+  playing: boolean
+}
+
 export type BridgeInbound =
   | { type: 'NOTIFICATION_RESULT'; payload: NotificationResultPayload }
   | { type: 'PERMISSION_RESULT'; payload: PermissionResultPayload }
@@ -104,4 +108,5 @@ export type BridgeInbound =
   | { type: 'PURCHASE_RESULT'; payload: PurchaseResultPayload }
   | { type: 'RESTORE_RESULT'; payload: RestoreResultPayload }
   | { type: 'AUTOPLAY_WORD_CHANGED'; payload: AutoplayWordChangedPayload }
+  | { type: 'AUTOPLAY_PLAYING_CHANGED'; payload: AutoplayPlayingChangedPayload }
   | { type: 'AUTOPLAY_FINISHED' }

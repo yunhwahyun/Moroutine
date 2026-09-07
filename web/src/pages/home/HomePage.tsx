@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTTS } from '@/hooks/useTTS'
 import { useAutoPlay } from '@/hooks/useAutoPlay'
@@ -176,16 +176,17 @@ export default function HomePage() {
   const tier = permissions?.serviceTier ?? null
 
   const { data: rawStudyWords = [], isLoading: wordsLoading } = useTodayStudyWords()
-  const studyWords = applyQuestionOrder(rawStudyWords, settings.questionOrder)
+  // questionOrder가 'random'이면 매 호출마다 다시 섞이므로, 렌더될 때마다 새로 계산하면 자동재생이
+  // 읽는 순서(시작 시점에 한 번 고정)와 화면에 보이는 순서가 어긋난다 — 입력이 바뀔 때만 재계산한다.
+  const studyWords = useMemo(
+    () => applyQuestionOrder(rawStudyWords, settings.questionOrder),
+    [rawStudyWords, settings.questionOrder],
+  )
 
   const [current, setCurrent] = useState(0)
   const auto = useAutoPlay(
     studyWords.map((w) => ({ term: w.term, caption: w.example || w.definition })),
   )
-  // 자동재생 중에는 캐러셀의 현재 슬라이드를 자동재생 인덱스에 맞춘다
-  useEffect(() => {
-    if (auto.active) setCurrent(auto.index)
-  }, [auto.active, auto.index])
 
   // 일정(Schedule)은 아직 Repository/Guest 로컬 저장에 연동되지 않았다(docs/TODO.md Phase 12.5 참고).
   // Guest가 이 Supabase 쿼리를 그대로 호출하면 인증 없는 요청이라 401만 발생하므로 아예 스킵한다.
@@ -257,7 +258,10 @@ export default function HomePage() {
       </div>
 
       {auto.active && studyWords[auto.index] && (
-        <div className="sticky bottom-24 z-20 px-4">
+        <div
+          className="fixed inset-x-0 z-40 px-4"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 92px)' }}
+        >
           <AutoPlayBar
             term={studyWords[auto.index].term}
             caption={studyWords[auto.index].example || studyWords[auto.index].definition}
@@ -265,6 +269,7 @@ export default function HomePage() {
             onToggle={auto.toggle}
             onNext={auto.next}
             onPrevious={auto.previous}
+            onClose={auto.close}
           />
         </div>
       )}

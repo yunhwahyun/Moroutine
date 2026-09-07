@@ -1,4 +1,4 @@
-import { PlayIcon, PauseIcon, PrevIcon, NextIcon } from '@/components/icons'
+import { PlayIcon, PauseIcon, PrevIcon, NextIcon, CloseIcon } from '@/components/icons'
 
 interface Props {
   term: string
@@ -7,16 +7,21 @@ interface Props {
   onToggle: () => void
   onNext: () => void
   onPrevious: () => void
+  onClose: () => void
 }
 
 // 음악 앱 스타일 미니 플레이어 — 자동재생 세션이 시작된 동안에만 렌더링된다(호출부에서 active로 감싼다).
-export default function AutoPlayBar({ term, caption, playing, onToggle, onNext, onPrevious }: Props) {
+export default function AutoPlayBar({ term, caption, playing, onToggle, onNext, onPrevious, onClose }: Props) {
   return (
     <div>
       <div className="flex justify-center">
-        <div className="w-9 h-5 bg-gray-900 rounded-t-lg flex items-center justify-center -mb-px">
-          <span className="text-gray-500 text-xs">▲</span>
-        </div>
+        <button
+          onClick={onClose}
+          className="w-9 h-5 bg-gray-900 rounded-t-lg flex items-center justify-center -mb-px text-gray-400 hover:text-white"
+          aria-label="자동재생 숨기기"
+        >
+          <CloseIcon size={12} />
+        </button>
       </div>
       <div className="bg-gray-900 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-lg">
         <div className="flex-1 min-w-0">

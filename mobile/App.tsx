@@ -5,20 +5,22 @@ import { SafeAreaView } from 'react-native'
 import WebView, { WebViewMessageEvent } from 'react-native-webview'
 import * as Notifications from 'expo-notifications'
 import * as Speech from 'expo-speech'
-import { useAudioPlayer, setAudioModeAsync, requestNotificationPermissionsAsync } from 'expo-audio'
+import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync, requestNotificationPermissionsAsync } from 'expo-audio'
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition'
 import Purchases from 'react-native-purchases'
 import Constants from 'expo-constants'
 import type { BridgeOutbound, BridgeInbound } from './src/types/bridge'
 
 // 자동재생 세션 상태 — 화면 잠금/백그라운드에서도 이어지도록 웹뷰가 아닌 이 RN JS 스레드가
-// 시퀀싱을 전담한다(docs/DECISION_LOG.md 참고).
+// 시퀀싱을 전담한다(docs/DECISION_LOG.md 참고). gen은 seek/pause/stop이 재생 도중 끼어들 때
+// 이전에 예약된 onDone/setTimeout 콜백이 뒤늦게 실행되는 걸 막기 위한 세대 값이다.
 interface AutoplaySession {
   words: string[]
   lang: string
   gapMs: number
   index: number
   paused: boolean
+  gen: number
 }
 
 function getWebAppUrl(): string {
@@ -53,14 +55,58 @@ export default function App() {
   const isWebReady = useRef(false)
   const sttSubs = useRef<{ remove: () => void }[]>([])
   const autoplayRef = useRef<AutoplaySession | null>(null)
+  const autoplayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // keepAlivePlayer.play()/pause()를 우리 코드가 직접 호출했을 때는 아래 상태 동기화 effect가
+  // 그걸 "잠금화면에서 외부로 눌린 것"으로 오인하지 않도록 무시하는 플래그.
+  const ignoreNextPlayerStatusRef = useRef(false)
 
   // 무음 루프 — 실제 소리는 Speech.speak가 담당하고, 이 플레이어는 백그라운드 오디오
-  // 세션/잠금화면 컨트롤을 유지시켜 화면이 꺼져도 자동재생이 계속되게 하는 용도다.
+  // 세션/잠금화면 컨트롤을 유지시켜 화면이 꺼져도 자동재생이 계속되게 하는 용도다. 잠금화면의
+  // 재생/일시정지 버튼은 OS가 이 플레이어에 직접 play()/pause()를 호출하는 방식으로 동작한다.
   const keepAlivePlayer = useAudioPlayer(require('./assets/silence.wav'))
+  const keepAlivePlayerStatus = useAudioPlayerStatus(keepAlivePlayer)
   useEffect(() => {
     keepAlivePlayer.loop = true
     keepAlivePlayer.volume = 0
   }, [keepAlivePlayer])
+
+  function setKeepAlivePlaying(playing: boolean) {
+    ignoreNextPlayerStatusRef.current = true
+    if (playing) keepAlivePlayer.play()
+    else keepAlivePlayer.pause()
+  }
+
+  function clearAutoplayTimeout() {
+    if (autoplayTimeoutRef.current) {
+      clearTimeout(autoplayTimeoutRef.current)
+      autoplayTimeoutRef.current = null
+    }
+  }
+
+  // 잠금화면/제어센터 등 우리 코드를 거치지 않고 외부에서 재생 상태가 바뀐 경우를 감지해
+  // Speech 쪽 상태와 웹 UI를 동기화한다.
+  useEffect(() => {
+    if (ignoreNextPlayerStatusRef.current) {
+      ignoreNextPlayerStatusRef.current = false
+      return
+    }
+    const session = autoplayRef.current
+    if (!session) return
+    const wantPlaying = !session.paused
+    if (keepAlivePlayerStatus.playing === wantPlaying) return
+    if (keepAlivePlayerStatus.playing) {
+      session.paused = false
+      session.gen += 1
+      speakAutoplayWord(session.gen)
+    } else {
+      clearAutoplayTimeout()
+      Speech.stop()
+      session.paused = true
+      session.gen += 1
+    }
+    sendToWeb({ type: 'AUTOPLAY_PLAYING_CHANGED', payload: { playing: keepAlivePlayerStatus.playing } })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keepAlivePlayerStatus.playing])
 
   useEffect(() => {
     Notifications.requestPermissionsAsync()
@@ -86,23 +132,26 @@ export default function App() {
     )
   }
 
-  function speakAutoplayWord() {
+  // gen: 호출 시점의 세대 값을 캡처해두고, 지연 콜백(advance)이 실행될 때 세션의 현재 세대와
+  // 비교한다 — 그 사이 seek/pause/stop이 끼어들어 세대가 바뀌었으면 낡은 콜백이니 무시한다.
+  function speakAutoplayWord(gen: number) {
     const session = autoplayRef.current
-    if (!session || session.paused) return
+    if (!session || session.paused || session.gen !== gen) return
     if (session.index >= session.words.length) {
       sendToWeb({ type: 'AUTOPLAY_FINISHED' })
-      keepAlivePlayer.pause()
+      setKeepAlivePlaying(false)
       keepAlivePlayer.setActiveForLockScreen(false)
       autoplayRef.current = null
       return
     }
     sendToWeb({ type: 'AUTOPLAY_WORD_CHANGED', payload: { index: session.index } })
     const advance = () => {
-      if (!autoplayRef.current || autoplayRef.current.paused) return
-      setTimeout(() => {
-        if (!autoplayRef.current || autoplayRef.current.paused) return
+      if (!autoplayRef.current || autoplayRef.current.paused || autoplayRef.current.gen !== gen) return
+      clearAutoplayTimeout()
+      autoplayTimeoutRef.current = setTimeout(() => {
+        if (!autoplayRef.current || autoplayRef.current.paused || autoplayRef.current.gen !== gen) return
         autoplayRef.current.index += 1
-        speakAutoplayWord()
+        speakAutoplayWord(gen)
       }, session.gapMs)
     }
     Speech.speak(session.words[session.index], {
@@ -257,7 +306,10 @@ export default function App() {
 
       case 'AUTOPLAY_START': {
         const { words, lang, gapMs } = msg.payload
-        autoplayRef.current = { words, lang, gapMs, index: 0, paused: false }
+        clearAutoplayTimeout()
+        Speech.stop()
+        const gen = (autoplayRef.current?.gen ?? 0) + 1
+        autoplayRef.current = { words, lang, gapMs, index: 0, paused: false, gen }
         try {
           await setAudioModeAsync({
             playsInSilentMode: true,
@@ -276,36 +328,50 @@ export default function App() {
           }
         }
         keepAlivePlayer.setActiveForLockScreen(true, { title: 'Moroutine', artist: '자동재생 중' })
-        keepAlivePlayer.play()
-        speakAutoplayWord()
+        setKeepAlivePlaying(true)
+        speakAutoplayWord(gen)
         break
       }
 
       case 'AUTOPLAY_PAUSE':
-        if (autoplayRef.current) autoplayRef.current.paused = true
+        clearAutoplayTimeout()
         Speech.stop()
+        if (autoplayRef.current) {
+          autoplayRef.current.paused = true
+          autoplayRef.current.gen += 1
+        }
+        setKeepAlivePlaying(false)
         break
 
       case 'AUTOPLAY_RESUME':
         if (autoplayRef.current) {
+          clearAutoplayTimeout()
+          Speech.stop()
           autoplayRef.current.paused = false
-          speakAutoplayWord()
+          autoplayRef.current.gen += 1
+          setKeepAlivePlaying(true)
+          speakAutoplayWord(autoplayRef.current.gen)
         }
         break
 
       case 'AUTOPLAY_SEEK':
         if (autoplayRef.current) {
+          clearAutoplayTimeout()
           Speech.stop()
           autoplayRef.current.index = msg.payload.index
           autoplayRef.current.paused = false
-          speakAutoplayWord()
+          autoplayRef.current.gen += 1
+          setKeepAlivePlaying(true)
+          speakAutoplayWord(autoplayRef.current.gen)
         }
         break
 
       case 'AUTOPLAY_STOP':
+        clearAutoplayTimeout()
         Speech.stop()
+        if (autoplayRef.current) autoplayRef.current.gen += 1
         autoplayRef.current = null
-        keepAlivePlayer.pause()
+        setKeepAlivePlaying(false)
         keepAlivePlayer.setActiveForLockScreen(false)
         break
     }

@@ -180,6 +180,7 @@ export default function LearnPage() {
             onToggle={auto.toggle}
             onNext={auto.next}
             onPrevious={auto.previous}
+            onClose={auto.close}
           />
         </div>
       )}
