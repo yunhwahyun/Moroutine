@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react'
-import { StyleSheet, View, Platform } from 'react-native'
+import { StyleSheet, View, Platform, AppState } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaView } from 'react-native'
 import WebView, { WebViewMessageEvent } from 'react-native-webview'
@@ -102,6 +102,21 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keepAlivePlayerStatus.playing])
 
+  // 화면 잠금/백그라운드 중엔 WebView 자체가 정지돼 injectJavaScript로 보낸 진행 상황 메시지가
+  // 그동안 반영되지 못했을 수 있다 — 앱이 다시 포그라운드로 돌아올 때마다 지금 네이티브가 들고 있는
+  // 진짜 상태(인덱스/재생 여부)를 다시 보내 화면(미니 플레이어)을 강제로 맞춘다.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return
+      const session = autoplayRef.current
+      if (!session) return
+      sendToWeb({ type: 'AUTOPLAY_WORD_CHANGED', payload: { index: session.index } })
+      sendToWeb({ type: 'AUTOPLAY_PLAYING_CHANGED', payload: { playing: !session.paused } })
+    })
+    return () => sub.remove()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     Notifications.requestPermissionsAsync()
 
@@ -139,7 +154,11 @@ export default function App() {
       return
     }
     sendToWeb({ type: 'AUTOPLAY_WORD_CHANGED', payload: { index: session.index } })
-    const advance = () => {
+
+    let advanced = false
+    const advanceOnce = () => {
+      if (advanced) return
+      advanced = true
       if (!autoplayRef.current || autoplayRef.current.paused || autoplayRef.current.gen !== gen) return
       clearAutoplayTimeout()
       autoplayTimeoutRef.current = setTimeout(() => {
@@ -148,11 +167,18 @@ export default function App() {
         speakAutoplayWord(gen)
       }, session.gapMs)
     }
+
     Speech.speak(session.words[session.index], {
       language: session.lang,
-      onDone: advance,
-      onError: advance,
+      onDone: advanceOnce,
+      onError: advanceOnce,
     })
+
+    // expo-speech의 onDone/onError가 일부 기기·언어 조합에서 아예 안 불리는 경우가 있어(실기기에서
+    // "다음 단어로 자동 진행이 안 된다" 버그로 확인됨) — 예상 재생 시간이 지나도 콜백이 없으면
+    // 안전장치로 강제 진행시킨다. 콜백이 정상적으로 먼저 오면 advanced 플래그가 중복 실행을 막는다.
+    const estimatedMs = Math.max(2500, session.words[session.index].length * 220)
+    setTimeout(advanceOnce, estimatedMs)
   }
 
   async function handleWebMessage(event: WebViewMessageEvent) {
