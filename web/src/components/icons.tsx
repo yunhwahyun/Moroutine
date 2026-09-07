@@ -55,3 +55,38 @@ export function MicIcon({ size = 20, className }: IconProps) {
     </svg>
   )
 }
+
+export function PlayIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M7 4.5v15l13-7.5-13-7.5z" />
+    </svg>
+  )
+}
+
+export function PauseIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <rect x="6" y="4" width="4" height="16" rx="1" />
+      <rect x="14" y="4" width="4" height="16" rx="1" />
+    </svg>
+  )
+}
+
+export function PrevIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M6 5h2v14H6z" />
+      <path d="M18 5v14L8 12z" />
+    </svg>
+  )
+}
+
+export function NextIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M16 5h2v14h-2z" />
+      <path d="M6 5v14l10-7z" />
+    </svg>
+  )
+}

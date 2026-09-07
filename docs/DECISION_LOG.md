@@ -4,6 +4,41 @@
 
 ---
 
+## 2026-09-07
+
+### 메인/학습하기 자동재생 — 웹은 JS 스케줄링, 앱은 네이티브(RN)가 시퀀싱
+
+- **배경**: 메인 페이지 캐러셀과 학습하기(`/learn`) 목록에 단어를 순서대로 읽어주는 자동재생을
+  추가하면서, 앱(RN 래퍼)에서는 화면 잠금/백그라운드 상태에서도 재생이 이어져야 한다는 요구사항이
+  있었다.
+- **문제**: Moroutine의 실제 UI/로직은 `mobile/App.tsx`가 띄우는 WebView 안의 웹 앱(`web/`)에서
+  돈다. 웹 쪽 `setTimeout` + TTS만으로 "1초 기다렸다 다음 단어"를 반복하면, 화면이 꺼지거나 앱이
+  백그라운드로 가는 순간 WebView의 JS 타이머 자체가 스로틀링/정지될 수 있다(iOS WKWebView는 비가시
+  상태에서 JS 실행을 강하게 제한한다) — RN 호스트 앱이 백그라운드 오디오 권한으로 계속 실행되더라도,
+  WebView 콘텐츠의 JS는 별개로 죽을 수 있다.
+- **결정**: 웹(브라우저)과 앱(RN)을 분기한다.
+  - 웹: 백그라운드 보장은 애초에 불가능(웹 플랫폼 정책상 100% 보장 불가) — 순차 재생을 웹 JS가
+    직접 스케줄링(`speechSynthesis` 완료 콜백 기반)한다. 탭이 보이는 동안만 정상 동작하면 충분.
+  - 앱: 재생 시작 시 전체 단어 목록을 브리지(`AUTOPLAY_START`)로 네이티브에 한 번에 전달하고,
+    이후 순차 재생/타이머 루프는 **RN(`App.tsx`)의 JS 스레드**가 전담한다. RN 자체는 iOS
+    `UIBackgroundModes: audio` + 활성 오디오 세션 덕분에 백그라운드에서도 계속 실행되므로, 여기서
+    도는 `setTimeout` 루프는 화면이 꺼져도 살아있을 가능성이 훨씬 높다. 웹은 네이티브가 보내주는
+    진행 이벤트(`AUTOPLAY_WORD_CHANGED`/`AUTOPLAY_FINISHED`)만 받아 미니 플레이어 UI를 갱신한다.
+- **백그라운드 오디오 세션(앱)**: `expo-audio`(Expo SDK 56) 도입. iOS는
+  `setAudioModeAsync({ shouldPlayInBackground: true, ... })` 한 번으로 충분(config plugin이
+  `UIBackgroundModes: audio`를 자동 추가). Android는 그것만으론 약 3분 후 정지되어,
+  `AudioPlayer.setActiveForLockScreen(true, ...)`로 잠금화면 컨트롤을 등록해야 지속된다(config
+  plugin의 `enableBackgroundPlayback: true`가 `FOREGROUND_SERVICE`류 권한을 자동 추가). 실제 소리는
+  기존 `expo-speech`가 담당하고(`useApplicationAudioSession` 기본값 `true`라 위 세션을 그대로 씀),
+  볼륨 0의 무음 오디오를 반복 재생해 세션/포그라운드 서비스만 유지시키는 조합으로 구현했다
+  (`mobile/assets/silence.wav`).
+- **한계**: `app.json` config plugin 변경은 네이티브 프로젝트를 새로 빌드해야(EAS build) 반영된다.
+  개발 환경에 Xcode/Android Studio/실기기가 없어 화면 잠금 상태의 실제 지속 재생 여부는 검증하지
+  못했다 — 사용자가 실기기 EAS 빌드 후 직접 확인 필요. Android는 제조사별 배터리 최적화 정책에 따라
+  포그라운드 서비스가 있어도 일부 기기에서 강제 종료될 수 있어 100% 보장은 아니다.
+
+---
+
 ## 2026-09-03
 
 ### 회원가입 "Database error saving new user" — handle_new_user() 트리거를 방어적으로 재작성

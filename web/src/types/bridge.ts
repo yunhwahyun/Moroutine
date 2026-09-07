@@ -30,6 +30,18 @@ export type PurchaseRequestPayload = {
   planCode: 'pro'
 }
 
+// 자동재생(단어 순차 읽기) — 화면 잠금/백그라운드에서도 이어지도록 네이티브가 시퀀싱을 전담한다.
+// docs/DECISION_LOG.md 참고: 웹뷰의 JS 타이머는 백그라운드에서 스로틀링될 수 있어 RN 쪽에서 돈다.
+export type AutoplayStartPayload = {
+  words: string[]
+  lang: string
+  gapMs: number
+}
+
+export type AutoplaySeekPayload = {
+  index: number
+}
+
 export type BridgeOutbound =
   | { type: 'SCHEDULE_NOTIFICATION'; payload: ScheduleNotificationPayload }
   | { type: 'CANCEL_NOTIFICATION'; payload: CancelNotificationPayload }
@@ -43,6 +55,11 @@ export type BridgeOutbound =
   | { type: 'SET_USER_ID'; payload: SetUserIdPayload }
   | { type: 'PURCHASE_REQUEST'; payload: PurchaseRequestPayload }
   | { type: 'RESTORE_PURCHASES' }
+  | { type: 'AUTOPLAY_START'; payload: AutoplayStartPayload }
+  | { type: 'AUTOPLAY_PAUSE' }
+  | { type: 'AUTOPLAY_RESUME' }
+  | { type: 'AUTOPLAY_SEEK'; payload: AutoplaySeekPayload }
+  | { type: 'AUTOPLAY_STOP' }
 
 export type NotificationResultPayload = {
   id: string
@@ -75,6 +92,10 @@ export type RestoreResultPayload = {
   error?: string
 }
 
+export type AutoplayWordChangedPayload = {
+  index: number
+}
+
 export type BridgeInbound =
   | { type: 'NOTIFICATION_RESULT'; payload: NotificationResultPayload }
   | { type: 'PERMISSION_RESULT'; payload: PermissionResultPayload }
@@ -82,3 +103,5 @@ export type BridgeInbound =
   | { type: 'STT_RESULT'; payload: STTResultPayload }
   | { type: 'PURCHASE_RESULT'; payload: PurchaseResultPayload }
   | { type: 'RESTORE_RESULT'; payload: RestoreResultPayload }
+  | { type: 'AUTOPLAY_WORD_CHANGED'; payload: AutoplayWordChangedPayload }
+  | { type: 'AUTOPLAY_FINISHED' }

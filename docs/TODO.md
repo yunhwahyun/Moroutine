@@ -279,6 +279,17 @@ _현재 진행 중인 작업 없음_
 - [x] **의도적으로 무변경**: `SignupPricingGate.tsx`/`DowngradeGate.tsx`/`DowngradeModal.tsx`/`useSubscriptionDowngrade.ts`(스위치 전환만으로 자동 재작동해 "유료 전환 안내"를 담당), `create_words_checked()`/공용 단어장 RLS(이미 `get_service_tier()`로 판정해 자동 반영), `mobile/App.tsx`의 RevenueCat 연동, `revenuecat-webhook` Edge Function
 - [ ] **한계**: 실브라우저 검증 미수행. 마이그레이션 38 미적용(Dashboard 적용 필요). 2차 전환(결제 붙이기) 시 실제로 할 일: 사업자 등록 + RevenueCat/스토어 상품 등록 + 시크릿 설정 + `UPDATE app_config SET payments_enabled = true;`(코드 변경 없음). 상세는 `docs/SUBSCRIPTION_DESIGN.md` §11, `docs/DECISION_LOG.md` 2026-09-02
 
+### Phase 21 후속 — 메인/학습하기 자동재생 ⚠️ 코드 완료 2026-09-07 (실기기 백그라운드 검증 전)
+- [x] `web/src/hooks/useAutoPlay.ts`(신규) — `active`/`playing`/`index` 상태 머신, 웹은 직접 스케줄링, 앱은 네이티브에 위임
+- [x] `web/src/components/autoplay/AutoPlayBar.tsx`(신규) — 미니 플레이어 바(단어+캡션+이전/재생·일시정지/다음)
+- [x] `HomePage.tsx` — "학습하기" 옆 토글 버튼, 캐러셀 controlled화 + 자동 슬라이드 이동
+- [x] `LearnPage.tsx` — 하단 슬림 토글 → 재생 중 미니 플레이어로 전환, 현재 단어 스크롤 이동 + 하이라이트
+- [x] 브리지 확장(`web/src/types/bridge.ts` + `mobile/src/types/bridge.ts`): `AUTOPLAY_START`/`PAUSE`/`RESUME`/`SEEK`/`STOP`, `AUTOPLAY_WORD_CHANGED`/`FINISHED`
+- [x] `mobile/App.tsx` — 네이티브 자동재생 시퀀서(`speakAutoplayWord`) + `expo-audio` 백그라운드 오디오 세션(무음 루프로 iOS 백그라운드/Android 잠금화면 컨트롤 유지)
+- [x] `mobile/app.json`에 `expo-audio` config plugin(`enableBackgroundPlayback: true`) 추가, `mobile/assets/silence.wav`(무음 루프 애셋) 생성
+- [x] `web`: `tsc -b`/`eslint .`/`vite build` 통과, `mobile`: `tsc --noEmit` 통과
+- [ ] **한계 — 실기기 검증 필요**: `app.json` config plugin 변경은 EAS 빌드로 새 네이티브 앱을 만들어야 반영된다. 이 환경엔 Xcode/Android Studio/기기가 없어 화면 잠금 상태에서 실제로 재생이 지속되는지 확인 불가 — 사용자가 `eas build` 후 실기기(특히 화면 꺼짐/잠금 상태)로 직접 검증 필요. Android는 제조사 배터리 최적화 정책에 따라 일부 기기에서 강제 종료될 수 있음. 상세는 `docs/DECISION_LOG.md` 2026-09-07
+
 ### Phase 23 — 스피킹 재구현 (`docs/SPEAKING_DESIGN.md`) ⏸ 보류 2026-09-01
 - [ ] WebView 녹음 환경 검증 6개 항목(§7, Azure 관련 2개 항목 제거됨)
 - [ ] Migration 23~24: speaking_sentences, speaking_recordings

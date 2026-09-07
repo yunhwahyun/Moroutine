@@ -5,10 +5,21 @@ import { SafeAreaView } from 'react-native'
 import WebView, { WebViewMessageEvent } from 'react-native-webview'
 import * as Notifications from 'expo-notifications'
 import * as Speech from 'expo-speech'
+import { useAudioPlayer, setAudioModeAsync, requestNotificationPermissionsAsync } from 'expo-audio'
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition'
 import Purchases from 'react-native-purchases'
 import Constants from 'expo-constants'
 import type { BridgeOutbound, BridgeInbound } from './src/types/bridge'
+
+// 자동재생 세션 상태 — 화면 잠금/백그라운드에서도 이어지도록 웹뷰가 아닌 이 RN JS 스레드가
+// 시퀀싱을 전담한다(docs/DECISION_LOG.md 참고).
+interface AutoplaySession {
+  words: string[]
+  lang: string
+  gapMs: number
+  index: number
+  paused: boolean
+}
 
 function getWebAppUrl(): string {
   if (!__DEV__) return 'https://www.moroutine.kr'
@@ -41,6 +52,15 @@ export default function App() {
   const pendingQueue = useRef<BridgeInbound[]>([])
   const isWebReady = useRef(false)
   const sttSubs = useRef<{ remove: () => void }[]>([])
+  const autoplayRef = useRef<AutoplaySession | null>(null)
+
+  // 무음 루프 — 실제 소리는 Speech.speak가 담당하고, 이 플레이어는 백그라운드 오디오
+  // 세션/잠금화면 컨트롤을 유지시켜 화면이 꺼져도 자동재생이 계속되게 하는 용도다.
+  const keepAlivePlayer = useAudioPlayer(require('./assets/silence.wav'))
+  useEffect(() => {
+    keepAlivePlayer.loop = true
+    keepAlivePlayer.volume = 0
+  }, [keepAlivePlayer])
 
   useEffect(() => {
     Notifications.requestPermissionsAsync()
@@ -64,6 +84,32 @@ export default function App() {
     webViewRef.current?.injectJavaScript(
       `window.onBridgeMessage && window.onBridgeMessage(${JSON.stringify(msg)}); true;`
     )
+  }
+
+  function speakAutoplayWord() {
+    const session = autoplayRef.current
+    if (!session || session.paused) return
+    if (session.index >= session.words.length) {
+      sendToWeb({ type: 'AUTOPLAY_FINISHED' })
+      keepAlivePlayer.pause()
+      keepAlivePlayer.setActiveForLockScreen(false)
+      autoplayRef.current = null
+      return
+    }
+    sendToWeb({ type: 'AUTOPLAY_WORD_CHANGED', payload: { index: session.index } })
+    const advance = () => {
+      if (!autoplayRef.current || autoplayRef.current.paused) return
+      setTimeout(() => {
+        if (!autoplayRef.current || autoplayRef.current.paused) return
+        autoplayRef.current.index += 1
+        speakAutoplayWord()
+      }, session.gapMs)
+    }
+    Speech.speak(session.words[session.index], {
+      language: session.lang,
+      onDone: advance,
+      onError: advance,
+    })
   }
 
   async function handleWebMessage(event: WebViewMessageEvent) {
@@ -207,6 +253,60 @@ export default function App() {
         } catch (error) {
           sendToWeb({ type: 'RESTORE_RESULT', payload: { success: false, error: String(error) } })
         }
+        break
+
+      case 'AUTOPLAY_START': {
+        const { words, lang, gapMs } = msg.payload
+        autoplayRef.current = { words, lang, gapMs, index: 0, paused: false }
+        try {
+          await setAudioModeAsync({
+            playsInSilentMode: true,
+            shouldPlayInBackground: true,
+            interruptionMode: 'doNotMix',
+          })
+        } catch (error) {
+          console.error('[autoplay] setAudioModeAsync error', error)
+        }
+        // Android는 잠금화면 미디어 컨트롤 표시에 알림 권한이 필요하다(iOS는 해당 없음, 호출 시 throw).
+        if (Platform.OS === 'android') {
+          try {
+            await requestNotificationPermissionsAsync()
+          } catch (error) {
+            console.error('[autoplay] requestNotificationPermissionsAsync error', error)
+          }
+        }
+        keepAlivePlayer.setActiveForLockScreen(true, { title: 'Moroutine', artist: '자동재생 중' })
+        keepAlivePlayer.play()
+        speakAutoplayWord()
+        break
+      }
+
+      case 'AUTOPLAY_PAUSE':
+        if (autoplayRef.current) autoplayRef.current.paused = true
+        Speech.stop()
+        break
+
+      case 'AUTOPLAY_RESUME':
+        if (autoplayRef.current) {
+          autoplayRef.current.paused = false
+          speakAutoplayWord()
+        }
+        break
+
+      case 'AUTOPLAY_SEEK':
+        if (autoplayRef.current) {
+          Speech.stop()
+          autoplayRef.current.index = msg.payload.index
+          autoplayRef.current.paused = false
+          speakAutoplayWord()
+        }
+        break
+
+      case 'AUTOPLAY_STOP':
+        Speech.stop()
+        autoplayRef.current = null
+        keepAlivePlayer.pause()
+        keepAlivePlayer.setActiveForLockScreen(false)
         break
     }
   }

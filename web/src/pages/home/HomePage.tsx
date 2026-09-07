@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTTS } from '@/hooks/useTTS'
+import { useAutoPlay } from '@/hooks/useAutoPlay'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { renderLineBreaks } from '@/lib/text'
@@ -13,7 +14,8 @@ import {
 import { useTodayStudyWords, buildQuizWords, applyQuestionOrder } from '@/hooks/useStudyWords'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { SpeakerIcon } from '@/components/icons'
+import { SpeakerIcon, PlayIcon, PauseIcon } from '@/components/icons'
+import AutoPlayBar from '@/components/autoplay/AutoPlayBar'
 import Spinner from '@/components/ui/Spinner'
 import { STATUS_LABEL, STATUS_COLOR } from '@/lib/wordConstants'
 import type { Schedule, ScheduleException, ScheduleOccurrence, Word } from '@/types'
@@ -105,16 +107,28 @@ async function fetchHomeSchedules(): Promise<ScheduleOccurrence[]> {
 
 // ─── SwipeableWordCards ──────────────────────────────────────────
 
-function SwipeableWordCards({ words }: { words: Word[] }) {
+interface SwipeableWordCardsProps {
+  words: Word[]
+  current: number
+  onIndexChange: (index: number) => void
+}
+
+function SwipeableWordCards({ words, current, onIndexChange }: SwipeableWordCardsProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [current, setCurrent] = useState(0)
   const { speak, isSupported } = useTTS()
 
   const handleScroll = () => {
     if (!scrollRef.current) return
     const idx = Math.round(scrollRef.current.scrollLeft / scrollRef.current.offsetWidth)
-    setCurrent(idx)
+    if (idx !== current) onIndexChange(idx)
   }
+
+  // 자동재생 등 외부에서 current가 바뀌면 해당 슬라이드로 스크롤 이동
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollTo({ left: current * el.offsetWidth, behavior: 'smooth' })
+  }, [current])
 
   return (
     <div className="bg-white border border-gray-100 rounded-2xl px-5 pt-5 pb-4 shadow-sm">
@@ -164,6 +178,15 @@ export default function HomePage() {
   const { data: rawStudyWords = [], isLoading: wordsLoading } = useTodayStudyWords()
   const studyWords = applyQuestionOrder(rawStudyWords, settings.questionOrder)
 
+  const [current, setCurrent] = useState(0)
+  const auto = useAutoPlay(
+    studyWords.map((w) => ({ term: w.term, caption: w.example || w.definition })),
+  )
+  // 자동재생 중에는 캐러셀의 현재 슬라이드를 자동재생 인덱스에 맞춘다
+  useEffect(() => {
+    if (auto.active) setCurrent(auto.index)
+  }, [auto.active, auto.index])
+
   // 일정(Schedule)은 아직 Repository/Guest 로컬 저장에 연동되지 않았다(docs/TODO.md Phase 12.5 참고).
   // Guest가 이 Supabase 쿼리를 그대로 호출하면 인증 없는 요청이라 401만 발생하므로 아예 스킵한다.
   const { data: scheduleItems = [], isLoading: schedulesLoading } = useQuery({
@@ -204,16 +227,26 @@ export default function HomePage() {
             <p className="text-gray-300 text-xs mt-1">단어장에서 단어를 추가해보세요</p>
           </div>
         ) : (
-          <SwipeableWordCards words={studyWords} />
+          <SwipeableWordCards words={studyWords} current={current} onIndexChange={setCurrent} />
         )}
 
-        <button
-          onClick={handleLearnStart}
-          disabled={studyWords.length === 0}
-          className="w-full py-3 rounded-lg border border-gray-200 text-gray-900 text-sm font-medium disabled:opacity-40"
-        >
-          학습하기
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleLearnStart}
+            disabled={studyWords.length === 0}
+            className="flex-1 py-3 rounded-lg border border-gray-200 text-gray-900 text-sm font-medium disabled:opacity-40"
+          >
+            학습하기
+          </button>
+          <button
+            onClick={auto.toggle}
+            disabled={studyWords.length === 0 || !auto.isSupported}
+            className="w-12 shrink-0 rounded-lg border border-gray-200 text-gray-900 flex items-center justify-center disabled:opacity-40"
+            aria-label={auto.playing ? '자동재생 일시정지' : '자동재생 시작'}
+          >
+            {auto.playing ? <PauseIcon size={18} /> : <PlayIcon size={18} />}
+          </button>
+        </div>
         <button
           onClick={handleQuizStart}
           disabled={studyWords.length === 0}
@@ -222,6 +255,19 @@ export default function HomePage() {
           Quiz 시작하기
         </button>
       </div>
+
+      {auto.active && studyWords[auto.index] && (
+        <div className="sticky bottom-24 z-20 px-4">
+          <AutoPlayBar
+            term={studyWords[auto.index].term}
+            caption={studyWords[auto.index].example || studyWords[auto.index].definition}
+            playing={auto.playing}
+            onToggle={auto.toggle}
+            onNext={auto.next}
+            onPrevious={auto.previous}
+          />
+        </div>
+      )}
 
       {/* 일정 섹션 */}
       <div className="flex-1 bg-gray-50 px-4 pt-6 pb-4">

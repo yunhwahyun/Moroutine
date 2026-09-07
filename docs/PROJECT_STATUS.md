@@ -1,6 +1,6 @@
 # Project Status
 
-> 최종 업데이트: 2026-09-02
+> 최종 업데이트: 2026-09-07
 
 ---
 
@@ -51,6 +51,7 @@
 | **관리자 화면 디자인 통일 + 공용 단어장 상태값 단순화 ✅ 완료 2026-09-02** | `/admin/**` 4개 화면을 사용자 화면과 동일한 톤(전체 너비, `rounded-2xl` 카드, `gray-50` 배경)으로 재작업, `SettingsPage`의 Section/Row를 공용 컴포넌트로 분리. `public_wordbooks.status`를 초안/기본/게시/보관 4가지로 통합(마이그레이션 36, `is_sample` 컬럼 제거·`hidden` 폐지), 단어별 보관 기능 제거, 추가/수정 폼을 사용자 단어장과 동일한 이름+언어(+상태)로 축소. `tsc -b`/`eslint`/`vite build` 통과. **마이그레이션 36은 Supabase 프로젝트에 실제 적용 완료**(사용자 확인, 2026-09-02). **한계**: 실브라우저 검증 미수행(코드 리뷰만) |
 | **Premium 티어 폐지 ✅ 완료 2026-09-02** | 실 구독자 없음을 확인(사용자 확인)하고 유료 요금제를 Pro 하나로 통합 — `PlanCode`/`ServiceTier` 타입, `permissions.ts`(우선순위 admin>master>pro>guest), `usePermissions.ts`/`factory.ts`/`GuestMigrationGate.tsx`에서 premium 분기·목록 제거. `PricingPage.tsx`를 Pro/Premium 비교에서 **Free/Pro** 비교로 재작성(Free 카드는 `GUEST_PERMISSIONS`를 그대로 반영한 고정 카드). `SettingsPage.tsx`/`WordbookListPage.tsx`의 pro 전용 "Premium으로 업그레이드" CTA 제거. Migration 37(`subscription_plans`/`subscriptions` premium 행 삭제 + `get_service_tier()`/`create_words_checked()`/공용 단어장 RLS 4건에서 premium 제거) + `revenuecat-webhook` Edge Function의 엔티틀먼트 매핑 정리. `docs/PERMISSION_DESIGN.md`/`docs/SUBSCRIPTION_DESIGN.md` 등 관련 문서 다수 갱신(원본 DDL/이력은 주석으로 보존). `tsc -b`(web+mobile)/`eslint`/`vite build` 통과. **마이그레이션 37은 34/35/36과 함께 Supabase 프로젝트에 실제 적용 완료**(사용자 확인, 2026-09-02). **한계**: 실브라우저 검증 미수행 |
 | **무료 출시 기간 → 유료 전환 스위치 ✅ 완료 2026-09-02** | 사업자 등록 전 결제 없이 회원가입만으로 Pro 기능 전체를 무료 제공하기 위한 앱 전체 단일 스위치(`app_config.payments_enabled`, 마이그레이션 38) — `get_service_tier()`/`resolveServiceTier()`(티어 판정 로직) 한 곳에만 분기를 추가해 단어 한도·일괄 등록·공용 단어장·클라우드 동기화 등 Pro 연동 기능 전체가 자동으로 열리게 함. 결제를 실제로 트리거하는 `PricingPage.tsx`(구매 버튼)/`SettingsPage.tsx`("구독 관리")만 `useAppConfig.ts`(신규 훅)로 숨김 처리 — 사업자 등록 없이 앱 심사를 받아도 결제 UI가 전혀 노출되지 않음. 2차 전환(결제 붙이기) 시 `SignupPricingGate.tsx`/`DowngradeGate.tsx` 등 **기존 인프라가 코드 변경 없이** "유료 전환 안내" 역할을 자동으로 재개하도록 설계(핵심 요구사항인 "큰 로직 수정 없이 결제 붙이기"의 실제 근거). `tsc -b`/`eslint`/`vite build` 통과. **한계**: 실브라우저 검증 미수행, 마이그레이션 38 미적용(Dashboard 적용 필요). 상세는 `docs/SUBSCRIPTION_DESIGN.md` §11, `docs/DECISION_LOG.md` 2026-09-02 |
+| **메인/학습하기 자동재생 ⚠️ 코드 완료 2026-09-07(실기기 백그라운드 검증 전)** | 홈 캐러셀·학습하기 목록에 단어 순차 읽기 자동재생 추가. 공용 상태 머신 `useAutoPlay.ts` + 미니 플레이어 `AutoPlayBar.tsx`(음악 앱 스타일, 단어+캡션+이전/재생·일시정지/다음). **웹/앱 분기**: 웹(브라우저)은 백그라운드 보장 없이 `speechSynthesis` 완료 콜백으로 직접 순차 스케줄링. 앱(RN 래퍼)은 재생 시작 시 전체 단어 목록을 브리지(`AUTOPLAY_START` 등 5종)로 네이티브에 통째로 전달, 이후 순차 재생/타이머는 `mobile/App.tsx`의 RN JS 스레드가 전담 — WebView의 JS 타이머가 백그라운드에서 스로틀링될 수 있어 RN 쪽이 대신 시퀀싱함(근거는 `docs/DECISION_LOG.md` 2026-09-07). `expo-audio` 도입(iOS `shouldPlayInBackground` + Android `setActiveForLockScreen`용 무음 루프 오디오, config plugin `enableBackgroundPlayback`)으로 화면 잠금 상태에서도 재생이 이어지도록 구현. `web`: `tsc -b`/`eslint .`/`vite build` 통과. `mobile`: `tsc --noEmit` 통과(Xcode/Android Studio/기기가 없는 환경이라 빌드·실행은 못함). **한계**: `app.json` config plugin 변경은 EAS로 새 네이티브 빌드를 만들어야 반영되므로, 화면 잠금 상태에서 실제로 재생이 지속되는지는 사용자가 실기기로 직접 검증 필요 |
 
 > 구 "Speaking 설계 완료(Azure 평가 포함)" 항목은 위 재설계로 대체되어 제거함. 두 설계 모두 실제 코드/마이그레이션 파일로 구현된 적은 없었음(`docs/DECISION_LOG.md` 참고).
 
@@ -87,6 +88,7 @@
 | Phase 20 후속 — 관리자/사용자 메뉴 분리 실증 | 코드 구현 완료, 직접 검증 미완 | 이번 세션 환경에 Playwright가 설치되어 있지 않아 실브라우저 검증 불가(`tsc -b`/`eslint`/`vite build`만 통과). Admin 리다이렉트·하단 탭 전환·설정 저장·재구독 중복 방지(마이그레이션 35) 전부 사후 검증 필요 |
 | 마이그레이션 34~37 적용 | **✅ 적용 완료(2026-09-02, 사용자 확인)** | `34_admin_settings_defaults`, `35_migration_rpcs_dedup_by_id`, `36_public_wordbook_status_simplify`, `37_remove_premium_tier` 전부 Supabase 프로젝트에 실제 적용됨 |
 | 마이그레이션 12(`profiles_short_answer_input`) 파일 누락 | **✅ 복구 완료(2026-09-01)** | `supabase/migrations/12_profiles_short_answer_input.sql`을 `docs/DB_SCHEMA.md` 원문 그대로 복원. DB에는 사용자 확인상 이미 컬럼이 존재해(실제 사용 중인 기능 — 퀴즈 주관식 입력 방식) 재적용 불필요, 저장소 이력만 맞춘 것 |
+| 자동재생 — 실기기 화면 잠금/백그라운드 지속 재생 실증 | 코드 구현 완료, 직접 검증 미완 | `mobile/app.json`의 `expo-audio` config plugin은 EAS 빌드로 새 네이티브 앱을 만들어야 반영됨. 이 환경엔 Xcode/Android Studio/기기가 없어 화면을 꺼둔 채 자동재생이 실제로 이어지는지 확인 불가 — 실기기 EAS 빌드 후 직접 검증 필요(Android는 제조사 배터리 최적화 정책에 따라 일부 기기에서 강제 종료될 수 있음) |
 
 ---
 

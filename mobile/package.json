@@ -4,6 +4,7 @@
   "main": "index.ts",
   "dependencies": {
     "expo": "~56.0.11",
+    "expo-audio": "~56.0.13",
     "expo-notifications": "~56.0.17",
     "expo-speech": "~56.0.3",
     "expo-speech-recognition": "^56.0.1",

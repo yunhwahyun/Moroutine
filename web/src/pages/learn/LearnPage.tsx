@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTTS } from '@/hooks/useTTS'
+import { useAutoPlay } from '@/hooks/useAutoPlay'
 import { renderLineBreaks } from '@/lib/text'
-import { BackIcon, SpeakerIcon } from '@/components/icons'
+import { BackIcon, SpeakerIcon, PlayIcon } from '@/components/icons'
+import AutoPlayBar from '@/components/autoplay/AutoPlayBar'
 import { STATUS_LABEL, STATUS_COLOR } from '@/lib/wordConstants'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getRepository } from '@/repositories/factory'
@@ -43,6 +45,12 @@ export default function LearnPage() {
   const sessionIdRef = useRef<string | null>(null)
   const sessionCreatedRef = useRef(false)  // React StrictMode 개발 모드 이중 마운트로 세션이 중복 생성되는 것 방지
 
+  const auto = useAutoPlay(words.map((w) => ({ term: w.term, caption: w.example || w.definition })))
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([])
+  useEffect(() => {
+    if (auto.active) cardRefs.current[auto.index]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [auto.active, auto.index])
+
   useEffect(() => {
     if (words.length === 0 || !repository || sessionCreatedRef.current || isPublicMode) return
     sessionCreatedRef.current = true
@@ -80,7 +88,13 @@ export default function LearnPage() {
       {/* 단어 목록 */}
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 pb-2">
         {words.map((word, i) => (
-          <div key={word.id} className="bg-white rounded-2xl p-5 shadow-sm">
+          <div
+            key={word.id}
+            ref={(el) => { cardRefs.current[i] = el }}
+            className={`bg-white rounded-2xl p-5 shadow-sm transition-shadow ${
+              auto.active && auto.index === i ? 'ring-2 ring-gray-900' : ''
+            }`}
+          >
             {/* 번호 + 상태 배지 + TTS */}
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -135,6 +149,40 @@ export default function LearnPage() {
           </div>
         ))}
       </div>
+
+      {/* 자동재생 진행 중 하단 바에 가려지지 않도록 여백 확보 */}
+      {auto.active && <div className="h-20" />}
+
+      {/* 자동재생 토글 영역 — 재생 전엔 슬림 바, 재생 중엔 미니 플레이어로 대체 */}
+      {words.length > 0 && !auto.active && (
+        <div className="px-4 pb-2 pt-1 flex justify-center border-t border-gray-100 bg-white">
+          <button
+            onClick={auto.toggle}
+            disabled={!auto.isSupported}
+            className="flex items-center gap-1.5 text-gray-500 text-xs font-medium py-2 px-3 disabled:opacity-40"
+            aria-label="자동재생 시작"
+          >
+            <PlayIcon size={14} />
+            자동재생
+          </button>
+        </div>
+      )}
+
+      {auto.active && words[auto.index] && (
+        <div
+          className="fixed bottom-0 inset-x-0 z-40 px-4"
+          style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 10px), 1.25rem)' }}
+        >
+          <AutoPlayBar
+            term={words[auto.index].term}
+            caption={words[auto.index].example || words[auto.index].definition}
+            playing={auto.playing}
+            onToggle={auto.toggle}
+            onNext={auto.next}
+            onPrevious={auto.previous}
+          />
+        </div>
+      )}
 
       {/* 학습 완료 버튼 */}
       {words.length > 0 && (
