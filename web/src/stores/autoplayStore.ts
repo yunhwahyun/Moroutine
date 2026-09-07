@@ -129,6 +129,8 @@ export const useAutoplayStore = create<AutoplayState>((set, get) => ({
     }
   },
 
+  // 다음/이전 버튼은 순환한다 — 마지막에서 다음은 첫 단어로, 첫 단어에서 이전은 마지막으로.
+  // (재생이 끝까지 자동 진행되어 자연 종료되는 것과는 별개 동작이다.)
   next: () => {
     const { active, index, items } = get()
     if (!active) return
@@ -140,30 +142,26 @@ export const useAutoplayStore = create<AutoplayState>((set, get) => ({
     gen++
     ttsStop()
     clearGapTimer()
-    if (index >= items.length - 1) {
-      set({ active: false, playing: false, index: 0 })
-      return
-    }
-    set({ playing: true, index: index + 1 })
+    const nextIndex = index >= items.length - 1 ? 0 : index + 1
+    set({ playing: true, index: nextIndex })
     scheduleWebSpeak()
   },
 
   previous: () => {
-    const { active, index } = get()
+    const { active, index, items } = get()
     if (!active) return
     if (isNative()) {
-      // 현재 인덱스는 네이티브만 갖는 유일한 진실이다 — 웹의 index는 이벤트로 뒤늦게 반영되는
-      // 값이라 여기서 미리 경계 체크를 하면(특히 아직 갱신 전이면) 정상적인 이전 이동까지 막을 수
-      // 있다. 경계 판단은 네이티브의 AUTOPLAY_STEP 처리에 전부 맡긴다.
+      // 경계(순환) 판단은 네이티브의 AUTOPLAY_STEP 처리에 전부 맡긴다 — 웹의 index는 이벤트로
+      // 뒤늦게 반영되는 값이라 여기서 미리 계산하면 어긋날 수 있다.
       set({ playing: true })
       bridge.stepAutoplay({ direction: -1 })
       return
     }
-    if (index <= 0) return
     gen++
     ttsStop()
     clearGapTimer()
-    set({ playing: true, index: index - 1 })
+    const prevIndex = index <= 0 ? items.length - 1 : index - 1
+    set({ playing: true, index: prevIndex })
     scheduleWebSpeak()
   },
 

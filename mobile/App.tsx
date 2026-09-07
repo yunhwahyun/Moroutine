@@ -385,20 +385,14 @@ export default function App() {
         break
 
       case 'AUTOPLAY_STEP': {
+        // 다음/이전은 순환한다 — 마지막에서 다음은 첫 단어로, 첫 단어에서 이전은 마지막으로
+        // (재생이 끝까지 자동 진행되어 자연 종료되는 것과는 별개 동작이다).
         const session = autoplayRef.current
-        if (!session) break
-        const targetIndex = session.index + msg.payload.direction
-        if (targetIndex < 0) break  // 첫 단어에서 이전 — 아무 것도 안 함
+        if (!session || session.words.length === 0) break
+        const count = session.words.length
+        const targetIndex = (session.index + msg.payload.direction + count) % count
         clearAutoplayTimeout()
         Speech.stop()
-        if (targetIndex >= session.words.length) {
-          // 마지막 단어에서 다음 — 자연 종료와 동일하게 처리
-          sendToWeb({ type: 'AUTOPLAY_FINISHED' })
-          setKeepAlivePlaying(false)
-          keepAlivePlayer.setActiveForLockScreen(false)
-          autoplayRef.current = null
-          break
-        }
         session.index = targetIndex
         session.paused = false
         session.gen += 1
