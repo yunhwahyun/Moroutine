@@ -164,6 +164,9 @@ export default function Quiz({ words, initialMode = 'multiple_choice', onComplet
             correctDefinition={mode === 'short_answer' ? word.term : word.definition}
             description={word.description}
             onSpeak={ttsSupported ? () => speak(word.term) : undefined}
+            onSpeakDescription={
+              ttsSupported && word.description ? () => speak(word.description!, 'ko-KR') : undefined
+            }
           />
         )}
 
