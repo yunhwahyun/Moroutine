@@ -62,6 +62,13 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  // 네이티브(mobile/App.tsx)는 이 신호(WEB_READY)를 받기 전까지 보내는 메시지를 전부 큐에만
+  // 쌓아두고 실제로 전달하지 않는다 — 이 호출이 빠져 있으면 알림/구매 결과/자동재생 진행 상황 등
+  // 네이티브가 보내는 모든 메시지가 영원히 화면에 반영되지 않는다(실기기에서 확인된 근본 원인).
+  useEffect(() => {
+    if (isNative()) bridge.ready()
+  }, [])
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
