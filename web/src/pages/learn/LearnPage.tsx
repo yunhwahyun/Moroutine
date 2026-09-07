@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTTS } from '@/hooks/useTTS'
 import { useAutoplayStore } from '@/stores/autoplayStore'
+import { buildAutoPlaySegments, buildAutoPlayCaption } from '@/lib/autoplaySegments'
 import { renderLineBreaks } from '@/lib/text'
 import { BackIcon, SpeakerIcon, PlayIcon } from '@/components/icons'
 import { STATUS_LABEL, STATUS_COLOR } from '@/lib/wordConstants'
@@ -53,7 +54,9 @@ export default function LearnPage() {
   // 항상 "처음부터 새로 재생 시작"만 한다.
   const handleAutoPlayStart = () => {
     if (words.length === 0) return
-    autoStart(words.map((w) => ({ term: w.term, caption: w.example || w.definition })))
+    autoStart(
+      words.map((w) => ({ term: w.term, caption: buildAutoPlayCaption(w), segments: buildAutoPlaySegments(w) })),
+    )
   }
 
   const cardRefs = useRef<(HTMLDivElement | null)[]>([])

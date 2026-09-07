@@ -2,13 +2,21 @@ import { create } from 'zustand'
 import { isNative, bridge, registerBridgeListener } from '@/bridge'
 import { ttsSpeak, ttsStop, isTTSSupported } from '@/hooks/useTTS'
 
+export interface AutoPlaySegment {
+  text: string
+  lang: string
+}
+
 export interface AutoPlayItem {
   term: string
   caption: string
+  // 이 항목을 재생할 때 실제로 읽는 내용(순서대로) — 보통 단어→뜻→설명→예문
+  // (web/src/lib/autoplaySegments.ts의 buildAutoPlaySegments 참고). 세그먼트마다 언어가 다를 수
+  // 있다(단어/예문은 원어, 뜻/설명은 한국어).
+  segments: AutoPlaySegment[]
 }
 
 interface AutoPlayStartOptions {
-  lang?: string
   gapMs?: number
   startIndex?: number
 }
@@ -18,7 +26,6 @@ interface AutoplayState {
   active: boolean
   playing: boolean
   index: number
-  lang: string
   gapMs: number
   isSupported: boolean
   start: (items: AutoPlayItem[], opts?: AutoPlayStartOptions) => void
@@ -34,6 +41,9 @@ interface AutoplayState {
 let gen = 0
 let gapTimer: ReturnType<typeof setTimeout> | undefined
 
+// 한 단어 안에서 세그먼트(단어→뜻→설명→예문) 사이의 짧은 틈. 단어와 단어 사이의 gapMs보다 짧다.
+const SEGMENT_GAP_MS = 350
+
 function clearGapTimer() {
   if (gapTimer) {
     clearTimeout(gapTimer)
@@ -42,23 +52,36 @@ function clearGapTimer() {
 }
 
 // 웹(브라우저) 전용 순차 재생 스케줄러 — 네이티브는 브리지로 시퀀싱을 위임한다(아래 start/toggle/
-// next/previous의 isNative() 분기 참고).
+// next/previous의 isNative() 분기 참고). 한 항목의 세그먼트를 전부 읽은 뒤에야 다음 항목으로 넘어간다.
 function scheduleWebSpeak() {
-  const { active, playing, items, index, lang, gapMs } = useAutoplayStore.getState()
+  const { active, playing, items, index, gapMs } = useAutoplayStore.getState()
   if (isNative() || !active || !playing) return
   if (index >= items.length) {
     useAutoplayStore.setState({ active: false, playing: false, index: 0 })
     return
   }
   const myGen = ++gen
-  ttsSpeak(items[index].term, lang, () => {
+  const segments = items[index].segments
+
+  const speakSegment = (segIndex: number) => {
     if (gen !== myGen) return
-    gapTimer = setTimeout(() => {
+    if (segIndex >= segments.length) {
+      gapTimer = setTimeout(() => {
+        if (gen !== myGen) return
+        useAutoplayStore.setState((s) => ({ index: s.index + 1 }))
+        scheduleWebSpeak()
+      }, gapMs)
+      return
+    }
+    ttsSpeak(segments[segIndex].text, segments[segIndex].lang, () => {
       if (gen !== myGen) return
-      useAutoplayStore.setState((s) => ({ index: s.index + 1 }))
-      scheduleWebSpeak()
-    }, gapMs)
-  })
+      gapTimer = setTimeout(() => {
+        if (gen !== myGen) return
+        speakSegment(segIndex + 1)
+      }, SEGMENT_GAP_MS)
+    })
+  }
+  speakSegment(0)
 }
 
 // 이 스토어는 특정 페이지에 묶이지 않는 전역 상태다 — 페이지를 이동해도(React Router 클라이언트
@@ -69,21 +92,19 @@ export const useAutoplayStore = create<AutoplayState>((set, get) => ({
   active: false,
   playing: false,
   index: 0,
-  lang: 'en-US',
   gapMs: 1000,
   isSupported: isTTSSupported(),
 
   start: (items, opts = {}) => {
     if (items.length === 0) return
-    const lang = opts.lang ?? 'en-US'
     const gapMs = opts.gapMs ?? 1000
     const startIndex = Math.max(0, Math.min(items.length - 1, opts.startIndex ?? 0))
     gen++
     clearGapTimer()
     ttsStop()
-    set({ items, active: true, playing: true, index: startIndex, lang, gapMs })
+    set({ items, active: true, playing: true, index: startIndex, gapMs })
     if (isNative()) {
-      bridge.startAutoplay({ words: items.map((it) => it.term), lang, gapMs, startIndex })
+      bridge.startAutoplay({ words: items.map((it) => it.segments), gapMs, startIndex })
     } else {
       scheduleWebSpeak()
     }

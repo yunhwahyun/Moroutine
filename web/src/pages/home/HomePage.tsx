@@ -12,6 +12,7 @@ import {
   dateStr,
 } from '@/lib/scheduleRepeat'
 import { useTodayStudyWords, buildQuizWords, applyQuestionOrder } from '@/hooks/useStudyWords'
+import { buildAutoPlaySegments, buildAutoPlayCaption } from '@/lib/autoplaySegments'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { SpeakerIcon, PlayIcon } from '@/components/icons'
@@ -190,7 +191,9 @@ export default function HomePage() {
   // 재생 시작만 하고, 재생/일시정지 전환은 미니 플레이어(GlobalAutoPlayBar) 쪽 버튼에서만 한다.
   const handleAutoPlayStart = () => {
     if (studyWords.length === 0) return
-    autoStart(studyWords.map((w) => ({ term: w.term, caption: w.example || w.definition })))
+    autoStart(
+      studyWords.map((w) => ({ term: w.term, caption: buildAutoPlayCaption(w), segments: buildAutoPlaySegments(w) })),
+    )
   }
 
   // 일정(Schedule)은 아직 Repository/Guest 로컬 저장에 연동되지 않았다(docs/TODO.md Phase 12.5 참고).

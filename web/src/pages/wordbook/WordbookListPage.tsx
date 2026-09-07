@@ -5,6 +5,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { getRepository } from '@/repositories/factory'
 import { useTodayStudyWords, buildQuizWords, applyQuestionOrder } from '@/hooks/useStudyWords'
 import { useAutoplayStore } from '@/stores/autoplayStore'
+import { buildAutoPlaySegments, buildAutoPlayCaption } from '@/lib/autoplaySegments'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { EditIcon, ChevronRightIcon, PlayIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
@@ -230,7 +231,9 @@ export default function WordbookListPage() {
     try {
       const words = await fetchSelectedWords()
       if (words.length === 0) return
-      autoStart(words.map((w) => ({ term: w.term, caption: w.example || w.definition })))
+      autoStart(
+        words.map((w) => ({ term: w.term, caption: buildAutoPlayCaption(w), segments: buildAutoPlaySegments(w) })),
+      )
     } catch (err) {
       console.error('[wordbook autoplay fetch error]', err)
     } finally {

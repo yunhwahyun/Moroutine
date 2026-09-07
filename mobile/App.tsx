@@ -9,19 +9,22 @@ import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync, requestNotific
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition'
 import Purchases from 'react-native-purchases'
 import Constants from 'expo-constants'
-import type { BridgeOutbound, BridgeInbound } from './src/types/bridge'
+import type { BridgeOutbound, BridgeInbound, AutoplaySpeechSegment } from './src/types/bridge'
 
 // 자동재생 세션 상태 — 화면 잠금/백그라운드에서도 이어지도록 웹뷰가 아닌 이 RN JS 스레드가
 // 시퀀싱을 전담한다(docs/DECISION_LOG.md 참고). gen은 seek/pause/stop이 재생 도중 끼어들 때
-// 이전에 예약된 onDone/setTimeout 콜백이 뒤늦게 실행되는 걸 막기 위한 세대 값이다.
+// 이전에 예약된 onDone/setTimeout 콜백이 뒤늦게 실행되는 걸 막기 위한 세대 값이다. words[i]는
+// i번째 단어에서 순서대로 읽을 세그먼트 목록(단어→뜻→설명→예문, 세그먼트마다 언어가 다를 수 있음).
 interface AutoplaySession {
-  words: string[]
-  lang: string
+  words: AutoplaySpeechSegment[][]
   gapMs: number
   index: number
   paused: boolean
   gen: number
 }
+
+// 한 단어 안에서 세그먼트(단어→뜻→설명→예문) 사이의 짧은 틈. 단어와 단어 사이의 gapMs보다 짧다.
+const SEGMENT_GAP_MS = 350
 
 function getWebAppUrl(): string {
   if (!__DEV__) return 'https://www.moroutine.kr'
@@ -154,6 +157,24 @@ export default function App() {
       return
     }
     sendToWeb({ type: 'AUTOPLAY_WORD_CHANGED', payload: { index: session.index } })
+    speakSegment(session.words[session.index], 0, gen)
+  }
+
+  // 한 단어의 세그먼트(단어→뜻→설명→예문)를 순서대로 읽고, 전부 끝나면 gapMs만큼 쉰 뒤 다음
+  // 단어로 넘어간다.
+  function speakSegment(segments: AutoplaySpeechSegment[], segIndex: number, gen: number) {
+    const session = autoplayRef.current
+    if (!session || session.paused || session.gen !== gen) return
+
+    if (segIndex >= segments.length) {
+      clearAutoplayTimeout()
+      autoplayTimeoutRef.current = setTimeout(() => {
+        if (!autoplayRef.current || autoplayRef.current.paused || autoplayRef.current.gen !== gen) return
+        autoplayRef.current.index += 1
+        speakAutoplayWord(gen)
+      }, session.gapMs)
+      return
+    }
 
     let advanced = false
     const advanceOnce = () => {
@@ -163,21 +184,21 @@ export default function App() {
       clearAutoplayTimeout()
       autoplayTimeoutRef.current = setTimeout(() => {
         if (!autoplayRef.current || autoplayRef.current.paused || autoplayRef.current.gen !== gen) return
-        autoplayRef.current.index += 1
-        speakAutoplayWord(gen)
-      }, session.gapMs)
+        speakSegment(segments, segIndex + 1, gen)
+      }, SEGMENT_GAP_MS)
     }
 
-    Speech.speak(session.words[session.index], {
-      language: session.lang,
+    const segment = segments[segIndex]
+    Speech.speak(segment.text, {
+      language: segment.lang,
       onDone: advanceOnce,
       onError: advanceOnce,
     })
 
     // expo-speech의 onDone/onError가 일부 기기·언어 조합에서 아예 안 불리는 경우가 있어(실기기에서
-    // "다음 단어로 자동 진행이 안 된다" 버그로 확인됨) — 예상 재생 시간이 지나도 콜백이 없으면
+    // "다음으로 자동 진행이 안 된다" 버그로 확인됨) — 예상 재생 시간이 지나도 콜백이 없으면
     // 안전장치로 강제 진행시킨다. 콜백이 정상적으로 먼저 오면 advanced 플래그가 중복 실행을 막는다.
-    const estimatedMs = Math.max(2500, session.words[session.index].length * 220)
+    const estimatedMs = Math.max(2500, segment.text.length * 220)
     setTimeout(advanceOnce, estimatedMs)
   }
 
@@ -325,11 +346,11 @@ export default function App() {
         break
 
       case 'AUTOPLAY_START': {
-        const { words, lang, gapMs, startIndex } = msg.payload
+        const { words, gapMs, startIndex } = msg.payload
         clearAutoplayTimeout()
         Speech.stop()
         const gen = (autoplayRef.current?.gen ?? 0) + 1
-        autoplayRef.current = { words, lang, gapMs, index: startIndex, paused: false, gen }
+        autoplayRef.current = { words, gapMs, index: startIndex, paused: false, gen }
         try {
           await setAudioModeAsync({
             playsInSilentMode: true,

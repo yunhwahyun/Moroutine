@@ -31,11 +31,17 @@ export type PurchaseRequestPayload = {
   planCode: 'pro'
 }
 
+export type AutoplaySpeechSegment = {
+  text: string
+  lang: string
+}
+
 // 자동재생(단어 순차 읽기) — 화면 잠금/백그라운드에서도 이어지도록 네이티브가 시퀀싱을 전담한다.
 // docs/DECISION_LOG.md 참고: 웹뷰의 JS 타이머는 백그라운드에서 스로틀링될 수 있어 RN 쪽에서 돈다.
+// words[i]는 i번째 단어에서 순서대로 읽을 내용(단어→뜻→설명→예문)이며, 세그먼트마다 언어가 다를
+// 수 있다(단어/예문은 원어, 뜻/설명은 한국어).
 export type AutoplayStartPayload = {
-  words: string[]
-  lang: string
+  words: AutoplaySpeechSegment[][]
   gapMs: number
   startIndex: number
 }
