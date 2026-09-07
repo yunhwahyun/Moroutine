@@ -36,10 +36,14 @@ export type AutoplayStartPayload = {
   words: string[]
   lang: string
   gapMs: number
+  startIndex: number
 }
 
-export type AutoplaySeekPayload = {
-  index: number
+// 절대 인덱스 대신 상대 이동(+1/-1)만 보낸다 — 현재 인덱스는 네이티브(App.tsx)가 유일하게 들고
+// 있는 진실이며, 웹의 index 상태는 이벤트로 뒤늦게 반영되는 값이라 웹이 계산한 절대 인덱스로 seek을
+// 시키면 경합 시 어긋날 수 있다(docs/DECISION_LOG.md 참고).
+export type AutoplayStepPayload = {
+  direction: 1 | -1
 }
 
 export type BridgeOutbound =
@@ -58,7 +62,7 @@ export type BridgeOutbound =
   | { type: 'AUTOPLAY_START'; payload: AutoplayStartPayload }
   | { type: 'AUTOPLAY_PAUSE' }
   | { type: 'AUTOPLAY_RESUME' }
-  | { type: 'AUTOPLAY_SEEK'; payload: AutoplaySeekPayload }
+  | { type: 'AUTOPLAY_STEP'; payload: AutoplayStepPayload }
   | { type: 'AUTOPLAY_STOP' }
 
 export type NotificationResultPayload = {

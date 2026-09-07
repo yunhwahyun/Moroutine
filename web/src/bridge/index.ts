@@ -9,7 +9,7 @@ import type {
   SetUserIdPayload,
   PurchaseRequestPayload,
   AutoplayStartPayload,
-  AutoplaySeekPayload,
+  AutoplayStepPayload,
 } from '@/types/bridge'
 
 declare global {
@@ -82,8 +82,8 @@ export const bridge = {
   resumeAutoplay() {
     send({ type: 'AUTOPLAY_RESUME' })
   },
-  seekAutoplay(payload: AutoplaySeekPayload) {
-    send({ type: 'AUTOPLAY_SEEK', payload })
+  stepAutoplay(payload: AutoplayStepPayload) {
+    send({ type: 'AUTOPLAY_STEP', payload })
   },
   stopAutoplay() {
     send({ type: 'AUTOPLAY_STOP' })

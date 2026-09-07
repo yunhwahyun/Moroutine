@@ -305,11 +305,11 @@ export default function App() {
         break
 
       case 'AUTOPLAY_START': {
-        const { words, lang, gapMs } = msg.payload
+        const { words, lang, gapMs, startIndex } = msg.payload
         clearAutoplayTimeout()
         Speech.stop()
         const gen = (autoplayRef.current?.gen ?? 0) + 1
-        autoplayRef.current = { words, lang, gapMs, index: 0, paused: false, gen }
+        autoplayRef.current = { words, lang, gapMs, index: startIndex, paused: false, gen }
         try {
           await setAudioModeAsync({
             playsInSilentMode: true,
@@ -354,17 +354,28 @@ export default function App() {
         }
         break
 
-      case 'AUTOPLAY_SEEK':
-        if (autoplayRef.current) {
-          clearAutoplayTimeout()
-          Speech.stop()
-          autoplayRef.current.index = msg.payload.index
-          autoplayRef.current.paused = false
-          autoplayRef.current.gen += 1
-          setKeepAlivePlaying(true)
-          speakAutoplayWord(autoplayRef.current.gen)
+      case 'AUTOPLAY_STEP': {
+        const session = autoplayRef.current
+        if (!session) break
+        const targetIndex = session.index + msg.payload.direction
+        if (targetIndex < 0) break  // 첫 단어에서 이전 — 아무 것도 안 함
+        clearAutoplayTimeout()
+        Speech.stop()
+        if (targetIndex >= session.words.length) {
+          // 마지막 단어에서 다음 — 자연 종료와 동일하게 처리
+          sendToWeb({ type: 'AUTOPLAY_FINISHED' })
+          setKeepAlivePlaying(false)
+          keepAlivePlayer.setActiveForLockScreen(false)
+          autoplayRef.current = null
+          break
         }
+        session.index = targetIndex
+        session.paused = false
+        session.gen += 1
+        setKeepAlivePlaying(true)
+        speakAutoplayWord(session.gen)
         break
+      }
 
       case 'AUTOPLAY_STOP':
         clearAutoplayTimeout()

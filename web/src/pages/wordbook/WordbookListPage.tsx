@@ -1,13 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getRepository } from '@/repositories/factory'
 import { useTodayStudyWords, buildQuizWords, applyQuestionOrder } from '@/hooks/useStudyWords'
-import { useAutoPlay } from '@/hooks/useAutoPlay'
+import { useAutoplayStore } from '@/stores/autoplayStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { EditIcon, ChevronRightIcon, PlayIcon, PauseIcon } from '@/components/icons'
-import AutoPlayBar from '@/components/autoplay/AutoPlayBar'
 import Spinner from '@/components/ui/Spinner'
 import type { Wordbook, SelectionTarget, Word } from '@/types'
 
@@ -219,23 +218,17 @@ export default function WordbookListPage() {
     }
   }
 
-  // 자동재생 — 선택한 단어장(들)의 단어를 비동기로 불러온 뒤 재생을 시작해야 해서, useAutoPlay에
-  // 넘길 목록은 재생 시작 시점에 fetch한 스냅샷을 별도 상태로 들고 있는다.
-  const [autoWords, setAutoWords] = useState<Word[]>([])
-  const auto = useAutoPlay(autoWords.map((w) => ({ term: w.term, caption: w.example || w.definition })))
-  const pendingAutoStartRef = useRef(false)
-
-  useEffect(() => {
-    if (pendingAutoStartRef.current && autoWords.length > 0) {
-      pendingAutoStartRef.current = false
-      auto.toggle()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoWords])
+  // 자동재생 — 선택한 단어장(들)의 단어를 비동기로 불러온 뒤 전역 스토어에 바로 넘겨 시작한다
+  // (표시는 앱 루트의 GlobalAutoPlayBar가 전담, docs/DECISION_LOG.md 참고).
+  const autoActive = useAutoplayStore((s) => s.active)
+  const autoPlaying = useAutoplayStore((s) => s.playing)
+  const autoSupported = useAutoplayStore((s) => s.isSupported)
+  const autoStart = useAutoplayStore((s) => s.start)
+  const autoToggle = useAutoplayStore((s) => s.toggle)
 
   const handleAutoPlayToggle = async () => {
-    if (auto.active) {
-      auto.toggle()
+    if (autoActive) {
+      autoToggle()
       return
     }
     if (selectedIds.size === 0 || isActionLoading) return
@@ -243,8 +236,7 @@ export default function WordbookListPage() {
     try {
       const words = await fetchSelectedWords()
       if (words.length === 0) return
-      setAutoWords(words)
-      pendingAutoStartRef.current = true
+      autoStart(words.map((w) => ({ term: w.term, caption: w.example || w.definition })))
     } catch (err) {
       console.error('[wordbook autoplay fetch error]', err)
     } finally {
@@ -479,23 +471,6 @@ export default function WordbookListPage() {
         ))}
       </div>
 
-      {auto.active && autoWords[auto.index] && (
-        <div
-          className="fixed inset-x-0 z-40 px-4"
-          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 166px)' }}
-        >
-          <AutoPlayBar
-            term={autoWords[auto.index].term}
-            caption={autoWords[auto.index].example || autoWords[auto.index].definition}
-            playing={auto.playing}
-            onToggle={auto.toggle}
-            onNext={auto.next}
-            onPrevious={auto.previous}
-            onClose={auto.close}
-          />
-        </div>
-      )}
-
       {/* 선택 시 하단 액션바 */}
       {selectedIds.size > 0 && (
         <div className="px-4 py-3 bg-white border-t border-gray-100 flex gap-2">
@@ -508,11 +483,11 @@ export default function WordbookListPage() {
           </button>
           <button
             onClick={handleAutoPlayToggle}
-            disabled={isActionLoading || !auto.isSupported}
+            disabled={isActionLoading || !autoSupported}
             className="w-12 shrink-0 rounded-lg border border-gray-200 text-gray-900 flex items-center justify-center disabled:opacity-40"
-            aria-label={auto.playing ? '자동재생 일시정지' : '자동재생 시작'}
+            aria-label={autoActive && autoPlaying ? '자동재생 일시정지' : '자동재생 시작'}
           >
-            {auto.playing ? <PauseIcon size={18} /> : <PlayIcon size={18} />}
+            {autoActive && autoPlaying ? <PauseIcon size={18} /> : <PlayIcon size={18} />}
           </button>
           <button
             onClick={handleMultiQuiz}

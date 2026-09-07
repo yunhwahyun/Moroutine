@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTTS } from '@/hooks/useTTS'
-import { useAutoPlay } from '@/hooks/useAutoPlay'
+import { useAutoplayStore } from '@/stores/autoplayStore'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { renderLineBreaks } from '@/lib/text'
@@ -15,7 +15,6 @@ import { useTodayStudyWords, buildQuizWords, applyQuestionOrder } from '@/hooks/
 import { usePermissions } from '@/hooks/usePermissions'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { SpeakerIcon, PlayIcon, PauseIcon } from '@/components/icons'
-import AutoPlayBar from '@/components/autoplay/AutoPlayBar'
 import Spinner from '@/components/ui/Spinner'
 import { STATUS_LABEL, STATUS_COLOR } from '@/lib/wordConstants'
 import type { Schedule, ScheduleException, ScheduleOccurrence, Word } from '@/types'
@@ -184,9 +183,22 @@ export default function HomePage() {
   )
 
   const [current, setCurrent] = useState(0)
-  const auto = useAutoPlay(
-    studyWords.map((w) => ({ term: w.term, caption: w.example || w.definition })),
-  )
+  const autoActive = useAutoplayStore((s) => s.active)
+  const autoPlaying = useAutoplayStore((s) => s.playing)
+  const autoSupported = useAutoplayStore((s) => s.isSupported)
+  const autoStart = useAutoplayStore((s) => s.start)
+  const autoToggle = useAutoplayStore((s) => s.toggle)
+
+  // 자동재생 시작 시, 이미 다른 곳에서 재생 중이면 그 세션을 그대로 재생/일시정지만 하고(전역 세션은
+  // 하나), 아니면 지금 스와이프로 보고 있는 카드(current)부터 새로 시작한다.
+  const handleAutoPlayToggle = () => {
+    if (autoActive) { autoToggle(); return }
+    if (studyWords.length === 0) return
+    autoStart(
+      studyWords.map((w) => ({ term: w.term, caption: w.example || w.definition })),
+      { startIndex: current },
+    )
+  }
 
   // 일정(Schedule)은 아직 Repository/Guest 로컬 저장에 연동되지 않았다(docs/TODO.md Phase 12.5 참고).
   // Guest가 이 Supabase 쿼리를 그대로 호출하면 인증 없는 요청이라 401만 발생하므로 아예 스킵한다.
@@ -240,12 +252,12 @@ export default function HomePage() {
             학습하기
           </button>
           <button
-            onClick={auto.toggle}
-            disabled={studyWords.length === 0 || !auto.isSupported}
+            onClick={handleAutoPlayToggle}
+            disabled={studyWords.length === 0 || !autoSupported}
             className="w-12 shrink-0 rounded-lg border border-gray-200 text-gray-900 flex items-center justify-center disabled:opacity-40"
-            aria-label={auto.playing ? '자동재생 일시정지' : '자동재생 시작'}
+            aria-label={autoActive && autoPlaying ? '자동재생 일시정지' : '자동재생 시작'}
           >
-            {auto.playing ? <PauseIcon size={18} /> : <PlayIcon size={18} />}
+            {autoActive && autoPlaying ? <PauseIcon size={18} /> : <PlayIcon size={18} />}
           </button>
         </div>
         <button
@@ -256,23 +268,6 @@ export default function HomePage() {
           Quiz 시작하기
         </button>
       </div>
-
-      {auto.active && studyWords[auto.index] && (
-        <div
-          className="fixed inset-x-0 z-40 px-4"
-          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 92px)' }}
-        >
-          <AutoPlayBar
-            term={studyWords[auto.index].term}
-            caption={studyWords[auto.index].example || studyWords[auto.index].definition}
-            playing={auto.playing}
-            onToggle={auto.toggle}
-            onNext={auto.next}
-            onPrevious={auto.previous}
-            onClose={auto.close}
-          />
-        </div>
-      )}
 
       {/* 일정 섹션 */}
       <div className="flex-1 bg-gray-50 px-4 pt-6 pb-4">
