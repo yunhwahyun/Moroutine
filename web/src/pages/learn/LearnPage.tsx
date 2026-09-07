@@ -48,10 +48,10 @@ export default function LearnPage() {
   const autoIndex = useAutoplayStore((s) => s.index)
   const autoSupported = useAutoplayStore((s) => s.isSupported)
   const autoStart = useAutoplayStore((s) => s.start)
-  const autoToggle = useAutoplayStore((s) => s.toggle)
 
-  const handleAutoPlayToggle = () => {
-    if (autoActive) { autoToggle(); return }
+  // 이 버튼은 재생/일시정지를 토글하지 않는다(재생 중엔 애초에 안 보이고 미니 플레이어로 대체됨) —
+  // 항상 "처음부터 새로 재생 시작"만 한다.
+  const handleAutoPlayStart = () => {
     if (words.length === 0) return
     autoStart(words.map((w) => ({ term: w.term, caption: w.example || w.definition })))
   }
@@ -167,7 +167,7 @@ export default function LearnPage() {
       {words.length > 0 && !autoActive && (
         <div className="px-4 pb-2 pt-1 flex justify-center border-t border-gray-100 bg-white">
           <button
-            onClick={handleAutoPlayToggle}
+            onClick={handleAutoPlayStart}
             disabled={!autoSupported}
             className="flex items-center gap-1.5 text-gray-500 text-xs font-medium py-2 px-3 disabled:opacity-40"
             aria-label="자동재생 시작"

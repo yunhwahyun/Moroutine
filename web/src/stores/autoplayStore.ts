@@ -129,12 +129,16 @@ export const useAutoplayStore = create<AutoplayState>((set, get) => ({
 
   previous: () => {
     const { active, index } = get()
-    if (!active || index <= 0) return
+    if (!active) return
     if (isNative()) {
+      // 현재 인덱스는 네이티브만 갖는 유일한 진실이다 — 웹의 index는 이벤트로 뒤늦게 반영되는
+      // 값이라 여기서 미리 경계 체크를 하면(특히 아직 갱신 전이면) 정상적인 이전 이동까지 막을 수
+      // 있다. 경계 판단은 네이티브의 AUTOPLAY_STEP 처리에 전부 맡긴다.
       set({ playing: true })
       bridge.stepAutoplay({ direction: -1 })
       return
     }
+    if (index <= 0) return
     gen++
     ttsStop()
     clearGapTimer()
@@ -151,16 +155,20 @@ export const useAutoplayStore = create<AutoplayState>((set, get) => ({
   },
 }))
 
-if (isNative()) {
-  registerBridgeListener((msg) => {
-    if (msg.type === 'AUTOPLAY_WORD_CHANGED') {
-      useAutoplayStore.setState({ index: msg.payload.index })
-    }
-    if (msg.type === 'AUTOPLAY_PLAYING_CHANGED') {
-      useAutoplayStore.setState({ playing: msg.payload.playing })
-    }
-    if (msg.type === 'AUTOPLAY_FINISHED') {
-      useAutoplayStore.setState({ active: false, playing: false, index: 0 })
-    }
-  })
-}
+// isNative()로 감싸 조건부 등록하면 안 된다 — 이 모듈은 최초 import 시 딱 한 번 평가되는데, 그
+// 시점에 react-native-webview가 window.ReactNativeWebView를 아직 주입하기 전이면(다른 곳의
+// isNative() 호출은 전부 컴포넌트 마운트/이벤트 핸들러 안이라 이 경합이 없었다) isNative()가
+// false로 굳어버려 네이티브의 자동재생 진행 이벤트를 영구히 못 받는 버그가 있었다(실기기 확인 —
+// 웹은 정상, 앱만 미니 플레이어가 멈춰 있던 원인). registerBridgeListener 자체는 네이티브가 아니면
+// 그냥 아무 메시지도 안 오니 무해하므로, 조건 없이 항상 등록한다.
+registerBridgeListener((msg) => {
+  if (msg.type === 'AUTOPLAY_WORD_CHANGED') {
+    useAutoplayStore.setState({ index: msg.payload.index })
+  }
+  if (msg.type === 'AUTOPLAY_PLAYING_CHANGED') {
+    useAutoplayStore.setState({ playing: msg.payload.playing })
+  }
+  if (msg.type === 'AUTOPLAY_FINISHED') {
+    useAutoplayStore.setState({ active: false, playing: false, index: 0 })
+  }
+})

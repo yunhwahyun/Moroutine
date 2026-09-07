@@ -14,7 +14,7 @@ import {
 import { useTodayStudyWords, buildQuizWords, applyQuestionOrder } from '@/hooks/useStudyWords'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { SpeakerIcon, PlayIcon, PauseIcon } from '@/components/icons'
+import { SpeakerIcon, PlayIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
 import { STATUS_LABEL, STATUS_COLOR } from '@/lib/wordConstants'
 import type { Schedule, ScheduleException, ScheduleOccurrence, Word } from '@/types'
@@ -183,16 +183,12 @@ export default function HomePage() {
   )
 
   const [current, setCurrent] = useState(0)
-  const autoActive = useAutoplayStore((s) => s.active)
-  const autoPlaying = useAutoplayStore((s) => s.playing)
   const autoSupported = useAutoplayStore((s) => s.isSupported)
   const autoStart = useAutoplayStore((s) => s.start)
-  const autoToggle = useAutoplayStore((s) => s.toggle)
 
-  // 자동재생 시작 시, 이미 다른 곳에서 재생 중이면 그 세션을 그대로 재생/일시정지만 하고(전역 세션은
-  // 하나), 아니면 지금 스와이프로 보고 있는 카드(current)부터 새로 시작한다.
-  const handleAutoPlayToggle = () => {
-    if (autoActive) { autoToggle(); return }
+  // 이 버튼은 재생/일시정지를 토글하지 않는다 — 항상 "지금 보고 있는 카드부터 새로 재생 시작"만
+  // 하고, 재생/일시정지 전환은 미니 플레이어(GlobalAutoPlayBar) 쪽 버튼에서만 한다.
+  const handleAutoPlayStart = () => {
     if (studyWords.length === 0) return
     autoStart(
       studyWords.map((w) => ({ term: w.term, caption: w.example || w.definition })),
@@ -252,12 +248,12 @@ export default function HomePage() {
             학습하기
           </button>
           <button
-            onClick={handleAutoPlayToggle}
+            onClick={handleAutoPlayStart}
             disabled={studyWords.length === 0 || !autoSupported}
             className="w-12 shrink-0 rounded-lg border border-gray-200 text-gray-900 flex items-center justify-center disabled:opacity-40"
-            aria-label={autoActive && autoPlaying ? '자동재생 일시정지' : '자동재생 시작'}
+            aria-label="자동재생 시작"
           >
-            {autoActive && autoPlaying ? <PauseIcon size={18} /> : <PlayIcon size={18} />}
+            <PlayIcon size={18} />
           </button>
         </div>
         <button

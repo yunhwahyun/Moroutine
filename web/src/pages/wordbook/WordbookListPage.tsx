@@ -6,7 +6,7 @@ import { getRepository } from '@/repositories/factory'
 import { useTodayStudyWords, buildQuizWords, applyQuestionOrder } from '@/hooks/useStudyWords'
 import { useAutoplayStore } from '@/stores/autoplayStore'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { EditIcon, ChevronRightIcon, PlayIcon, PauseIcon } from '@/components/icons'
+import { EditIcon, ChevronRightIcon, PlayIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
 import type { Wordbook, SelectionTarget, Word } from '@/types'
 
@@ -219,18 +219,12 @@ export default function WordbookListPage() {
   }
 
   // 자동재생 — 선택한 단어장(들)의 단어를 비동기로 불러온 뒤 전역 스토어에 바로 넘겨 시작한다
-  // (표시는 앱 루트의 GlobalAutoPlayBar가 전담, docs/DECISION_LOG.md 참고).
-  const autoActive = useAutoplayStore((s) => s.active)
-  const autoPlaying = useAutoplayStore((s) => s.playing)
+  // (표시는 앱 루트의 GlobalAutoPlayBar가 전담, docs/DECISION_LOG.md 참고). 이 버튼은 재생/일시정지를
+  // 토글하지 않는다 — 항상 "선택한 단어로 새로 재생 시작"만 하고, 전환은 미니 플레이어에서 한다.
   const autoSupported = useAutoplayStore((s) => s.isSupported)
   const autoStart = useAutoplayStore((s) => s.start)
-  const autoToggle = useAutoplayStore((s) => s.toggle)
 
-  const handleAutoPlayToggle = async () => {
-    if (autoActive) {
-      autoToggle()
-      return
-    }
+  const handleAutoPlayStart = async () => {
     if (selectedIds.size === 0 || isActionLoading) return
     setIsActionLoading(true)
     try {
@@ -482,12 +476,12 @@ export default function WordbookListPage() {
             {isActionLoading ? '로딩 중...' : '학습하기'}
           </button>
           <button
-            onClick={handleAutoPlayToggle}
+            onClick={handleAutoPlayStart}
             disabled={isActionLoading || !autoSupported}
             className="w-12 shrink-0 rounded-lg border border-gray-200 text-gray-900 flex items-center justify-center disabled:opacity-40"
-            aria-label={autoActive && autoPlaying ? '자동재생 일시정지' : '자동재생 시작'}
+            aria-label="자동재생 시작"
           >
-            {autoActive && autoPlaying ? <PauseIcon size={18} /> : <PlayIcon size={18} />}
+            <PlayIcon size={18} />
           </button>
           <button
             onClick={handleMultiQuiz}

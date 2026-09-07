@@ -24,7 +24,7 @@ export default function AutoPlayBar({
           className="text-gray-900"
           aria-label="자동재생 숨기기"
         >
-          <CloseIcon size={24} />
+          <CloseIcon size={20} />
         </button>
       </div>
       <div className="bg-gray-900 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-lg">
