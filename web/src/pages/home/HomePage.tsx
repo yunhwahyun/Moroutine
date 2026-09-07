@@ -186,14 +186,11 @@ export default function HomePage() {
   const autoSupported = useAutoplayStore((s) => s.isSupported)
   const autoStart = useAutoplayStore((s) => s.start)
 
-  // 이 버튼은 재생/일시정지를 토글하지 않는다 — 항상 "지금 보고 있는 카드부터 새로 재생 시작"만
-  // 하고, 재생/일시정지 전환은 미니 플레이어(GlobalAutoPlayBar) 쪽 버튼에서만 한다.
+  // 이 버튼은 재생/일시정지를 토글하지 않는다 — 항상 첫 단어(설정의 "단어 순서" 기준)부터 새로
+  // 재생 시작만 하고, 재생/일시정지 전환은 미니 플레이어(GlobalAutoPlayBar) 쪽 버튼에서만 한다.
   const handleAutoPlayStart = () => {
     if (studyWords.length === 0) return
-    autoStart(
-      studyWords.map((w) => ({ term: w.term, caption: w.example || w.definition })),
-      { startIndex: current },
-    )
+    autoStart(studyWords.map((w) => ({ term: w.term, caption: w.example || w.definition })))
   }
 
   // 일정(Schedule)은 아직 Repository/Guest 로컬 저장에 연동되지 않았다(docs/TODO.md Phase 12.5 참고).

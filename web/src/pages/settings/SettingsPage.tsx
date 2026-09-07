@@ -413,7 +413,7 @@ export default function SettingsPage() {
               onChange={(v) => set('quizMode', v)}
             />
           </Row>
-          <Row label="문제 순서">
+          <Row label="단어 순서">
             <SegmentControl
               value={settings.questionOrder}
               options={[
