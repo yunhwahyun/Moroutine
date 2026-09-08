@@ -30,9 +30,9 @@ Admin은 **공용 학습 콘텐츠와 Master 회원만** 관리한다. 사용자
 ├── /admin/wordbooks               — 단어장 목록(draft/published/hidden/archived 필터, 사용자용과 동일 라벨)
 ├── /admin/wordbooks/:id           — 단어장 상세: 메타 수정 + 단어 목록/순서 관리
 ├── /admin/wordbooks/new           — 신규 단어장 생성
-├── /admin/books                   — 책장(책) 목록(draft/published/archived 필터, §8)
-├── /admin/books/:id               — 책 상세: 메타 수정 + 목차 수동 추가/일괄등록
-├── /admin/books/new                — 신규 책 생성
+├── /admin/books                   — 공용 책장 목록(draft/published/archived 필터, §8)
+├── /admin/books/:id               — 공용 책 상세: 메타 수정 + 목차 수동 추가/일괄등록
+├── /admin/books/new                — 신규 공용 책 생성
 ├── /admin/masters                 — Master 목록 + 초대 폼
 └── /admin/audit-log               — 관리자 작업 감사 로그 조회(읽기 전용)
 ```
@@ -344,69 +344,107 @@ CREATE POLICY "admin_audit_log_select" ON admin_audit_log
 
 ---
 
-## 8. 책장(Book) 데이터 모델 ✅ 관리자 CRUD + 사용자 열람/자동재생 구현 완료(2026-09-08)
+## 8. 책장(Book) 데이터 모델 ✅ 개인+공용 구현 완료(2026-09-08)
 
-공용 단어장(§3)과 접근 제어 구조는 동일(Admin만 쓰기, Pro/Master만 조회)하지만, **학습/퀴즈/진행률/
-"담기"(개인 복사)가 전혀 없는 순수 읽기·듣기 콘텐츠**다 — 사용자와의 대화로 이렇게 확정했다
-(`docs/DECISION_LOG.md` 2026-09-08). 그래서 §3보다 테이블·정책·화면 모두 훨씬 단순하다.
+단어장(개인 `wordbooks`/`words` + 공용 `public_wordbooks`/`public_words`)과 완전히 동일한 **이중
+구조** — 누구나 자기 책을 만드는 **개인 책장**(`books`/`book_chapters`, `DataRepository` 경유)과
+Admin이 큐레이션하는 **공용 책장**(`public_books`/`public_book_chapters`, §3과 동일한 독립 모듈
+방식)이 별개 테이블로 존재한다. 두 쪽 다 **학습/퀴즈/복습이 전혀 없는 순수 읽기·듣기 콘텐츠**라는
+점만 단어장과 다르다.
 
-### 8-1. 정책
+> **설계 편차 이력**: 최초 구현(2026-09-08 오전)은 "책장 = 공용 단어장에서 학습/퀴즈만 뺀 축소판"으로
+> 잘못 해석해 개인 책장 없이 공용 전용으로만 만들었다. 사용자가 "책장 페이지에 공용 책장/추가 버튼이
+> 없다"고 지적해 같은 날 오후에 단어장과 동일한 개인+공용 이중 구조로 재구성했다(`docs/DECISION_LOG.md`
+> 2026-09-08 두 번째 항목).
 
-- Admin이 책(`books`)과 그 안의 목차(`book_chapters`)를 생성/수정, 사용자는 조회·재생만
-  가능(수정/삭제 UI 없음) — §3-1의 "원본 참조" 원칙과 동일하되, 책장에는 애초에 "담기"(개인 복사)
-  개념 자체가 없다(복사해서 개인 소유로 만들 대상이 아니라 순수 콘텐츠 라이브러리이기 때문).
-- 접근 등급은 공용 단어장과 동일하게 `permissions.canUsePublicWordbooks`(Pro/Master)를 **그대로
-  재사용**한다 — 책장 전용 권한 필드를 새로 만들지 않았다(사용자 확정: "공용 단어장과 동일").
-  Guest(anon) 열람 예외(§3의 `default` 상태 같은 것)도 만들지 않았다 — 요구사항에 없었음.
-- 목차(chapter) 단위 물리 삭제는 하지 않는다(`status`: `'active'|'archived'`) — 공용 단어와 동일
-  정책이나, §3-1과 달리 처음부터 관리 화면에 목차별 보관 UI를 아예 만들지 않았다(단어장 쪽의
-  2026-09-02 단순화 결정을 책장은 처음부터 반영한 것).
+### 8-1. 개인 책장 (`books`/`book_chapters`) — Guest 포함 전체 등급
+
+- `wordbooks`/`words`와 완전히 동일한 소유 구조: `user_id` 소유, RLS `auth.uid() = user_id`(+ 자식
+  테이블은 부모 book 소유 확인). Guest는 `LocalDataRepository`(IndexedDB, Dexie v2에서 신규
+  스토어로 추가), Pro/Master는 `RemoteDataRepository`(Supabase) — `DataRepository` 인터페이스에
+  `getBooks`/`createBook`/`updateBook`/`deleteBook`/`getChapters`/`createChapter`/
+  `bulkCreateChapters`/`updateChapter`/`deleteChapter` 9개 메서드로 추가했다(공용 단어장과 달리
+  단어장/단어와 같은 위치 — 등급별 한도가 없어 `create_words_checked` 같은 RPC 없이 직접 insert).
+  일괄등록(`.txt` 여러 파일)만 `permissions.canBulkImport`로 게이트(단어장과 동일 정책 재사용).
+- 화면: `web/src/pages/bookshelf/BookshelfListPage.tsx`(`/books`, BottomNav "책장" 탭 — 단어장
+  바로 다음 순서) — 헤더에 **"+추가"**(이름+언어 선택, `WordbookListPage.tsx`와 동일 폼) 버튼과,
+  Pro/Master에게만 보이는 **"공용 책장"** 링크(`/public-books`로 이동, `WordbookListPage.tsx`
+  헤더의 "공용 단어장" 링크와 동일 패턴). 목록은 단어장의 다중 선택 패턴(`Set<string>` + `Checkbox`
+  + 액션바)을 그대로 가져오되, 학습/퀴즈가 없어 액션바에는 **자동재생 버튼 하나**뿐이다 — 선택
+  순서 → 책 안에서는 `sort_order` 순으로 이어 붙여 기존 `useAutoplayStore`에 그대로 넘긴다
+  (순차재생, 랜덤 없음 — 스토어 자체가 배열 순서대로만 재생하므로 별도 플래그 불필요).
+  `web/src/pages/bookshelf/BookDetailPage.tsx`(`/books/:id`)는 `WordbookDetailPage.tsx`와 동일한
+  톤 — 목차 수동 추가/수정/삭제 + **`.txt` 여러 파일 일괄등록**(§8-3) + 목차별 "듣기"(그 책 전체를
+  탭한 목차부터 재생목록으로 시작).
+
+### 8-2. 공용 책장 (`public_books`/`public_book_chapters`) — Admin 큐레이션, Pro/Master만 열람
+
+공용 단어장(§3)과 접근 제어 구조가 동일(Admin만 쓰기, Pro/Master만 조회)하고, 마찬가지로
+학습/퀴즈/진행률/"담기"(개인 복사)가 없다 — 다만 개인 책장이 이미 존재하므로 "공용 책을 내
+책장으로 복사"하는 기능은 이번 범위에 넣지 않았다(단어장의 "담기"에 해당하는 기능 없음, 필요해지면
+후속 작업).
+
+- 접근 등급은 `permissions.canUsePublicWordbooks`(Pro/Master)를 **그대로 재사용**한다 — 책장
+  전용 권한 필드를 새로 만들지 않았다(사용자 확정: "공용 단어장과 동일"). Guest(anon) 열람 예외
+  (§3의 `default` 상태 같은 것)도 만들지 않았다.
+- 목차 단위 물리 삭제는 하지 않는다(`status`: `'active'|'archived'`) — 공용 단어와 동일 정책이나,
+  §3-1과 달리 처음부터 관리 화면에 목차별 보관 UI를 아예 만들지 않았다(단어장 쪽의 2026-09-02
+  단순화 결정을 공용 책장은 처음부터 반영한 것).
 - 제목/내용 재생은 책의 `language`(선택사항, 메타 정보일 뿐) 값과 무관하게 **항상 en-US 원음**으로
-  고정된다 — 단어처럼 필드별로 언어가 갈리지 않아 재생 로직이 단순하다
-  (`web/src/lib/bookAutoplaySegments.ts`).
+  고정된다 — 개인/공용 책장 둘 다 동일(`web/src/lib/bookAutoplaySegments.ts`, 구조적 타입으로 두
+  테이블의 chapter를 함께 받는다).
+- 화면: `web/src/pages/public-book/PublicBookListPage.tsx`(`/public-books`, `PublicWordbookListPage.tsx`와
+  동일하게 순수 열람 목록 — 다중 선택/자동재생/복사 없음, 책 하나씩 탭해서 상세로 이동만) +
+  `PublicBookViewPage.tsx`(`/public-books/:id`, 목차 목록 읽기 전용 + 목차별 "듣기"). Admin은
+  `AdminBookListPage`/`AdminBookFormPage`/`AdminBookDetailPage.tsx`(`/admin/books*`, BottomNav
+  "책장" 탭)로 관리 — `AdminWordbookListPage` 등과 동일 톤.
 
-### 8-2. DDL / RLS
+### 8-3. DDL / RLS
 
-전체 DDL은 `supabase/migrations/41_books_bookshelf.sql`에 있다(§3-2/§3-4의 `public_wordbooks`/
-`public_words`를 그대로 본뜬 구조 — `chapter_count` 동기화 트리거, `admin_audit_log` 자동 기록
-트리거 포함). 요약:
+전체 DDL은 `supabase/migrations/41_public_books_bookshelf.sql`(공용, §3-2/§3-4의 `public_wordbooks`/
+`public_words`를 그대로 본뜬 구조)와 `supabase/migrations/42_books_personal.sql`(개인, `wordbooks`/
+`words`를 그대로 본뜬 구조)에 있다. 요약:
 
 ```
-books(id, title, language nullable, status 'draft'|'published'|'archived',
-      chapter_count, created_by, created_at, updated_at)
-book_chapters(id, book_id, title, content, sort_order,
-              status 'active'|'archived', created_at, updated_at)
+-- 공용(41) — Admin만 쓰기, Pro/Master만 status='published' 조회
+public_books(id, title, language nullable, status 'draft'|'published'|'archived',
+             chapter_count, created_by, created_at, updated_at)
+public_book_chapters(id, book_id, title, content, sort_order,
+                      status 'active'|'archived', created_at, updated_at)
+
+-- 개인(42) — user_id 소유, wordbooks/words와 동일 구조(상태값 없음)
+books(id, user_id, name, language nullable, chapter_count, created_at, updated_at)
+book_chapters(id, book_id, user_id, title, content, sort_order, created_at, updated_at)
 ```
 
-RLS: `books_select`/`book_chapters_select`(authenticated) — `status='published'`(+ 상위 book도
-published) AND `get_service_tier(auth.uid()) IN ('pro','master')`, 또는 `is_admin()`이면 전체 조회.
-`books_admin_write`/`book_chapters_admin_write`(ALL) — `is_admin()`만. **description/category/
-difficulty 같은 §3의 레거시성 부가 필드, `user_public_*_progress` 상당 테이블, enrollment 마커
-테이블, anon 정책 — 전부 처음부터 만들지 않았다**(공용 단어장이 겪은 "나중에 단순화" 과정을 책장은
-설계 단계에서 건너뛴 것).
+공용 쪽 RLS: `public_books_select`/`public_book_chapters_select`(authenticated) —
+`status='published'`(+ 상위 book도 published) AND `get_service_tier(auth.uid()) IN ('pro','master')`,
+또는 `is_admin()`이면 전체 조회. `*_admin_write`(ALL) — `is_admin()`만. 개인 쪽 RLS는 `wordbooks`/
+`words`와 완전히 동일한 4종 정책(select/insert/update/delete, `auth.uid() = user_id` 기준) —
+"§7 RLS 4가지 정책 필수" 규칙을 그대로 따른다. **description/category/difficulty 같은 §3의
+레거시성 부가 필드, `user_public_*_progress` 상당 테이블, enrollment 마커 테이블 — 공용 쪽에도
+전부 처음부터 만들지 않았다**(공용 단어장이 겪은 "나중에 단순화" 과정을 공용 책장은 설계 단계에서
+건너뛴 것).
 
-### 8-3. 일괄등록 — 공용 단어장과 다른 점
+### 8-4. 일괄등록 — 단어장과 다른 방식(개인/공용 공통)
 
-공용 단어장의 `.txt` 일괄등록은 **한 파일 안에 탭 구분 여러 줄**(줄마다 단어 1개)이지만, 책장은
-**여러 `.txt` 파일을 한 번에 올리면 파일 하나 = 목차 1개**다(`<input type="file" multiple accept=".txt">`).
-파일명(확장자 제외)이 제목, 파일 전체 텍스트가 내용이 되고, 파일명 순서(숫자 포함 자연 정렬,
-`localeCompare(..., {numeric:true})`)대로 `sort_order`가 매겨진다 — 사용자 확정.
-`web/src/pages/admin/AdminBookDetailPage.tsx`의 `parseChapterFiles()` 참고.
+단어장의 `.txt` 일괄등록은 **한 파일 안에 탭 구분 여러 줄**(줄마다 단어 1개)이지만, 책장은
+**여러 `.txt` 파일을 한 번에 올리면 파일 하나 = 목차 1개**다(`<input type="file" multiple accept=".txt">`,
+개인/공용 두 상세 화면 모두 동일 규칙). 파일명(확장자 제외)이 제목, 파일 전체 텍스트가 내용이 되고,
+파일명 순서(숫자 포함 자연 정렬, `localeCompare(..., {numeric:true})`)대로 `sort_order`가 매겨진다 —
+사용자 확정. `parseChapterFiles()`가 `AdminBookDetailPage.tsx`(공용)와 `BookDetailPage.tsx`(개인)에
+각각 동일하게 구현돼 있다(공유 유틸로 추출하지 않음 — 단어장의 `parseWordsTxt()`도 개인/공용 두
+곳에 중복 구현돼 있는 기존 관례를 그대로 따름).
 
-### 8-4. 사용자 화면 — 다중 선택 자동재생
-
-`web/src/pages/bookshelf/BookshelfListPage.tsx`(`/books`)는 단어장의 다중 선택 패턴
-(`WordbookListPage.tsx`의 `Set<string>` + `Checkbox` + 액션바)을 그대로 가져오되, 학습/퀴즈 버튼이
-없어 액션바에는 **자동재생 버튼 하나**만 있다. 선택한 책들을 `[...selectedIds]` 순서(선택 순서) →
-각 책 안에서는 `sort_order` 순으로 이어 붙여 하나의 재생목록을 만들고 기존 자동재생 인프라
-(`useAutoplayStore`, `docs/DECISION_LOG.md` 자동재생 관련 항목)에 그대로 넘긴다 — **순차재생**이며
-별도의 "랜덤 금지" 플래그가 필요 없다(스토어 자체가 넘겨받은 배열 순서대로만 재생하기 때문).
-`web/src/pages/bookshelf/BookViewPage.tsx`(`/books/:id`)의 "듣기" 버튼도 같은 원리로, 탭한 목차부터
-그 책의 전체 목차를 재생목록으로 시작한다(미니 플레이어의 이전/다음으로 같은 책의 다른 목차 이동 가능).
-
-- 구현: `web/src/lib/books.ts`(Admin/사용자 함수, `publicWordbooks.ts`와 동일 이유로 `DataRepository`와
-  무관한 독립 모듈), `web/src/lib/bookAutoplaySegments.ts`,
-  `web/src/pages/admin/{AdminBookListPage,AdminBookFormPage,AdminBookDetailPage}.tsx`,
-  `web/src/pages/bookshelf/{BookshelfListPage,BookViewPage}.tsx`
+- 구현: `web/src/repositories/types.ts`(개인 책장 9개 메서드 추가) +
+  `web/src/repositories/local/LocalDataRepository.ts`/`remote/RemoteDataRepository.ts`(양쪽 구현) +
+  `web/src/repositories/local/schema.ts`(Dexie v2, `books`/`bookChapters` 신규 스토어),
+  `web/src/lib/publicBooks.ts`(공용, `DataRepository`와 무관한 독립 모듈 — `publicWordbooks.ts`와
+  동일한 이유), `web/src/lib/bookAutoplaySegments.ts`,
+  `web/src/pages/admin/{AdminBookListPage,AdminBookFormPage,AdminBookDetailPage}.tsx`(공용 관리),
+  `web/src/pages/bookshelf/{BookshelfListPage,BookDetailPage}.tsx`(개인),
+  `web/src/pages/public-book/{PublicBookListPage,PublicBookViewPage}.tsx`(공용 열람).
 - **한계**: 이 환경엔 실브라우저 자동화가 없어 코드 리뷰 + 타입체크로만 검증했다. 메뉴 아이콘
   (`menu-05.svg`/`menu-05-on.svg`)은 사용자가 직접 제작해 넣은 최종 아이콘이다(플레이스홀더 아님).
+  마이그레이션 41/42는 파일만 작성 — 실제 Supabase 프로젝트 적용은 사용자가 Dashboard에서 직접
+  실행해야 한다.

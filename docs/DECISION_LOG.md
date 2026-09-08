@@ -6,6 +6,37 @@
 
 ## 2026-09-08
 
+### 책장 구조 오해 수정 — 공용 전용이 아니라 단어장과 동일한 개인+공용 이중 구조였음
+
+- **배경**: 최초 책장 요구사항("공용 책장 / 추가: 책 이름, 언어 선택 / 책 상세: 추가, 일괄등록")을
+  계획 단계에서 "공용 책장 하나만 있고 관리자만 쓴다"로 잘못 해석해, 공용 단어장(§3)의 축소판으로만
+  구현했다(개인이 만드는 책장 자체가 없었음). 실제로는 요구사항의 "공용 책장"과 "추가"가 서로 다른
+  화면을 가리키는 **두 개의 별개 불릿**이었다 — 단어장이 개인 `wordbooks`/`words`(누구나 생성)와
+  공용 `public_wordbooks`/`public_words`(Admin만 생성) 두 계층으로 나뉘어 있는 것과 정확히 같은
+  구조를 책장에도 요구한 것. 사용자가 "책장 페이지에 공용 책장, 추가 버튼이 없다"고 지적해 발견.
+- **결정**: 기존에 만든 `books`/`book_chapters`(관리자 전용)를 `public_books`/`public_book_chapters`로
+  전면 rename(마이그레이션 41이 아직 미적용 상태라 안전하게 파일 자체를 수정)하고, 단어장/단어와
+  동일한 소유 구조의 신규 개인 `books`/`book_chapters`(마이그레이션 42)를 별도로 추가했다. 화면도
+  분리: `web/src/pages/bookshelf/{BookshelfListPage,BookDetailPage}.tsx`(개인, `/books`, BottomNav
+  탭 — Guest 포함 전체 등급)와 `web/src/pages/public-book/{PublicBookListPage,PublicBookViewPage}.tsx`
+  (공용, `/public-books`, `BookshelfListPage` 헤더 링크로만 진입, Pro/Master 전용)로 나눴다.
+  `web/src/lib/books.ts`(관리자 전용 함수였던 것)는 `publicBooks.ts`로 이름을 바꾸고, 개인 책장은
+  단어장/단어와 동일하게 `DataRepository` 인터페이스에 9개 메서드로 추가해 Guest(IndexedDB)/
+  Pro·Master(Supabase)가 자동 분기되게 했다.
+- **BottomNav 순서**: "책장 순서는 단어장 다음으로" 요청에 따라 사용자 탭을 홈→단어장→**책장**→일정→
+  설정으로 재배치(기존엔 일정 다음이었음). 관리자 탭 순서(단어장→책장→Master→LOG→설정)는 원래도
+  단어장 바로 다음이라 변경 없음.
+- **Dexie 버전 관리**: `LocalDataRepository`의 IndexedDB 스키마는 이미 실사용 Guest 기기에 배포된
+  v1이 있어(코드 주석이 "아직 배포 전"이라고 잘못 남아있던 걸 이번에 함께 수정), 새 스토어(`books`/
+  `bookChapters`)는 `version(1)`을 직접 고치지 않고 `version(2).stores({...})`로 추가했다 — 이
+  프로젝트에서 처음 실제로 발생한 Dexie 버전 업그레이드 사례.
+- **적용**: `tsc -b`/`eslint .`/`vite build` 통과. 웹 전용 변경, `mobile/App.tsx` 무수정이라 EAS
+  재빌드 불필요.
+- **한계**: 마이그레이션 41(공용, rename됨)/42(개인, 신규) 둘 다 아직 Supabase 프로젝트에 미적용 —
+  사용자가 Dashboard에서 직접 실행해야 한다(41을 이미 실행했다면 42 실행 전에 41부터 다시 확인
+  필요 — rename된 새 파일 내용으로 실행해야 함). 공용 책을 개인 책장으로 복사하는 기능("담기"에
+  해당)은 이번에 추가하지 않음.
+
 ### BottomNav 5탭 전환 후 좁은 화면(398px 이하)에서 메뉴가 화면을 넘어감
 
 - **배경**: 책장 추가로 하단 탭이 4개→5개가 되면서, 탭 하나당 `w-[54px]` + `gap-5`(20px) 간격으로

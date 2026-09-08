@@ -1,4 +1,6 @@
 import type {
+  Book,
+  BookChapter,
   NotificationRecord,
   Schedule,
   ScheduleException,
@@ -97,6 +99,18 @@ export type ScheduleExceptionInput = {
 
 export type CreateNotificationInput = { scheduleId: string; fireAt: string }
 
+// 개인 책장 — docs/ADMIN_DESIGN.md §8. 단어장/단어처럼 등급별 한도가 없어 BulkCreateResult 같은
+// 차단 판정 없이 단순 배열만 반환한다.
+export type CreateBookInput = { name: string; language?: string | null }
+export type UpdateBookInput = Partial<Pick<Book, 'name' | 'language'>>
+
+export type CreateChapterInput = { bookId: string; title: string; content: string }
+export type UpdateChapterInput = Partial<Pick<BookChapter, 'title' | 'content'>>
+export type BulkCreateChaptersInput = {
+  bookId: string
+  chapters: Array<{ title: string; content: string }>
+}
+
 // docs/SUBSCRIPTION_DESIGN.md §4-2 — createWord()가 한도 초과로 차단될 때 던지는 에러.
 // bulkCreateWords()는 예외 대신 BulkCreateResult.blocked로 결과를 반환하지만(대량 등록은 부분 실패가 아니라
 // "전량 차단"이라 예외 처리가 UX상 부자연스러움), 단건 등록은 Promise<Word> 반환 계약상 예외로 알릴 수밖에 없다.
@@ -143,4 +157,16 @@ export interface DataRepository {
 
   getSettings(): Promise<UserSettings>
   saveSettings(input: Partial<UserSettings>): Promise<void>
+
+  getBooks(): Promise<Book[]>
+  getBook(id: string): Promise<Book | null>
+  createBook(input: CreateBookInput): Promise<Book>
+  updateBook(id: string, input: UpdateBookInput): Promise<void>
+  deleteBook(id: string): Promise<void>
+
+  getChapters(bookId: string): Promise<BookChapter[]>
+  createChapter(input: CreateChapterInput): Promise<BookChapter>
+  bulkCreateChapters(input: BulkCreateChaptersInput): Promise<void>
+  updateChapter(id: string, input: UpdateChapterInput): Promise<void>
+  deleteChapter(id: string): Promise<void>
 }

@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { createBook } from '@/lib/books'
+import { createPublicBook } from '@/lib/publicBooks'
 import { BackIcon } from '@/components/icons'
-import type { BookStatus } from '@/types'
+import type { PublicBookStatus } from '@/types'
 
 const INPUT_CLASS = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400'
 
@@ -14,7 +14,7 @@ const LANG_OPTIONS = [
   { value: 'zh-ko', label: '중국어' },
 ]
 
-const STATUS_OPTIONS: { value: BookStatus; label: string }[] = [
+const STATUS_OPTIONS: { value: PublicBookStatus; label: string }[] = [
   { value: 'draft', label: '초안' },
   { value: 'published', label: '게시' },
   { value: 'archived', label: '보관' },
@@ -26,11 +26,11 @@ export default function AdminBookFormPage() {
   const navigate = useNavigate()
   const [title, setTitle] = useState('')
   const [language, setLanguage] = useState('')
-  const [status, setStatus] = useState<BookStatus>('draft')
+  const [status, setStatus] = useState<PublicBookStatus>('draft')
 
   const { mutateAsync: create, isPending, error } = useMutation({
     mutationFn: () =>
-      createBook({
+      createPublicBook({
         title: title.trim(),
         language: language || null,
         status,
@@ -69,7 +69,7 @@ export default function AdminBookFormPage() {
             </select>
             <select
               value={status}
-              onChange={(e) => setStatus(e.target.value as BookStatus)}
+              onChange={(e) => setStatus(e.target.value as PublicBookStatus)}
               className={`${INPUT_CLASS} bg-white text-gray-700 flex-1`}
             >
               {STATUS_OPTIONS.map((opt) => (

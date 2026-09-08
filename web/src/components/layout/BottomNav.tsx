@@ -5,8 +5,8 @@ import { usePermissions } from '@/hooks/usePermissions'
 const userTabs = [
   { to: '/',          label: '홈',    no: '01' },
   { to: '/wordbooks', label: '단어장', no: '02' },
-  { to: '/schedules', label: '일정',  no: '03' },
   { to: '/books',     label: '책장',  no: '05' },
+  { to: '/schedules', label: '일정',  no: '03' },
   { to: '/settings',  label: '설정',  no: '04' },
 ]
 

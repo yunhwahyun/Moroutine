@@ -1,8 +1,11 @@
-import type { NotificationRecord, Schedule, ScheduleException, UserSettings, Word, Wordbook } from '@/types'
+import type { Book, BookChapter, NotificationRecord, Schedule, ScheduleException, UserSettings, Word, Wordbook } from '@/types'
 import { DEFAULT_SETTINGS } from '@/stores/settingsStore'
 import type {
+  BulkCreateChaptersInput,
   BulkCreateResult,
   BulkCreateWordsInput,
+  CreateBookInput,
+  CreateChapterInput,
   CreateNotificationInput,
   CreateStudySessionInput,
   CreateWordInput,
@@ -12,6 +15,8 @@ import type {
   ScheduleExceptionInput,
   ScheduleInput,
   StudyResultInput,
+  UpdateBookInput,
+  UpdateChapterInput,
   UpdateWordInput,
   UpdateWordbookInput,
 } from '../types'
@@ -304,6 +309,109 @@ export class LocalDataRepository implements DataRepository {
     const wordbook = await localDB.wordbooks.get(wordbookId)
     if (!wordbook) return
     await localDB.wordbooks.update(wordbookId, { word_count: wordbook.word_count + delta })
+  }
+
+  // ── 개인 책장 ────────────────────────────────────────────────────────
+
+  async getBooks(): Promise<Book[]> {
+    return localDB.books.orderBy('created_at').reverse().toArray()
+  }
+
+  async getBook(id: string): Promise<Book | null> {
+    return (await localDB.books.get(id)) ?? null
+  }
+
+  async createBook(input: CreateBookInput): Promise<Book> {
+    const now = nowIso()
+    const book: Book = {
+      id: crypto.randomUUID(),
+      user_id: GUEST_USER_ID,
+      name: input.name,
+      language: input.language ?? null,
+      chapter_count: 0,
+      created_at: now,
+      updated_at: now,
+    }
+    await localDB.books.add(book)
+    return book
+  }
+
+  async updateBook(id: string, input: UpdateBookInput): Promise<void> {
+    await localDB.books.update(id, { ...input, updated_at: nowIso() })
+  }
+
+  async deleteBook(id: string): Promise<void> {
+    await localDB.transaction('rw', localDB.books, localDB.bookChapters, async () => {
+      await localDB.bookChapters.where('book_id').equals(id).delete()
+      await localDB.books.delete(id)
+    })
+  }
+
+  async getChapters(bookId: string): Promise<BookChapter[]> {
+    return localDB.bookChapters.where('book_id').equals(bookId).sortBy('sort_order')
+  }
+
+  private async nextChapterSortOrder(bookId: string): Promise<number> {
+    const chapters = await localDB.bookChapters.where('book_id').equals(bookId).toArray()
+    return chapters.reduce((max, c) => Math.max(max, c.sort_order), -1) + 1
+  }
+
+  async createChapter(input: CreateChapterInput): Promise<BookChapter> {
+    const now = nowIso()
+    const sortOrder = await this.nextChapterSortOrder(input.bookId)
+    const chapter: BookChapter = {
+      id: crypto.randomUUID(),
+      book_id: input.bookId,
+      user_id: GUEST_USER_ID,
+      title: input.title,
+      content: input.content,
+      sort_order: sortOrder,
+      created_at: now,
+      updated_at: now,
+    }
+    await localDB.transaction('rw', localDB.bookChapters, localDB.books, async () => {
+      await localDB.bookChapters.add(chapter)
+      await this.bumpChapterCount(input.bookId, 1)
+    })
+    return chapter
+  }
+
+  async bulkCreateChapters(input: BulkCreateChaptersInput): Promise<void> {
+    const now = nowIso()
+    let sortOrder = await this.nextChapterSortOrder(input.bookId)
+    const rows: BookChapter[] = input.chapters.map((c) => ({
+      id: crypto.randomUUID(),
+      book_id: input.bookId,
+      user_id: GUEST_USER_ID,
+      title: c.title,
+      content: c.content,
+      sort_order: sortOrder++,
+      created_at: now,
+      updated_at: now,
+    }))
+    await localDB.transaction('rw', localDB.bookChapters, localDB.books, async () => {
+      await localDB.bookChapters.bulkAdd(rows)
+      await this.bumpChapterCount(input.bookId, rows.length)
+    })
+  }
+
+  async updateChapter(id: string, input: UpdateChapterInput): Promise<void> {
+    await localDB.bookChapters.update(id, { ...input, updated_at: nowIso() })
+  }
+
+  async deleteChapter(id: string): Promise<void> {
+    const chapter = await localDB.bookChapters.get(id)
+    if (!chapter) return
+    await localDB.transaction('rw', localDB.bookChapters, localDB.books, async () => {
+      await localDB.bookChapters.delete(id)
+      await this.bumpChapterCount(chapter.book_id, -1)
+    })
+  }
+
+  private async bumpChapterCount(bookId: string, delta: number): Promise<void> {
+    const book = await localDB.books.get(bookId)
+    if (!book) return
+    await localDB.books.update(bookId, { chapter_count: book.chapter_count + delta })
   }
 }
 

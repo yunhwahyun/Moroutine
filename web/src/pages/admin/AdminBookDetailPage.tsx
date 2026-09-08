@@ -2,15 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  getAdminBook,
-  getAdminChapters,
-  updateBook,
-  createChapter,
-  bulkCreateChapters,
-} from '@/lib/books'
+  getAdminPublicBook,
+  getAdminPublicBookChapters,
+  updatePublicBook,
+  createPublicBookChapter,
+  bulkCreatePublicBookChapters,
+} from '@/lib/publicBooks'
 import { BackIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
-import type { BookStatus } from '@/types'
+import type { PublicBookStatus } from '@/types'
 
 const INPUT_CLASS = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400'
 
@@ -21,7 +21,7 @@ const LANG_OPTIONS = [
   { value: 'zh-ko', label: '중국어' },
 ]
 
-const STATUS_OPTIONS: { value: BookStatus; label: string }[] = [
+const STATUS_OPTIONS: { value: PublicBookStatus; label: string }[] = [
   { value: 'draft', label: '초안' },
   { value: 'published', label: '게시' },
   { value: 'archived', label: '보관' },
@@ -51,7 +51,7 @@ export default function AdminBookDetailPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [metaForm, setMetaForm] = useState<{ title: string; language: string } | null>(null)
-  const [status, setStatus] = useState<BookStatus | null>(null)
+  const [status, setStatus] = useState<PublicBookStatus | null>(null)
 
   const [newChapter, setNewChapter] = useState({ title: '', content: '' })
   const [bulkPreview, setBulkPreview] = useState<{ parsed: ParsedChapter[]; skippedCount: number } | null>(null)
@@ -59,8 +59,8 @@ export default function AdminBookDetailPage() {
   const [isImporting, setIsImporting] = useState(false)
 
   const { data: book, isLoading: isBookLoading } = useQuery({
-    queryKey: ['admin', 'book', id],
-    queryFn: () => getAdminBook(id!),
+    queryKey: ['admin', 'public-book', id],
+    queryFn: () => getAdminPublicBook(id!),
     enabled: !!id,
   })
 
@@ -74,21 +74,21 @@ export default function AdminBookDetailPage() {
   }, [book, metaForm])
 
   const { data: chapters = [], isLoading: isChaptersLoading } = useQuery({
-    queryKey: ['admin', 'book-chapters', id],
-    queryFn: () => getAdminChapters(id!),
+    queryKey: ['admin', 'public-book-chapters', id],
+    queryFn: () => getAdminPublicBookChapters(id!),
     enabled: !!id,
   })
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['admin', 'book', id] })
-    queryClient.invalidateQueries({ queryKey: ['admin', 'book-chapters', id] })
-    queryClient.invalidateQueries({ queryKey: ['admin', 'books'] })
+    queryClient.invalidateQueries({ queryKey: ['admin', 'public-book', id] })
+    queryClient.invalidateQueries({ queryKey: ['admin', 'public-book-chapters', id] })
+    queryClient.invalidateQueries({ queryKey: ['admin', 'public-books'] })
   }
 
   const { mutate: saveMeta, isPending: isSavingMeta } = useMutation({
     mutationFn: () => {
       if (!id || !metaForm || !status) throw new Error('폼이 준비되지 않았습니다.')
-      return updateBook(id, {
+      return updatePublicBook(id, {
         title: metaForm.title.trim(),
         language: metaForm.language || null,
         status,
@@ -99,7 +99,7 @@ export default function AdminBookDetailPage() {
 
   const { mutate: addChapter, isPending: isAddingChapter } = useMutation({
     mutationFn: () =>
-      createChapter(id!, {
+      createPublicBookChapter(id!, {
         title: newChapter.title.trim(),
         content: newChapter.content.trim(),
       }),
@@ -136,7 +136,7 @@ export default function AdminBookDetailPage() {
     if (!bulkPreview || !id) return
     setIsImporting(true)
     try {
-      await bulkCreateChapters(id, bulkPreview.parsed)
+      await bulkCreatePublicBookChapters(id, bulkPreview.parsed)
       invalidate()
       setBulkPreview(null)
     } catch (err) {
@@ -204,7 +204,7 @@ export default function AdminBookDetailPage() {
             </select>
             <select
               value={status}
-              onChange={(e) => setStatus(e.target.value as BookStatus)}
+              onChange={(e) => setStatus(e.target.value as PublicBookStatus)}
               className={`${INPUT_CLASS} bg-white text-gray-700 flex-1`}
             >
               {STATUS_OPTIONS.map((opt) => (

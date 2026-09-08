@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { getBook, getChapters } from '@/lib/books'
+import { getPublicBook, getPublicBookChapters } from '@/lib/publicBooks'
 import { buildChapterAutoPlaySegments, buildChapterAutoPlayCaption } from '@/lib/bookAutoplaySegments'
 import { useAutoplayStore } from '@/stores/autoplayStore'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -11,7 +11,7 @@ import Spinner from '@/components/ui/Spinner'
 // 원본 참조 방식 — 읽기 전용, 수정/삭제 UI 없음. 학습/퀴즈가 없어 공용 단어장 상세 화면보다
 // 단순하다. "듣기"는 탭한 목차부터 그 책의 전체 목차를 자동재생 세션으로 시작한다 —
 // 미니 플레이어의 이전/다음으로 같은 책의 다른 목차로 자연스럽게 넘어갈 수 있다.
-export default function BookViewPage() {
+export default function PublicBookViewPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { permissions } = usePermissions()
@@ -19,14 +19,14 @@ export default function BookViewPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const { data: book } = useQuery({
-    queryKey: ['book', id],
-    queryFn: () => getBook(id!),
+    queryKey: ['public-book', id],
+    queryFn: () => getPublicBook(id!),
     enabled: !!id,
   })
 
   const { data: chapters = [], isLoading } = useQuery({
-    queryKey: ['book-chapters', id],
-    queryFn: () => getChapters(id!),
+    queryKey: ['public-book-chapters', id],
+    queryFn: () => getPublicBookChapters(id!),
     enabled: !!id,
   })
 
@@ -49,7 +49,7 @@ export default function BookViewPage() {
     return (
       <div className="flex flex-col items-center justify-center py-20 px-6 gap-3 text-center">
         <p className="text-sm font-semibold text-gray-900">Pro/Master 전용 기능입니다</p>
-        <p className="text-xs text-gray-400">책장은 요금제를 업그레이드하면 이용할 수 있어요.</p>
+        <p className="text-xs text-gray-400">공용 책장은 요금제를 업그레이드하면 이용할 수 있어요.</p>
         <button
           onClick={() => navigate('/pricing')}
           className="mt-2 px-4 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium"

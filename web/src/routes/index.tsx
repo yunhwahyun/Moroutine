@@ -23,7 +23,9 @@ import AdminAuditLogPage from '@/pages/admin/AdminAuditLogPage'
 import PublicWordbookListPage from '@/pages/public-wordbook/PublicWordbookListPage'
 import PublicWordbookViewPage from '@/pages/public-wordbook/PublicWordbookViewPage'
 import BookshelfListPage from '@/pages/bookshelf/BookshelfListPage'
-import BookViewPage from '@/pages/bookshelf/BookViewPage'
+import BookDetailPage from '@/pages/bookshelf/BookDetailPage'
+import PublicBookListPage from '@/pages/public-book/PublicBookListPage'
+import PublicBookViewPage from '@/pages/public-book/PublicBookViewPage'
 import AdminBookListPage from '@/pages/admin/AdminBookListPage'
 import AdminBookFormPage from '@/pages/admin/AdminBookFormPage'
 import AdminBookDetailPage from '@/pages/admin/AdminBookDetailPage'
@@ -45,13 +47,15 @@ export default function AppRoutes() {
           <Route path="/public-wordbooks" element={<PublicWordbookListPage />} />
           <Route path="/schedules" element={<ScheduleListPage />} />
           <Route path="/books" element={<BookshelfListPage />} />
+          <Route path="/public-books" element={<PublicBookListPage />} />
         </Route>
         <Route path="/learn" element={<LearnPage />} />
         <Route path="/quiz" element={<QuizPage />} />
         <Route path="/quiz/complete" element={<QuizCompletePage />} />
         <Route path="/wordbooks/:id" element={<WordbookDetailPage />} />
         <Route path="/public-wordbooks/:id" element={<PublicWordbookViewPage />} />
-        <Route path="/books/:id" element={<BookViewPage />} />
+        <Route path="/books/:id" element={<BookDetailPage />} />
+        <Route path="/public-books/:id" element={<PublicBookViewPage />} />
         <Route path="/schedules/new" element={<ScheduleFormPage />} />
         <Route path="/schedules/:id/edit" element={<ScheduleFormPage />} />
         <Route path="/pricing" element={<PricingPage />} />

@@ -1,26 +1,27 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { getAdminBooks } from '@/lib/books'
+import { getAdminPublicBooks } from '@/lib/publicBooks'
 import Spinner from '@/components/ui/Spinner'
-import type { BookStatus } from '@/types'
+import type { PublicBookStatus } from '@/types'
 
-const STATUS_LABEL: Record<BookStatus, string> = {
+const STATUS_LABEL: Record<PublicBookStatus, string> = {
   draft: '초안',
   published: '게시됨',
   archived: '보관됨',
 }
 
-const FILTERS: (BookStatus | 'all')[] = ['all', 'draft', 'published', 'archived']
+const FILTERS: (PublicBookStatus | 'all')[] = ['all', 'draft', 'published', 'archived']
 
-// AdminWordbookListPage.tsx와 헤더/필터/카드 톤을 맞춘다.
+// AdminWordbookListPage.tsx와 헤더/필터/카드 톤을 맞춘다. 여기서 관리하는 건 "공용 책장"이다
+// (사용자가 직접 만드는 개인 책장은 web/src/pages/bookshelf/에 별도로 있다).
 export default function AdminBookListPage() {
   const navigate = useNavigate()
-  const [filter, setFilter] = useState<BookStatus | 'all'>('all')
+  const [filter, setFilter] = useState<PublicBookStatus | 'all'>('all')
 
   const { data: books = [], isLoading } = useQuery({
-    queryKey: ['admin', 'books'],
-    queryFn: getAdminBooks,
+    queryKey: ['admin', 'public-books'],
+    queryFn: getAdminPublicBooks,
   })
 
   const filtered = useMemo(

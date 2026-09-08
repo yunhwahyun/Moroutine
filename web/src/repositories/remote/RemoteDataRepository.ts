@@ -1,10 +1,13 @@
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import { DEFAULT_SETTINGS } from '@/stores/settingsStore'
-import type { NotificationRecord, Schedule, ScheduleException, UserSettings, Word, Wordbook } from '@/types'
+import type { Book, BookChapter, NotificationRecord, Schedule, ScheduleException, UserSettings, Word, Wordbook } from '@/types'
 import type {
+  BulkCreateChaptersInput,
   BulkCreateResult,
   BulkCreateWordsInput,
+  CreateBookInput,
+  CreateChapterInput,
   CreateNotificationInput,
   CreateStudySessionInput,
   CreateWordInput,
@@ -14,6 +17,8 @@ import type {
   ScheduleExceptionInput,
   ScheduleInput,
   StudyResultInput,
+  UpdateBookInput,
+  UpdateChapterInput,
   UpdateWordInput,
   UpdateWordbookInput,
 } from '../types'
@@ -385,6 +390,110 @@ export class RemoteDataRepository implements DataRepository {
       .from('profiles')
       .update(userSettingsToRow(input))
       .eq('id', requireUserId())
+    if (error) throw error
+  }
+
+  // ── 개인 책장 ────────────────────────────────────────────────────────
+  // 등급별 한도가 없어 words처럼 RPC를 거치지 않고 직접 insert한다(RLS가 소유권만 검증).
+
+  async getBooks(): Promise<Book[]> {
+    const { data, error } = await supabase.from('books').select('*').order('created_at', { ascending: false })
+    if (error) throw error
+    return data ?? []
+  }
+
+  async getBook(id: string): Promise<Book | null> {
+    const { data, error } = await supabase.from('books').select('*').eq('id', id).maybeSingle()
+    if (error) throw error
+    return data
+  }
+
+  async createBook(input: CreateBookInput): Promise<Book> {
+    const { data, error } = await supabase
+      .from('books')
+      .insert({ user_id: requireUserId(), name: input.name, language: input.language ?? null })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }
+
+  async updateBook(id: string, input: UpdateBookInput): Promise<void> {
+    const { error } = await supabase
+      .from('books')
+      .update({ ...input, updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) throw error
+  }
+
+  async deleteBook(id: string): Promise<void> {
+    const { error } = await supabase.from('books').delete().eq('id', id)
+    if (error) throw error
+  }
+
+  async getChapters(bookId: string): Promise<BookChapter[]> {
+    const { data, error } = await supabase
+      .from('book_chapters')
+      .select('*')
+      .eq('book_id', bookId)
+      .order('sort_order', { ascending: true })
+    if (error) throw error
+    return data ?? []
+  }
+
+  private async nextChapterSortOrder(bookId: string): Promise<number> {
+    const { data, error } = await supabase
+      .from('book_chapters')
+      .select('sort_order')
+      .eq('book_id', bookId)
+      .order('sort_order', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (error) throw error
+    return (data?.sort_order ?? -1) + 1
+  }
+
+  async createChapter(input: CreateChapterInput): Promise<BookChapter> {
+    const sortOrder = await this.nextChapterSortOrder(input.bookId)
+    const { data, error } = await supabase
+      .from('book_chapters')
+      .insert({
+        book_id: input.bookId,
+        user_id: requireUserId(),
+        title: input.title,
+        content: input.content,
+        sort_order: sortOrder,
+      })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }
+
+  async bulkCreateChapters(input: BulkCreateChaptersInput): Promise<void> {
+    let sortOrder = await this.nextChapterSortOrder(input.bookId)
+    const userId = requireUserId()
+    const rows = input.chapters.map((c) => ({
+      book_id: input.bookId,
+      user_id: userId,
+      title: c.title,
+      content: c.content,
+      sort_order: sortOrder++,
+    }))
+    const { error } = await supabase.from('book_chapters').insert(rows)
+    if (error) throw error
+  }
+
+  async updateChapter(id: string, input: UpdateChapterInput): Promise<void> {
+    const { error } = await supabase
+      .from('book_chapters')
+      .update({ ...input, updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) throw error
+  }
+
+  async deleteChapter(id: string): Promise<void> {
+    const { error } = await supabase.from('book_chapters').delete().eq('id', id)
     if (error) throw error
   }
 }

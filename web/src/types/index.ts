@@ -83,19 +83,14 @@ export type PublicWordProgress = {
   updated_at: string
 }
 
-// 책장 — 공용 단어장과 같은 구조(Admin만 쓰기, Pro/Master만 조회)지만 학습/퀴즈/진행률/개인
-// 복사("담기")가 전혀 없는 순수 읽기·듣기 콘텐츠. description/category/difficulty 같은 부가
-// 필드도 처음부터 만들지 않는다.
-export type BookStatus = 'draft' | 'published' | 'archived'
-export type BookChapterStatus = 'active' | 'archived'
-
+// 책장(개인) — 단어장/단어(Wordbook/Word)와 동일한 개인 소유 구조(Guest는 로컬, 그 외는
+// Supabase). 학습/복습/문제풀기는 없고 자동재생(순차)과 읽기만 있다.
 export type Book = {
   id: string
-  title: string
+  user_id: string
+  name: string
   language: string | null
-  status: BookStatus
   chapter_count: number
-  created_by: string
   created_at: string
   updated_at: string
 }
@@ -103,10 +98,38 @@ export type Book = {
 export type BookChapter = {
   id: string
   book_id: string
+  user_id: string
   title: string
   content: string
   sort_order: number
-  status: BookChapterStatus
+  created_at: string
+  updated_at: string
+}
+
+// 공용 책장 — 공용 단어장(PublicWordbook/PublicWord)과 동일한 구조(Admin만 쓰기, Pro/Master만
+// 조회)지만 학습/퀴즈/진행률/개인 복사("담기")가 전혀 없는 순수 읽기·듣기 콘텐츠.
+// description/category/difficulty 같은 부가 필드도 처음부터 만들지 않는다.
+export type PublicBookStatus = 'draft' | 'published' | 'archived'
+export type PublicBookChapterStatus = 'active' | 'archived'
+
+export type PublicBook = {
+  id: string
+  title: string
+  language: string | null
+  status: PublicBookStatus
+  chapter_count: number
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export type PublicBookChapter = {
+  id: string
+  book_id: string
+  title: string
+  content: string
+  sort_order: number
+  status: PublicBookChapterStatus
   created_at: string
   updated_at: string
 }

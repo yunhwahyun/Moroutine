@@ -1,5 +1,7 @@
 import Dexie, { type Table } from 'dexie'
 import type {
+  Book,
+  BookChapter,
   NotificationRecord,
   Schedule,
   ScheduleException,
@@ -16,9 +18,10 @@ import type {
 // speaking* 테이블은 아직 Repository 메서드가 없어 이번 단계에서는 생성하지 않는다
 // (Phase 23에서 해당 기능이 Repository에 연결될 때 버전을 올려 추가한다).
 //
-// ⚠️ 아직 배포된 적 없는 스키마이므로(실사용 Guest 데이터 없음) 버전을 올리지 않고 version(1)에 직접
-// 스토어를 추가한다. 이 앱이 실제 배포되어 사용자 IndexedDB에 v1이 이미 존재하는 시점부터는 스토어 추가 시
-// 반드시 새 버전(this.version(2).stores({...}).upgrade(...))으로 마이그레이션해야 한다(§10 참고).
+// ⚠️ v1은 이미 실제 배포되어 사용자 IndexedDB에 존재한다 — 이 시점부터 스토어를 추가할 때는
+// 반드시 새 버전(this.version(N).stores({...}))으로 추가해야 한다(§10 참고). 새 스토어만 추가하는
+// 경우 .upgrade() 콜백 없이도 Dexie가 빈 테이블로 자동 생성한다(2026-09-08, 개인 책장 추가 시 처음
+// 적용한 선례 — version(2) 참고).
 
 export const GUEST_USER_ID = 'guest'
 
@@ -54,6 +57,8 @@ class LocalDB extends Dexie {
   studyResults!: Table<LocalStudyResult, string>
   settings!: Table<LocalSettingsRow, string>
   meta!: Table<{ key: string; value: unknown }, string>
+  books!: Table<Book, string>
+  bookChapters!: Table<BookChapter, string>
 
   constructor() {
     super('moroutine_local_db')
@@ -67,6 +72,12 @@ class LocalDB extends Dexie {
       studyResults: 'id, session_id, word_id',
       settings: 'id',
       meta: 'key',
+    })
+    // v1은 이미 실사용 Guest 기기에 배포돼 있어(§10) 새 스토어는 반드시 새 버전으로 추가한다 —
+    // 개인 책장(books/bookChapters) 신규 추가, 기존 스토어는 무변경.
+    this.version(2).stores({
+      books: 'id, created_at',
+      bookChapters: 'id, book_id, sort_order, created_at',
     })
   }
 }

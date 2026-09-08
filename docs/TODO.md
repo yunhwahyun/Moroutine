@@ -326,15 +326,20 @@ _현재 진행 중인 작업 없음_
 - [x] `web`: `tsc -b`/`eslint .`/`vite build` 통과
 - [ ] **한계 — 실기기 재검증 필요**: 이 환경엔 실기기가 없어 앱에서 아이콘 겹침/오버플로우가 실제로 해소되는지 확인 불가. 재차 실패 시 네이티브 input CSS 재시도를 완전히 중단하고 커스텀 피커로 전환 예정
 
-### Phase 25 — 책장(Book) 기능 신규 추가 ✅ 완료 2026-09-08
-- [x] 마이그레이션 41(`books`/`book_chapters` + chapter_count/감사로그 트리거, 공용 단어장과 동일 구조) — 학습/퀴즈/진행률/담기/anon 없음
-- [x] `web/src/lib/books.ts`/`bookAutoplaySegments.ts`(신규) — Admin CRUD + 사용자 read만, `DataRepository` 밖 독립 모듈
-- [x] Admin 3페이지(`AdminBookListPage`/`AdminBookFormPage`/`AdminBookDetailPage`) — `.txt` 여러 파일 일괄등록(파일 하나=목차 1개, 제목=파일명)
-- [x] 사용자 2페이지(`BookshelfListPage`/`BookViewPage`) — 다중 선택 + 순차 자동재생(`useAutoplayStore` 무수정 재사용), 목차별 "듣기"
-- [x] 라우트(`/books`, `/books/:id`, `/admin/books*`) + `BottomNav`(사용자·관리자 탭 "책장" 추가, `no:'05'`) + `GlobalAutoPlayBar`의 `BOTTOM_NAV_ROUTES`
+### Phase 25 — 책장(Book) 기능 — 개인+공용 이중 구조 ✅ 완료 2026-09-08
+- [x] (오전) 공용 전용으로 최초 구현 → (오후) 사용자 지적으로 단어장과 동일한 개인+공용 이중 구조로 재구성(`docs/DECISION_LOG.md` 참고)
+- [x] 마이그레이션 41(`public_books`/`public_book_chapters`, 최초 `books`/`book_chapters`에서 rename) — 공용, Admin만 쓰기
+- [x] 마이그레이션 42(`books`/`book_chapters`, 신규) — 개인, `wordbooks`/`words`와 동일한 `user_id` 소유 구조
+- [x] `DataRepository`에 개인 책장 9개 메서드 추가(`LocalDataRepository`/`RemoteDataRepository` 양쪽 구현), `schema.ts` Dexie v2로 `books`/`bookChapters` 신규 스토어 추가
+- [x] `web/src/lib/publicBooks.ts`(구 `books.ts`에서 rename)/`bookAutoplaySegments.ts` — 공용 Admin CRUD + 사용자 read, `DataRepository` 밖 독립 모듈
+- [x] Admin 3페이지(`AdminBookListPage`/`AdminBookFormPage`/`AdminBookDetailPage`, 공용 관리) — `.txt` 여러 파일 일괄등록(파일 하나=목차 1개, 제목=파일명)
+- [x] 개인 2페이지(`BookshelfListPage`/`BookDetailPage`) — 헤더 "+추가"/"공용 책장" 링크, 다중 선택 + 순차 자동재생, 목차 추가/수정/삭제/일괄등록/"듣기"
+- [x] 공용 2페이지(`PublicBookListPage`/`PublicBookViewPage`) — 열람 전용(다중 선택/복사 없음), 목차별 "듣기"
+- [x] 라우트(`/books`, `/books/:id`, `/public-books`, `/public-books/:id`, `/admin/books*`) + `BottomNav`(사용자 탭 순서를 단어장 바로 다음으로 재배치) + `GlobalAutoPlayBar`의 `BOTTOM_NAV_ROUTES`
 - [x] 메뉴 아이콘 — 사용자가 직접 `menu-05.svg`/`menu-05-on.svg` 제작해 최종 적용(플레이스홀더 아님)
 - [x] `web`: `tsc -b`/`eslint .`/`vite build` 통과, `mobile/App.tsx` 무변경(EAS 재빌드 불필요)
-- [ ] **한계**: 실브라우저 검증 미수행(코드 리뷰만). 마이그레이션 41 Supabase 프로젝트 미적용 — 사용자가 Dashboard에서 직접 실행 필요
+- [ ] **한계**: 실브라우저 검증 미수행(코드 리뷰만). 마이그레이션 41/42 모두 Supabase 프로젝트 미적용 — 사용자가 Dashboard에서 직접 실행 필요(41은 rename됐으므로 이전에 실행했다면 재확인)
+- [ ] **범위 밖**: 공용 책을 개인 책장으로 복사하는 기능(단어장의 "담기"에 해당) — 필요해지면 후속 작업
 
 ### Phase 23 — 스피킹 재구현 (`docs/SPEAKING_DESIGN.md`) ⏸ 보류 2026-09-01
 - [ ] WebView 녹음 환경 검증 6개 항목(§7, Azure 관련 2개 항목 제거됨)
