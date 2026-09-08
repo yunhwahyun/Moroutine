@@ -32,6 +32,22 @@ function addDays(base: string, days: number) {
   return toDateStr(d)
 }
 
+function diffDays(fromDateStr: string, toDateStr_: string): number {
+  return Math.round((new Date(toDateStr_).getTime() - new Date(fromDateStr).getTime()) / 86400000)
+}
+
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(':').map(Number)
+  return h * 60 + m
+}
+
+function minutesToTime(mins: number): string {
+  const wrapped = ((mins % 1440) + 1440) % 1440
+  const h = Math.floor(wrapped / 60)
+  const m = wrapped % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
 function hhmm(iso: string) {
   const d = new Date(iso)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
@@ -178,7 +194,7 @@ function defaultForm(): ScheduleForm {
   const minStr = String(roundedMin >= 60 ? 0 : roundedMin).padStart(2, '0')
   const time = `${h}:${minStr}`
   return {
-    title: '', date, time, endDate: date, endTime: '',
+    title: '', date, time, endDate: date, endTime: minutesToTime(timeToMinutes(time) + 60),
     isAllDay: false, location: '',
     repeatType: 'none', repeatEndType: 'none',
     repeatUntil: '', repeatCount: '', repeatUnit: 'day', repeatValue: '1',
@@ -194,6 +210,63 @@ function buildEndsAt(form: ScheduleForm): string | null {
   if (form.isAllDay) return null
   if (!form.endTime) return null
   return new Date(`${form.endDate || form.date}T${form.endTime}:00`).toISOString()
+}
+
+// 시작/종료 날짜·시간 중 하나를 바꿀 때 반대쪽을 자동으로 맞춰서 조작을 최소화한다.
+// - 반대쪽이 비어있으면: 날짜는 같은 날짜로, 시간은 1시간 차이로 채운다.
+// - 반대쪽에 이미 값이 있는데 순서가 뒤집히면(시작이 종료보다 뒤로 가거나 그 반대): 바뀌기 전
+//   두 값의 간격(원래 기간)을 그대로 유지한 채 반대쪽을 밀어서 순서를 바로잡는다.
+function adjustScheduleDateTime(
+  form: ScheduleForm,
+  field: 'date' | 'endDate' | 'time' | 'endTime',
+  value: string,
+): ScheduleForm {
+  const next = { ...form, [field]: value }
+
+  if (field === 'date' || field === 'endDate') {
+    const isStart = field === 'date'
+    const oldDate = form.date
+    const oldEndDate = form.endDate
+    const gapDays = oldDate && oldEndDate ? diffDays(oldDate, oldEndDate) : 0
+
+    if (isStart) {
+      if (!oldEndDate) {
+        next.endDate = value
+      } else if (new Date(oldEndDate) < new Date(value)) {
+        next.endDate = addDays(value, Math.max(gapDays, 0))
+      }
+    } else {
+      if (!oldDate) {
+        next.date = value
+      } else if (new Date(oldDate) > new Date(value)) {
+        next.date = addDays(value, -Math.max(gapDays, 0))
+      }
+    }
+  }
+
+  if (field === 'time' || field === 'endTime') {
+    const isStart = field === 'time'
+    const oldTime = form.time
+    const oldEndTime = form.endTime
+    const rawGap = oldTime && oldEndTime ? timeToMinutes(oldEndTime) - timeToMinutes(oldTime) : 60
+    const gapMin = rawGap > 0 ? rawGap : 60
+
+    if (isStart) {
+      if (!oldEndTime) {
+        next.endTime = minutesToTime(timeToMinutes(value) + 60)
+      } else if (timeToMinutes(oldEndTime) < timeToMinutes(value)) {
+        next.endTime = minutesToTime(timeToMinutes(value) + gapMin)
+      }
+    } else {
+      if (!oldTime) {
+        next.time = minutesToTime(timeToMinutes(value) - 60)
+      } else if (timeToMinutes(oldTime) > timeToMinutes(value)) {
+        next.time = minutesToTime(timeToMinutes(value) - gapMin)
+      }
+    }
+  }
+
+  return next
 }
 
 function formToScheduleFields(form: ScheduleForm, parentId?: string) {
@@ -256,14 +329,14 @@ function ScheduleFormPanel({
                 명시적으로 고정한다(날짜가 시간보다 조금 더 넓게, 3:2). */}
             <NativeDateTimeInput
               type="date" value={form.date}
-              onChange={(v) => onChange({ ...form, date: v })}
+              onChange={(v) => onChange(adjustScheduleDateTime(form, 'date', v))}
               className={`${INPUT} pr-5`}
               wrapperClassName="flex-[3] min-w-0"
             />
             {!form.isAllDay && (
               <NativeDateTimeInput
                 type="time" value={form.time}
-                onChange={(v) => onChange({ ...form, time: v })}
+                onChange={(v) => onChange(adjustScheduleDateTime(form, 'time', v))}
                 className={`${INPUT} pr-5`}
                 wrapperClassName="flex-[2] min-w-0"
               />
@@ -276,13 +349,13 @@ function ScheduleFormPanel({
             <div className="flex flex-row gap-2 flex-1 overflow-hidden max-[360px]:flex-col">
               <NativeDateTimeInput
                 type="date" value={form.endDate}
-                onChange={(v) => onChange({ ...form, endDate: v })}
+                onChange={(v) => onChange(adjustScheduleDateTime(form, 'endDate', v))}
                 className={`${INPUT} pr-5`}
                 wrapperClassName="flex-[3] min-w-0"
               />
               <NativeDateTimeInput
                 type="time" value={form.endTime}
-                onChange={(v) => onChange({ ...form, endTime: v })}
+                onChange={(v) => onChange(adjustScheduleDateTime(form, 'endTime', v))}
                 className={`${INPUT} pr-5`}
                 wrapperClassName="flex-[2] min-w-0"
               />

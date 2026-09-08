@@ -67,6 +67,8 @@
 
 | **안드로이드 알림 시각 오차 수정 — SCHEDULE_EXACT_ALARM 권한 추가 ✅ 완료 2026-09-08** | "정확한 시각보다 늦게(≈1분) 뜬다" 리포트를 `expo-notifications` 안드로이드 네이티브 소스(`ExpoSchedulingDelegate.kt`) 직접 확인으로 진단 — `SCHEDULE_EXACT_ALARM` 권한이 없으면 안드로이드 12+에서 무조건 부정확한 `setAndAllowWhileIdle` 경로(배터리 절약을 위해 OS가 시각을 뭉개서 발사)를 타도록 라이브러리가 설계돼 있는데, 이 권한을 한 번도 선언한 적이 없었음. `mobile/app.json`의 `android.permissions`에 추가. **한계**: 네이티브 매니페스트 변경이라 새 EAS 빌드 필요, 안드로이드 13+ 일부 기기는 시스템 설정에서 추가로 켜야 할 수 있어 실기기 재검증 필요(`docs/DECISION_LOG.md` 2026-09-08) |
 
+| **일정 시작/종료 날짜·시간 자동 채움 ✅ 완료 2026-09-08** | 일정 추가/수정 시 조작을 최소화하기 위해 반대쪽 필드를 자동으로 채움 — 비어있으면 날짜는 같은 날짜, 시간은 1시간 차이로 채우고, 이미 값이 있는 상태에서 순서가 뒤집히면 수정 전 간격("원래 기간")을 유지한 채 반대쪽을 밀어서 순서를 바로잡음. `adjustScheduleDateTime()` 신설, `ScheduleFormPanel`의 4개 date/time input onChange 전부 교체(add/edit 공용이라 두 플로우 모두 자동 적용), `defaultForm()`도 신규 진입 시 종료 시각을 처음부터 시작+1시간으로 채움. `tsc -b`/`eslint`/`vite build` 통과, 웹 전용이라 EAS 재빌드 불필요 |
+
 > 구 "Speaking 설계 완료(Azure 평가 포함)" 항목은 위 재설계로 대체되어 제거함. 두 설계 모두 실제 코드/마이그레이션 파일로 구현된 적은 없었음(`docs/DECISION_LOG.md` 참고).
 
 ---
