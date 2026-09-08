@@ -28,10 +28,15 @@ export async function refreshScheduleNotifications(
   if (schedule.alarm_minutes === null) return
 
   const now = new Date()
-  const rangeEnd = new Date(now)
+  // expandScheduleOccurrences는 rangeStart를 "일(day)" 단위로 비교한다(반복 일정의 각 occurrence가
+  // 자정 기준 Date라서). now를 그대로 넘기면 오늘 자정보다 항상 뒤라서 "오늘" occurrence 자체가
+  // 통째로 걸러져(현재 시각 이후에 시작하는 일정이라도) 알림이 하나도 안 잡히는 버그가 있었다 —
+  // 자정으로 내림한 값을 넘기고, 실제로 이미 지난 시각인지는 아래 fireAt > now에서 별도로 거른다.
+  const rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const rangeEnd = new Date(rangeStart)
   rangeEnd.setDate(rangeEnd.getDate() + 30)
 
-  const occurrences = expandScheduleOccurrences(schedule, now, rangeEnd)
+  const occurrences = expandScheduleOccurrences(schedule, rangeStart, rangeEnd)
 
   const inputs = occurrences.reduce<{ scheduleId: string; fireAt: string }[]>((acc, occ) => {
     const fireAt = new Date(new Date(occ.starts_at).getTime() - schedule.alarm_minutes! * 60000)

@@ -306,6 +306,12 @@ _현재 진행 중인 작업 없음_
 - [x] `mobile`: `tsc --noEmit` 통과
 - [ ] **미확인**: iOS까지 동시에 안 오는 원인은 이 수정으로 설명 안 됨 — 테스트 일정의 "알림"이 "알림 없음"(`alarm_minutes=null`)으로 남아있었을 가능성이 유력(정상 동작이라 버그 아님). 사용자에게 실제 알림 시간 지정 여부 + 설정 화면 권한 배너 확인 요청
 
+### 일정 알림 미수신의 진짜 원인 수정 — "오늘" 일정 날짜 비교 버그 ✅ 완료 2026-09-08
+- [x] `notificationScheduler.ts`의 `refreshScheduleNotifications()`가 정확한 현재 시각을 `expandScheduleOccurrences`의 rangeStart로 넘겨 "오늘" occurrence가 통째로 걸러지던 버그 수정(자정 기준 별도 값으로 분리)
+- [x] 권한 허용 + 알림 채널 정상인데도 안 왔던 진짜 원인으로 확정 — 플랫폼/등급 무관하게 100% 재현
+- [x] `web`: `tsc -b`/`eslint .`/`vite build` 통과
+- [ ] **후속 조치 필요**: 이미 저장된 기존 테스트 일정은 소급 재예약이 안 됨 — 사용자가 재저장하거나 새로 등록 후 재검증 필요
+
 ### 메인 화면 일정 미노출 버그 수정 + select 화살표 여백 ✅ 완료 2026-09-08
 - [x] `HomePage.tsx`의 `fetchHomeSchedules()`를 Supabase 직접 조회 → `getRepository(tier)` 경유로 전환(Guest 일정이 메인에 안 보이던 버그 수정)
 - [x] `index.css`의 전역 select 화살표 `background-position`을 `0.5rem`→`1rem`으로 확대
