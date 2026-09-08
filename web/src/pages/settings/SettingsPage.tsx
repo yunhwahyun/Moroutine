@@ -9,7 +9,6 @@ import { useAppConfig } from '@/hooks/useAppConfig'
 import { getRepository } from '@/repositories/factory'
 import { isNative } from '@/bridge'
 import { Section, Row } from '@/components/ui/SettingsList'
-import NativeDateTimeInput from '@/components/ui/DateTimeInput'
 import {
   buildBackup,
   downloadJson,
@@ -482,11 +481,11 @@ export default function SettingsPage() {
           </Row>
           {settings.reviewNotification && (
             <Row label="알림 시간">
-              <NativeDateTimeInput
+              <input
                 type="time"
                 value={settings.reviewNotificationTime}
-                onChange={(v) => set('reviewNotificationTime', v)}
-                wrapperClassName="w-36"
+                onChange={(e) => set('reviewNotificationTime', e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-gray-400 bg-white w-36"
               />
             </Row>
           )}
