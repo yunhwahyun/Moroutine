@@ -232,8 +232,8 @@ CREATE TABLE words (
   user_id         uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   term            text NOT NULL,
   definition      text NOT NULL,
-  description     text,
-  example         text,
+  description     text,  -- 2026-09-08부터 UI 입력 경로 없음(레거시 전용) — 새 입력은 전부 example로 감
+  example         text,  -- 개인/공용 단어 등록 폼·일괄등록(.txt 3번째 컬럼) 전부 이 컬럼에 쓴다
   memo            text,
   wrong_count     int NOT NULL DEFAULT 0,
   status          text NOT NULL DEFAULT 'unseen',

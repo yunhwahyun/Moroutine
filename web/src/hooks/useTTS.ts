@@ -4,7 +4,8 @@ import { isNative, bridge } from '@/bridge'
 // 전담하므로(stores/autoplayStore.ts 참고) 단건 speak()에 완료 콜백을 배선할 필요가 없다.
 // 훅이 아니라 일반 함수로도 export한다 — autoplayStore.ts처럼 React 컴포넌트 밖(Zustand 스토어)에서도
 // 그대로 재사용하기 위함(내부적으로 React 훅을 전혀 쓰지 않으므로 안전하다).
-export function ttsSpeak(text: string, lang = 'en-US', onEnd?: () => void) {
+// rate: 배속(1.0 = 기본 속도) — 자동재생 전용 기능이라 개별 "발음 듣기" 버튼들은 기본값(1.0) 그대로 쓴다.
+export function ttsSpeak(text: string, lang = 'en-US', onEnd?: () => void, rate = 1.0) {
   if (isNative()) {
     bridge.speak({ text, lang })
   } else {
@@ -12,6 +13,7 @@ export function ttsSpeak(text: string, lang = 'en-US', onEnd?: () => void) {
     speechSynthesis.cancel()
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.lang = lang
+    utterance.rate = rate
     if (onEnd) {
       utterance.onend = onEnd
       utterance.onerror = onEnd

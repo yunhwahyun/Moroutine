@@ -155,7 +155,7 @@ export class RemoteDataRepository implements DataRepository {
       input.words.map((w) => ({
         term: w.term.trim(),
         definition: w.definition.trim(),
-        description: w.description?.trim() || null,
+        example: w.example?.trim() || null,
       })),
     )
     return {

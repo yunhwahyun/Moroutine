@@ -154,7 +154,7 @@ export type QuizWord = {
   id: string
   term: string
   definition: string
-  description: string | null
+  example: string | null
   distractors: Array<{ id: string; definition: string }>
 }
 

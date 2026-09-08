@@ -68,7 +68,9 @@ export default function Quiz({ words, initialMode = 'multiple_choice', onComplet
     if (phase !== 'question') return
     if (listening) stopSTT()
     const correct = normalize(shortInput) === normalize(word.term)
-    setSelectedId(correctId)
+    // 정답일 때만 selectedId를 correctId로 맞춘다 — 무조건 correctId를 넣으면 isCorrectAnswer
+    // (selectedId === correctId) 판정이 항상 true가 되어 오답도 "정답입니다!"로 표시되는 버그였다.
+    setSelectedId(correct ? correctId : null)
     if (correct) setCorrectCount((c) => c + 1)
     setPhase('revealed')
     onWordAnswered?.(word.id, correct)
@@ -162,10 +164,10 @@ export default function Quiz({ words, initialMode = 'multiple_choice', onComplet
           <AnswerReveal
             isCorrect={isCorrectAnswer}
             correctDefinition={mode === 'short_answer' ? word.term : word.definition}
-            description={word.description}
+            example={word.example}
             onSpeak={ttsSupported ? () => speak(word.term) : undefined}
-            onSpeakDescription={
-              ttsSupported && word.description ? () => speak(word.description!, 'ko-KR') : undefined
+            onSpeakExample={
+              ttsSupported && word.example ? () => speak(word.example!) : undefined
             }
           />
         )}
@@ -197,14 +199,20 @@ export default function Quiz({ words, initialMode = 'multiple_choice', onComplet
                 }`}
               />
               {showMic && phase === 'question' && (
+                // 눌러서 녹음, 손을 떼면 종료(walkie-talkie 방식) — 무음 감지로 애매하게
+                // 자동 종료되던 것 대신 사용자가 직접 시작/끝을 통제한다. 버튼 밖으로 손가락이
+                // 벗어나는 경우(onPointerLeave/Cancel)도 녹음 종료로 처리한다.
                 <button
-                  onClick={listening ? stopSTT : startSTT}
-                  className={`flex items-center justify-center w-[56px] rounded-lg border transition-colors ${
+                  onPointerDown={(e) => { e.preventDefault(); if (!listening) startSTT() }}
+                  onPointerUp={() => { if (listening) stopSTT() }}
+                  onPointerLeave={() => { if (listening) stopSTT() }}
+                  onPointerCancel={() => { if (listening) stopSTT() }}
+                  className={`flex items-center justify-center w-[56px] rounded-lg border transition-colors select-none touch-none ${
                     listening
                       ? 'border-red-400 bg-red-50 text-red-500'
                       : 'border-gray-200 bg-white text-gray-400 hover:text-gray-600'
                   }`}
-                  aria-label={listening ? '음성 인식 중지' : '음성 입력 시작'}
+                  aria-label={listening ? '녹음 중 — 손을 떼면 종료' : '눌러서 녹음 시작'}
                 >
                   {listening ? (
                     <span className="w-3.5 h-3.5 rounded-full bg-red-500 animate-pulse" />

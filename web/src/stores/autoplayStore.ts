@@ -21,17 +21,22 @@ interface AutoPlayStartOptions {
   startIndex?: number
 }
 
+export const AUTOPLAY_MIN_RATE = 0.5
+export const AUTOPLAY_MAX_RATE = 1.5
+
 interface AutoplayState {
   items: AutoPlayItem[]
   active: boolean
   playing: boolean
   index: number
   gapMs: number
+  rate: number
   isSupported: boolean
   start: (items: AutoPlayItem[], opts?: AutoPlayStartOptions) => void
   toggle: () => void
   next: () => void
   previous: () => void
+  setRate: (rate: number) => void
   close: () => void
 }
 
@@ -73,13 +78,16 @@ function scheduleWebSpeak() {
       }, gapMs)
       return
     }
+    // 배속은 매 세그먼트 재생 시점에 스토어에서 다시 읽는다 — 재생 도중 슬라이더로 바꾸면
+    // 다음 세그먼트부터 바로 반영되게 하기 위함(현재 말하는 중인 문장은 끝까지 그대로 감).
+    const currentRate = useAutoplayStore.getState().rate
     ttsSpeak(segments[segIndex].text, segments[segIndex].lang, () => {
       if (gen !== myGen) return
       gapTimer = setTimeout(() => {
         if (gen !== myGen) return
         speakSegment(segIndex + 1)
       }, SEGMENT_GAP_MS)
-    })
+    }, currentRate)
   }
   speakSegment(0)
 }
@@ -93,6 +101,7 @@ export const useAutoplayStore = create<AutoplayState>((set, get) => ({
   playing: false,
   index: 0,
   gapMs: 1000,
+  rate: 1.0,
   isSupported: isTTSSupported(),
 
   start: (items, opts = {}) => {
@@ -104,7 +113,7 @@ export const useAutoplayStore = create<AutoplayState>((set, get) => ({
     ttsStop()
     set({ items, active: true, playing: true, index: startIndex, gapMs })
     if (isNative()) {
-      bridge.startAutoplay({ words: items.map((it) => it.segments), gapMs, startIndex })
+      bridge.startAutoplay({ words: items.map((it) => it.segments), gapMs, startIndex, rate: get().rate })
     } else {
       scheduleWebSpeak()
     }
@@ -163,6 +172,15 @@ export const useAutoplayStore = create<AutoplayState>((set, get) => ({
     const prevIndex = index <= 0 ? items.length - 1 : index - 1
     set({ playing: true, index: prevIndex })
     scheduleWebSpeak()
+  },
+
+  // 배속은 세션과 무관하게 유지되는 사용자 설정에 가깝다 — close()에서도 리셋하지 않는다.
+  // 웹은 다음 세그먼트부터 자동 반영(scheduleWebSpeak이 매번 다시 읽음), 네이티브는 명시적으로
+  // 알려줘야 다음 speak() 호출부터 반영된다.
+  setRate: (rate) => {
+    const clamped = Math.max(AUTOPLAY_MIN_RATE, Math.min(AUTOPLAY_MAX_RATE, rate))
+    set({ rate: clamped })
+    if (isNative() && get().active) bridge.setAutoplayRate({ rate: clamped })
   },
 
   close: () => {

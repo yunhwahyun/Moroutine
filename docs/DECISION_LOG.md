@@ -4,7 +4,54 @@
 
 ---
 
-## 2026-09-07
+## 2026-09-08
+
+### 퀴즈 주관식 음성 입력 — 눌러서 녹음 방식 + 오답을 정답으로 표시하던 버그 수정
+
+- **음성 입력 UX 변경**: 기존엔 마이크 버튼을 탭하면 녹음이 시작되고 무음 감지(또는 단발성 인식
+  완료)로 일정 시간 후 자동 종료됐는데, 답이 짧거나 길 때 맞지 않는 문제가 있었다. 눌러서 녹음,
+  손을 떼면 종료하는 방식(walkie-talkie)으로 변경 — `Quiz.tsx`의 마이크 버튼을 `onClick` 토글에서
+  `onPointerDown`(시작)/`onPointerUp`·`onPointerLeave`·`onPointerCancel`(종료)로 교체했다. 웹
+  `SpeechRecognition`과 네이티브 `expo-speech-recognition` 둘 다 `continuous: true`로 바꿔, 사용자가
+  직접 멈추기 전까지 무음 감지로 중간에 끊기지 않게 했다. 부수 수정: continuous 모드에서는 말하다
+  잠깐 멈출 때마다 중간 결과가 `final: true`로 여러 번 올 수 있어, 그 신호로 `listening` 상태를 끄던
+  로직과(있었다면 손을 떼기 전에도 마이크 UI가 꺼져 보였을 것) 첫 결과에서 구독을 끊던 네이티브 쪽
+  로직을 제거하고, 웹 쪽 `onresult`도 항상 첫 결과(`results[0]`)만 보던 것을 최신 결과로 고쳤다.
+- **오답이 "정답입니다!"로 표시되던 버그**: `Quiz.tsx`의 `handleSubmitShort()`가 정답 여부와 무관하게
+  `setSelectedId(correctId)`를 항상 호출하고 있었다 — 화면의 정답 판정(`isCorrectAnswer = selectedId
+  === correctId`)이 그래서 주관식 제출 시 항상 참이 됐다(실제 정오 판정을 쓰는 점수 집계
+  `correctCount`는 정상이었지만 화면 피드백이 항상 "정답"으로 보였다). 음성 입력 쪽에서 특히
+  체감됐지만 키보드 입력도 동일하게 영향받는 버그였다. 정답일 때만 `correctId`, 오답이면 `null`을
+  넣도록 수정.
+
+### 자동재생 배속 조절 추가
+
+- 미니 플레이어에 배속(0.5x~1.5x, 0.1 단위) 조절 UI 추가 — 컨트롤 옆 "1.0x" 알약 버튼을 누르면
+  슬라이더 패널이 위로 펼쳐진다. `autoplayStore.ts`에 `rate` 상태 + `setRate()` 추가(세션과 무관하게
+  유지되는 값이라 `close()`에서도 리셋 안 함). 웹은 `speechSynthesis`의 `utterance.rate`, 앱은
+  `expo-speech`의 `Speech.speak({ rate })`로 적용 — 재생 도중 바꾸면 지금 말하는 세그먼트는 그대로
+  끝까지 가고 다음 세그먼트부터 반영된다(새 브리지 메시지 `AUTOPLAY_SET_RATE` 추가). 네이티브의
+  onDone 안 불림 안전장치 타이머(예상 재생 시간 기반)도 배속만큼 나눠 보정했다.
+
+### 단어 입력 폼을 "설명"에서 "예문"으로 전환 — description → example
+
+- **배경**: `words` 테이블은 처음부터 `description`/`example`/`memo` 3개의 선택 필드를 갖고 있었고
+  내보내기(`dataExport.ts`)·마이그레이션(`guestToRemoteMigration.ts`)·RPC(`create_words_checked`)
+  등 백엔드 경로는 이미 셋 다 지원하고 있었다. 그런데 실제 단어 입력 폼(개인
+  `WordbookDetailPage.tsx`, 관리자 `AdminWordbookDetailPage.tsx`, 둘의 `.txt` 일괄등록 파서)은
+  전부 "설명"이라는 라벨로 `description` 컬럼 하나만 입력받고 있어 `example`/`memo`는 앱의 어떤
+  UI로도 채울 수 없는 죽은 컬럼이었다. 사용자가 원하는 단어 입력 모델은 **단어/뜻/예문** 3개뿐.
+- **결정**: 입력 폼·`.txt` 3번째 컬럼·미리보기·목록 표시를 전부 `description`이 아니라 `example`을
+  쓰도록 전환(라벨도 "설명"→"예문"). 함께 쓰던 `QuizWord.description`/`AnswerReveal`의
+  `description`/`onSpeakDescription` prop도 `example`/`onSpeakExample`로 개명하고, Quiz 정답 화면의
+  "설명 듣기" 버튼은 "예문 듣기"로 바뀌며 원어 음성(기존엔 한국어 음성으로 읽던 버그성 동작)으로
+  읽는다. `LearnPage.tsx`의 "설명" 표시 블록은 제거(예문/메모만 남김) — 입력 경로가 없어진 필드를
+  화면에 남겨두면 오히려 혼란만 준다.
+- **한계**: DB 컬럼 자체는 그대로 둔다(마이그레이션 없음) — 이전에 "설명"으로 입력했던 기존 값은
+  여전히 `description` 컬럼에 남아 있고, 화면상 예문 섹션에는 나타나지 않는다(내보내기에서는 계속
+  보임). 기존 데이터를 `example`로 옮기는 마이그레이션은 이번 범위 밖.
+
+---
 
 ### 메인/학습하기 자동재생 — 웹은 JS 스케줄링, 앱은 네이티브(RN)가 시퀀싱
 

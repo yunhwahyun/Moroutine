@@ -21,6 +21,7 @@ interface AutoplaySession {
   index: number
   paused: boolean
   gen: number
+  rate: number
 }
 
 // 한 단어 안에서 세그먼트(단어→뜻→설명→예문) 사이의 짧은 틈. 단어와 단어 사이의 gapMs보다 짧다.
@@ -191,6 +192,7 @@ export default function App() {
     const segment = segments[segIndex]
     Speech.speak(segment.text, {
       language: segment.lang,
+      rate: session.rate,
       onDone: advanceOnce,
       onError: advanceOnce,
     })
@@ -198,7 +200,8 @@ export default function App() {
     // expo-speech의 onDone/onError가 일부 기기·언어 조합에서 아예 안 불리는 경우가 있어(실기기에서
     // "다음으로 자동 진행이 안 된다" 버그로 확인됨) — 예상 재생 시간이 지나도 콜백이 없으면
     // 안전장치로 강제 진행시킨다. 콜백이 정상적으로 먼저 오면 advanced 플래그가 중복 실행을 막는다.
-    const estimatedMs = Math.max(2500, segment.text.length * 220)
+    // 배속이 느릴수록 실제 재생 시간이 길어지므로 rate로 나눠 보정한다.
+    const estimatedMs = Math.max(2500, segment.text.length * 220) / session.rate
     setTimeout(advanceOnce, estimatedMs)
   }
 
@@ -274,10 +277,8 @@ export default function App() {
         const resultSub = ExpoSpeechRecognitionModule.addListener('result', (event: { results: { transcript: string }[]; isFinal: boolean }) => {
           const transcript = event.results[0]?.transcript ?? ''
           sendToWeb({ type: 'STT_RESULT', payload: { transcript, final: event.isFinal } })
-          if (event.isFinal) {
-            sttSubs.current.forEach((s) => s.remove())
-            sttSubs.current = []
-          }
+          // continuous 모드에서는 말하다 잠깐 멈출 때마다 isFinal이 여러 번 올 수 있어 여기서
+          // 구독을 끊지 않는다 — 실제 종료는 사용자가 손을 뗄 때(STOP_STT)만 처리한다.
         })
         const errorSub = ExpoSpeechRecognitionModule.addListener('error', () => {
           sendToWeb({ type: 'STT_RESULT', payload: { transcript: '', final: true } })
@@ -285,14 +286,16 @@ export default function App() {
           sttSubs.current = []
         })
         sttSubs.current = [resultSub, errorSub]
-        ExpoSpeechRecognitionModule.start({ lang, interimResults: false, continuous: false })
+        // continuous: true — 눌러서 녹음, 손을 떼면(STOP_STT) 종료하는 방식이라 무음 감지로
+        // 중간에 자동 종료되면 안 된다(사용자가 직접 멈출 때까지 듣는다).
+        ExpoSpeechRecognitionModule.start({ lang, interimResults: false, continuous: true })
         break
       }
 
       case 'STOP_STT':
         ExpoSpeechRecognitionModule.stop()
-        sttSubs.current.forEach((s) => s.remove())
-        sttSubs.current = []
+        // 구독은 여기서 바로 끊지 않는다 — stop() 직후에도 방금까지 말한 마지막 구간의 결과가
+        // 비동기로 한 번 더 도착할 수 있어, 그걸 받을 수 있게 둔다(다음 START_STT 때 정리됨).
         break
 
       case 'GET_APP_VERSION': {
@@ -346,11 +349,11 @@ export default function App() {
         break
 
       case 'AUTOPLAY_START': {
-        const { words, gapMs, startIndex } = msg.payload
+        const { words, gapMs, startIndex, rate } = msg.payload
         clearAutoplayTimeout()
         Speech.stop()
         const gen = (autoplayRef.current?.gen ?? 0) + 1
-        autoplayRef.current = { words, gapMs, index: startIndex, paused: false, gen }
+        autoplayRef.current = { words, gapMs, index: startIndex, paused: false, gen, rate }
         try {
           await setAudioModeAsync({
             playsInSilentMode: true,
@@ -382,6 +385,11 @@ export default function App() {
 
       case 'AUTOPLAY_RESUME':
         setKeepAlivePlaying(true)
+        break
+
+      case 'AUTOPLAY_SET_RATE':
+        // 지금 말하는 중인 세그먼트는 그대로 두고, 다음 세그먼트부터 새 배속을 적용한다.
+        if (autoplayRef.current) autoplayRef.current.rate = msg.payload.rate
         break
 
       case 'AUTOPLAY_STEP': {

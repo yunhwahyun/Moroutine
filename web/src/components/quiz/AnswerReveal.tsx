@@ -4,17 +4,17 @@ import { SpeakerIcon } from '@/components/icons'
 interface Props {
   isCorrect: boolean
   correctDefinition: string
-  description: string | null
+  example: string | null
   onSpeak?: () => void
-  onSpeakDescription?: () => void
+  onSpeakExample?: () => void
 }
 
 export default function AnswerReveal({
   isCorrect,
   correctDefinition,
-  description,
+  example,
   onSpeak,
-  onSpeakDescription,
+  onSpeakExample,
 }: Props) {
   return (
     <div className={`rounded-xl p-4 ${isCorrect ? 'bg-green-50' : 'bg-red-50'}`}>
@@ -41,17 +41,17 @@ export default function AnswerReveal({
           </div>
         </div>
       )}
-      {isCorrect && description && (
-        <p className="text-gray-600 text-sm mt-2">{renderLineBreaks(description)}</p>
+      {isCorrect && example && (
+        <p className="text-gray-600 text-sm mt-2">{renderLineBreaks(example)}</p>
       )}
-      {isCorrect && description && onSpeakDescription && (
+      {isCorrect && example && onSpeakExample && (
         <button
-          onClick={onSpeakDescription}
+          onClick={onSpeakExample}
           className="mt-2 flex items-center gap-1.5 text-green-500 hover:text-green-700 active:text-green-800 transition-colors text-sm"
-          aria-label="설명 듣기"
+          aria-label="예문 듣기"
         >
           <SpeakerIcon size={16} />
-          <span>설명 듣기</span>
+          <span>예문 듣기</span>
         </button>
       )}
     </div>

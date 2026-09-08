@@ -43,7 +43,7 @@ export type UpdateWordInput = Partial<
 
 export type BulkCreateWordsInput = {
   wordbookId: string
-  words: Array<{ term: string; definition: string; description?: string | null }>
+  words: Array<{ term: string; definition: string; example?: string | null }>
 }
 
 // docs/SUBSCRIPTION_DESIGN.md §4 — Pro 한도 검증 결과. Remote(Pro)는 실제 검증값을 채우고,

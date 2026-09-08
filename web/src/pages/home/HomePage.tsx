@@ -152,8 +152,8 @@ function SwipeableWordCards({ words, current, onIndexChange }: SwipeableWordCard
             </div>
             <p className="text-2xl font-bold text-gray-900 mb-1">{word.term}</p>
             <p className="text-gray-500 text-sm mb-2">{word.definition}</p>
-            {word.description && (
-              <p className="text-gray-400 text-xs pt-1">{renderLineBreaks(word.description)}</p>
+            {word.example && (
+              <p className="text-gray-400 text-xs pt-1">{renderLineBreaks(word.example)}</p>
             )}
           </div>
         ))}

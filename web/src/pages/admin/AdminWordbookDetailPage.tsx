@@ -29,9 +29,10 @@ const STATUS_OPTIONS: { value: PublicWordbookStatus; label: string }[] = [
   { value: 'archived', label: '보관' },
 ]
 
-type ParsedWord = { term: string; definition: string; description: string }
+type ParsedWord = { term: string; definition: string; example: string }
 
-// WordbookDetailPage.tsx의 parseWordsTxt와 동일한 규칙(탭 구분 .txt) — 개인 한도 관련 계산만 제외.
+// WordbookDetailPage.tsx의 parseWordsTxt와 동일한 규칙(탭 구분 .txt, 3번째 컬럼은 예문) — 개인
+// 한도 관련 계산만 제외.
 function parseWordsTxt(content: string): { parsed: ParsedWord[]; errorCount: number } {
   const lines = content.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0)
   const parsed: ParsedWord[] = []
@@ -40,8 +41,8 @@ function parseWordsTxt(content: string): { parsed: ParsedWord[]; errorCount: num
     const parts = line.split('\t')
     const term = parts[0]?.trim() ?? ''
     const definition = (parts[1]?.trim() ?? '').replace(/\\n/g, '\n')
-    const description = (parts[2]?.trim() ?? '').replace(/\\n/g, '\n')
-    if (term && definition) parsed.push({ term, definition, description })
+    const example = (parts[2]?.trim() ?? '').replace(/\\n/g, '\n')
+    if (term && definition) parsed.push({ term, definition, example })
     else errorCount++
   }
   return { parsed, errorCount }
@@ -56,7 +57,7 @@ export default function AdminWordbookDetailPage() {
   const [metaForm, setMetaForm] = useState<{ title: string; language: string } | null>(null)
   const [status, setStatus] = useState<PublicWordbookStatus | null>(null)
 
-  const [newWord, setNewWord] = useState({ term: '', definition: '', description: '' })
+  const [newWord, setNewWord] = useState({ term: '', definition: '', example: '' })
   const [bulkPreview, setBulkPreview] = useState<{ parsed: ParsedWord[]; errorCount: number } | null>(null)
   const [bulkError, setBulkError] = useState('')
   const [isImporting, setIsImporting] = useState(false)
@@ -105,11 +106,11 @@ export default function AdminWordbookDetailPage() {
       createPublicWord(id!, {
         term: newWord.term.trim(),
         definition: newWord.definition.trim(),
-        description: newWord.description.trim() || null,
+        example: newWord.example.trim() || null,
       }),
     onSuccess: () => {
       invalidate()
-      setNewWord({ term: '', definition: '', description: '' })
+      setNewWord({ term: '', definition: '', example: '' })
     },
   })
 
@@ -143,7 +144,7 @@ export default function AdminWordbookDetailPage() {
     try {
       await bulkCreatePublicWords(
         id,
-        bulkPreview.parsed.map((w) => ({ term: w.term, definition: w.definition, description: w.description || null })),
+        bulkPreview.parsed.map((w) => ({ term: w.term, definition: w.definition, example: w.example || null })),
       )
       invalidate()
       setBulkPreview(null)
@@ -267,9 +268,9 @@ export default function AdminWordbookDetailPage() {
             className={`${INPUT_CLASS} resize-none`}
           />
           <textarea
-            value={newWord.description}
-            onChange={(e) => setNewWord({ ...newWord, description: e.target.value })}
-            placeholder="설명 (선택)"
+            value={newWord.example}
+            onChange={(e) => setNewWord({ ...newWord, example: e.target.value })}
+            placeholder="예문 (선택)"
             rows={2}
             className={`${INPUT_CLASS} resize-none`}
           />
@@ -293,7 +294,7 @@ export default function AdminWordbookDetailPage() {
             <div key={word.id} className="bg-white rounded-2xl shadow-sm p-4">
               <span className="text-sm font-semibold text-gray-900">{word.term}</span>
               <p className="text-xs text-gray-600 mt-1">{word.definition}</p>
-              {word.description && <p className="text-xs text-gray-400 mt-1">{word.description}</p>}
+              {word.example && <p className="text-xs text-gray-400 mt-1">{word.example}</p>}
             </div>
           ))}
         </div>

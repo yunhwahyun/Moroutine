@@ -43,6 +43,7 @@ export type AutoplayStartPayload = {
   words: AutoplaySpeechSegment[][]
   gapMs: number
   startIndex: number
+  rate: number
 }
 
 // 절대 인덱스 대신 상대 이동(+1/-1)만 보낸다 — 현재 인덱스는 네이티브(App.tsx)가 유일하게 들고
@@ -50,6 +51,10 @@ export type AutoplayStartPayload = {
 // 시키면 경합 시 어긋날 수 있다(docs/DECISION_LOG.md 참고).
 export type AutoplayStepPayload = {
   direction: 1 | -1
+}
+
+export type AutoplaySetRatePayload = {
+  rate: number
 }
 
 export type BridgeOutbound =
@@ -69,6 +74,7 @@ export type BridgeOutbound =
   | { type: 'AUTOPLAY_PAUSE' }
   | { type: 'AUTOPLAY_RESUME' }
   | { type: 'AUTOPLAY_STEP'; payload: AutoplayStepPayload }
+  | { type: 'AUTOPLAY_SET_RATE'; payload: AutoplaySetRatePayload }
   | { type: 'AUTOPLAY_STOP' }
 
 export type NotificationResultPayload = {

@@ -11,7 +11,7 @@ const BOTTOM_NAV_ROUTES = ['/', '/wordbooks', '/public-wordbooks', '/schedules',
 // 항상 같은 위치에 뜬다(docs/DECISION_LOG.md 참고).
 export default function GlobalAutoPlayBar() {
   const { pathname } = useLocation()
-  const { active, items, index, playing, toggle, next, previous, close } = useAutoplayStore()
+  const { active, items, index, playing, rate, toggle, next, previous, setRate, close } = useAutoplayStore()
 
   if (!active || !items[index]) return null
 
@@ -32,9 +32,11 @@ export default function GlobalAutoPlayBar() {
         index={index}
         total={items.length}
         playing={playing}
+        rate={rate}
         onToggle={toggle}
         onNext={next}
         onPrevious={previous}
+        onRateChange={setRate}
         onClose={close}
       />
     </div>

@@ -10,6 +10,7 @@ import type {
   PurchaseRequestPayload,
   AutoplayStartPayload,
   AutoplayStepPayload,
+  AutoplaySetRatePayload,
 } from '@/types/bridge'
 
 declare global {
@@ -84,6 +85,9 @@ export const bridge = {
   },
   stepAutoplay(payload: AutoplayStepPayload) {
     send({ type: 'AUTOPLAY_STEP', payload })
+  },
+  setAutoplayRate(payload: AutoplaySetRatePayload) {
+    send({ type: 'AUTOPLAY_SET_RATE', payload })
   },
   stopAutoplay() {
     send({ type: 'AUTOPLAY_STOP' })

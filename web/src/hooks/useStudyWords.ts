@@ -65,7 +65,7 @@ export function buildQuizWords(words: Word[]): QuizWord[] {
     id: w.id,
     term: w.term,
     definition: w.definition,
-    description: w.description,
+    example: w.example,
     distractors: words
       .filter((d) => d.id !== w.id)
       .sort(() => Math.random() - 0.5)

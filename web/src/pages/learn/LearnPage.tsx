@@ -134,22 +134,15 @@ export default function LearnPage() {
             <p className="text-gray-600 text-sm leading-relaxed">{word.definition}</p>
 
             {/* 구분선 */}
-            {(word.description || word.example || word.memo) && (
+            {(word.example || word.memo) && (
               <div className="border-t border-gray-100 my-3" />
-            )}
-
-            {/* 설명 */}
-            {word.description && (
-              <p className="text-gray-400 text-xs leading-relaxed mb-2">
-                {renderLineBreaks(word.description)}
-              </p>
             )}
 
             {/* 예문 */}
             {word.example && (
               <p className="text-gray-400 text-xs italic leading-relaxed mb-2">
                 <span className="not-italic text-gray-300 mr-1">예문</span>
-                {word.example}
+                {renderLineBreaks(word.example)}
               </p>
             )}
 
