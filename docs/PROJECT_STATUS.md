@@ -65,6 +65,8 @@
 
 | **반복 일정 수정/삭제 범위 선택 시트가 BottomNav에 가려지던 버그 수정 ✅ 완료 2026-09-08** | 반복 일정 수정/삭제 시 뜨는 "이 일정만/이후 모두/전체" 바텀시트(`RepeatScopeModal`)가 `BottomNav`와 똑같이 `z-50`을 써서, DOM에서 나중에 그려지는 `BottomNav`(AppLayout에서 Outlet 다음에 렌더링)에 시트 하단 버튼이 가려지던 버그 — 시트를 `z-[60]`으로 올리고 `env(safe-area-inset-bottom)` 패딩 추가. `tsc -b`/`eslint`/`vite build` 통과, 웹 전용이라 EAS 재빌드 불필요(`docs/DECISION_LOG.md` 2026-09-08) |
 
+| **안드로이드 알림 시각 오차 수정 — SCHEDULE_EXACT_ALARM 권한 추가 ✅ 완료 2026-09-08** | "정확한 시각보다 늦게(≈1분) 뜬다" 리포트를 `expo-notifications` 안드로이드 네이티브 소스(`ExpoSchedulingDelegate.kt`) 직접 확인으로 진단 — `SCHEDULE_EXACT_ALARM` 권한이 없으면 안드로이드 12+에서 무조건 부정확한 `setAndAllowWhileIdle` 경로(배터리 절약을 위해 OS가 시각을 뭉개서 발사)를 타도록 라이브러리가 설계돼 있는데, 이 권한을 한 번도 선언한 적이 없었음. `mobile/app.json`의 `android.permissions`에 추가. **한계**: 네이티브 매니페스트 변경이라 새 EAS 빌드 필요, 안드로이드 13+ 일부 기기는 시스템 설정에서 추가로 켜야 할 수 있어 실기기 재검증 필요(`docs/DECISION_LOG.md` 2026-09-08) |
+
 > 구 "Speaking 설계 완료(Azure 평가 포함)" 항목은 위 재설계로 대체되어 제거함. 두 설계 모두 실제 코드/마이그레이션 파일로 구현된 적은 없었음(`docs/DECISION_LOG.md` 참고).
 
 ---

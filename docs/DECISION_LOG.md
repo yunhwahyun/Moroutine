@@ -6,6 +6,36 @@
 
 ## 2026-09-08
 
+### 안드로이드 알림이 뜨긴 하는데 정확한 시각보다 늦게 뜸(오차) — SCHEDULE_EXACT_ALARM 권한 누락
+
+- **배경**: 앞의 두 수정(안드로이드 채널, 오늘 일정 날짜 비교 버그) 이후 알림 자체는 뜨는 걸
+  확인했지만, "3분에 맞췄는데 4분에 떴어" — 정확한 예약 시각보다 늦게(약 1분 안팎) 뜨는 오차가
+  있다는 리포트. `expo-notifications`의 안드로이드 네이티브 구현
+  (`node_modules/expo-notifications/android/.../ExpoSchedulingDelegate.kt`)을 직접 열어 확인한
+  결과, 정확한 원인을 코드로 확인했다:
+  ```kotlin
+  private fun setupAlarm(triggerAtMillis: Long, operation: PendingIntent) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()) {
+      AlarmManagerCompat.setExactAndAllowWhileIdle(...)   // 정확한 시각에 발사
+    } else {
+      AlarmManagerCompat.setAndAllowWhileIdle(...)        // 배터리 절약을 위해 OS가 시각을 뭉개서(batch) 발사
+    }
+  }
+  ```
+  안드로이드 12(API 31)부터는 `SCHEDULE_EXACT_ALARM` 권한이 매니페스트에 없으면
+  `canScheduleExactAlarms()`가 항상 false라서 항상 `setAndAllowWhileIdle`(부정확) 경로를 타게
+  되는데, 이 앱은 이 권한을 한 번도 선언한 적이 없었다 — 정확히 관찰된 증상(≈1분 안팎 지연)과
+  일치.
+  (expo-notifications 공식 문서에도 "Starting from Android 12 (API level 31), to schedule a
+  notification that triggers at an exact time, you need to add `<uses-permission
+  android:name="android.permission.SCHEDULE_EXACT_ALARM"/>`"라고 명시돼 있음.)
+- **결정**: `mobile/app.json`의 `android.permissions`에 `"android.permission.SCHEDULE_EXACT_ALARM"`
+  추가 — Expo 설정이 빌드 시 AndroidManifest에 반영한다.
+- **한계**: 이건 **네이티브 매니페스트 변경**이라 새 EAS 빌드(재설치)를 해야만 반영된다(웹 재배포로는
+  안 됨). 또한 안드로이드 13(API 33)부터는 OS 정책이 버전/시점에 따라 계속 바뀌어온 영역이라, 권한을
+  선언해도 일부 기기/버전에서는 사용자가 시스템 설정(알람 및 리마인더)에서 직접 켜야 할 수도
+  있다는 점은 실기기 없이 100% 장담하기 어렵다 — 재검증 필요.
+
 ### 반복 일정 수정/삭제 범위 선택 시트가 하단 메뉴바(BottomNav)에 가려짐
 
 - **배경**: "일정 수정 관련 레이어가 메뉴바에 가려서 다 볼 수가 없어" 리포트. 반복 일정을 수정/삭제할
