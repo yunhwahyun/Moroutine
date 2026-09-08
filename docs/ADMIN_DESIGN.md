@@ -30,6 +30,9 @@ Admin은 **공용 학습 콘텐츠와 Master 회원만** 관리한다. 사용자
 ├── /admin/wordbooks               — 단어장 목록(draft/published/hidden/archived 필터, 사용자용과 동일 라벨)
 ├── /admin/wordbooks/:id           — 단어장 상세: 메타 수정 + 단어 목록/순서 관리
 ├── /admin/wordbooks/new           — 신규 단어장 생성
+├── /admin/books                   — 책장(책) 목록(draft/published/archived 필터, §8)
+├── /admin/books/:id               — 책 상세: 메타 수정 + 목차 수동 추가/일괄등록
+├── /admin/books/new                — 신규 책 생성
 ├── /admin/masters                 — Master 목록 + 초대 폼
 └── /admin/audit-log               — 관리자 작업 감사 로그 조회(읽기 전용)
 ```
@@ -39,8 +42,8 @@ Admin은 **공용 학습 콘텐츠와 Master 회원만** 관리한다. 사용자
 주소창으로 직접 접근해도 `/admin/wordbooks`로 되돌려보낸다. `AdminLayout`(`web/src/components/layout/AdminLayout.tsx`)은
 더 이상 자체 상단 탭을 그리지 않고 `AppLayout`과 동일하게 `main + BottomNav`만 렌더링한다 —
 `BottomNav`(`web/src/components/layout/BottomNav.tsx`)가 `serviceTier==='admin'`일 때 하단 탭을
-**단어장(`/admin/wordbooks`) / Master(`/admin/masters`) / LOG(`/admin/audit-log`) / 설정(`/settings`,
-사용자와 공유)**로 자동 전환한다. "앱으로 돌아가기" 탈출구는 제거했다(관리자↔사용자 계정 분리 원칙과
+**단어장(`/admin/wordbooks`) / 책장(`/admin/books`) / Master(`/admin/masters`) / LOG(`/admin/audit-log`) /
+설정(`/settings`, 사용자와 공유)**로 자동 전환한다. "앱으로 돌아가기" 탈출구는 제거했다(관리자↔사용자 계정 분리 원칙과
 상충, `docs/DECISION_LOG.md` 2026-09-01). **편차**: `/admin/wordbooks/:id/words/new`(단어 추가 별도
 라우트)와 `/admin/masters/invitations`(초대 상태 분리 목록)는 각각 상세 페이지 인라인 폼과
 `AdminMastersPage` 단일 화면으로 통합해 별도 라우트를 만들지 않았다(Phase 19/17에서 이미 확정된
@@ -338,3 +341,72 @@ CREATE POLICY "admin_audit_log_select" ON admin_audit_log
 `admin_audit_log`/`profiles`(role/special_access 컬럼만)/`subscriptions`(구독 여부 확인용)만
 다룬다. **체크리스트**: 향후 관리자 화면/Edge Function에 코드를 추가할 때, 위 개인 데이터 테이블을
 참조하는 코드가 없는지 이 방식으로 다시 확인할 것.
+
+---
+
+## 8. 책장(Book) 데이터 모델 ✅ 관리자 CRUD + 사용자 열람/자동재생 구현 완료(2026-09-08)
+
+공용 단어장(§3)과 접근 제어 구조는 동일(Admin만 쓰기, Pro/Master만 조회)하지만, **학습/퀴즈/진행률/
+"담기"(개인 복사)가 전혀 없는 순수 읽기·듣기 콘텐츠**다 — 사용자와의 대화로 이렇게 확정했다
+(`docs/DECISION_LOG.md` 2026-09-08). 그래서 §3보다 테이블·정책·화면 모두 훨씬 단순하다.
+
+### 8-1. 정책
+
+- Admin이 책(`books`)과 그 안의 목차(`book_chapters`)를 생성/수정, 사용자는 조회·재생만
+  가능(수정/삭제 UI 없음) — §3-1의 "원본 참조" 원칙과 동일하되, 책장에는 애초에 "담기"(개인 복사)
+  개념 자체가 없다(복사해서 개인 소유로 만들 대상이 아니라 순수 콘텐츠 라이브러리이기 때문).
+- 접근 등급은 공용 단어장과 동일하게 `permissions.canUsePublicWordbooks`(Pro/Master)를 **그대로
+  재사용**한다 — 책장 전용 권한 필드를 새로 만들지 않았다(사용자 확정: "공용 단어장과 동일").
+  Guest(anon) 열람 예외(§3의 `default` 상태 같은 것)도 만들지 않았다 — 요구사항에 없었음.
+- 목차(chapter) 단위 물리 삭제는 하지 않는다(`status`: `'active'|'archived'`) — 공용 단어와 동일
+  정책이나, §3-1과 달리 처음부터 관리 화면에 목차별 보관 UI를 아예 만들지 않았다(단어장 쪽의
+  2026-09-02 단순화 결정을 책장은 처음부터 반영한 것).
+- 제목/내용 재생은 책의 `language`(선택사항, 메타 정보일 뿐) 값과 무관하게 **항상 en-US 원음**으로
+  고정된다 — 단어처럼 필드별로 언어가 갈리지 않아 재생 로직이 단순하다
+  (`web/src/lib/bookAutoplaySegments.ts`).
+
+### 8-2. DDL / RLS
+
+전체 DDL은 `supabase/migrations/41_books_bookshelf.sql`에 있다(§3-2/§3-4의 `public_wordbooks`/
+`public_words`를 그대로 본뜬 구조 — `chapter_count` 동기화 트리거, `admin_audit_log` 자동 기록
+트리거 포함). 요약:
+
+```
+books(id, title, language nullable, status 'draft'|'published'|'archived',
+      chapter_count, created_by, created_at, updated_at)
+book_chapters(id, book_id, title, content, sort_order,
+              status 'active'|'archived', created_at, updated_at)
+```
+
+RLS: `books_select`/`book_chapters_select`(authenticated) — `status='published'`(+ 상위 book도
+published) AND `get_service_tier(auth.uid()) IN ('pro','master')`, 또는 `is_admin()`이면 전체 조회.
+`books_admin_write`/`book_chapters_admin_write`(ALL) — `is_admin()`만. **description/category/
+difficulty 같은 §3의 레거시성 부가 필드, `user_public_*_progress` 상당 테이블, enrollment 마커
+테이블, anon 정책 — 전부 처음부터 만들지 않았다**(공용 단어장이 겪은 "나중에 단순화" 과정을 책장은
+설계 단계에서 건너뛴 것).
+
+### 8-3. 일괄등록 — 공용 단어장과 다른 점
+
+공용 단어장의 `.txt` 일괄등록은 **한 파일 안에 탭 구분 여러 줄**(줄마다 단어 1개)이지만, 책장은
+**여러 `.txt` 파일을 한 번에 올리면 파일 하나 = 목차 1개**다(`<input type="file" multiple accept=".txt">`).
+파일명(확장자 제외)이 제목, 파일 전체 텍스트가 내용이 되고, 파일명 순서(숫자 포함 자연 정렬,
+`localeCompare(..., {numeric:true})`)대로 `sort_order`가 매겨진다 — 사용자 확정.
+`web/src/pages/admin/AdminBookDetailPage.tsx`의 `parseChapterFiles()` 참고.
+
+### 8-4. 사용자 화면 — 다중 선택 자동재생
+
+`web/src/pages/bookshelf/BookshelfListPage.tsx`(`/books`)는 단어장의 다중 선택 패턴
+(`WordbookListPage.tsx`의 `Set<string>` + `Checkbox` + 액션바)을 그대로 가져오되, 학습/퀴즈 버튼이
+없어 액션바에는 **자동재생 버튼 하나**만 있다. 선택한 책들을 `[...selectedIds]` 순서(선택 순서) →
+각 책 안에서는 `sort_order` 순으로 이어 붙여 하나의 재생목록을 만들고 기존 자동재생 인프라
+(`useAutoplayStore`, `docs/DECISION_LOG.md` 자동재생 관련 항목)에 그대로 넘긴다 — **순차재생**이며
+별도의 "랜덤 금지" 플래그가 필요 없다(스토어 자체가 넘겨받은 배열 순서대로만 재생하기 때문).
+`web/src/pages/bookshelf/BookViewPage.tsx`(`/books/:id`)의 "듣기" 버튼도 같은 원리로, 탭한 목차부터
+그 책의 전체 목차를 재생목록으로 시작한다(미니 플레이어의 이전/다음으로 같은 책의 다른 목차 이동 가능).
+
+- 구현: `web/src/lib/books.ts`(Admin/사용자 함수, `publicWordbooks.ts`와 동일 이유로 `DataRepository`와
+  무관한 독립 모듈), `web/src/lib/bookAutoplaySegments.ts`,
+  `web/src/pages/admin/{AdminBookListPage,AdminBookFormPage,AdminBookDetailPage}.tsx`,
+  `web/src/pages/bookshelf/{BookshelfListPage,BookViewPage}.tsx`
+- **한계**: 이 환경엔 실브라우저 자동화가 없어 코드 리뷰 + 타입체크로만 검증했다. 메뉴 아이콘
+  (`menu-05.svg`/`menu-05-on.svg`)은 사용자가 직접 제작해 넣은 최종 아이콘이다(플레이스홀더 아님).

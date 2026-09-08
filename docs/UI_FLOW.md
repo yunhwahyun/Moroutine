@@ -39,6 +39,7 @@ authenticated + admin
 | 단어장 | `/wordbooks` | 단어장 | Guest 포함 전체 | 복습컬렉션 + 단어장 다중 선택, 학습/퀴즈 진입 |
 | 단어장 상세 | `/wordbooks/:id` | — | Guest 포함 전체 | 단어 목록 + 추가/수정/삭제, 일괄등록은 Pro↑만 노출 |
 | 공용 단어장 ✅ 구현 완료(2026-07-19, 2026-09-02 "담기"→복사 방식 전환) | `/public-wordbooks`, `/public-wordbooks/:id` | `WordbookListPage` 헤더 링크(탭 아님, 편차) | Pro/Master | 열람·미리보기 학습하기/퀴즈 + 개인 단어장으로 복사("내 단어장에 추가") |
+| 책장 ✅ 구현 완료(2026-09-08) | `/books`, `/books/:id` | 책장 | Pro/Master(공용 단어장과 동일 게이트) | 책 다중 선택 → 순차 자동재생, 책 상세에서 목차별 "듣기"(학습/퀴즈/담기 없음) |
 | 스피킹 | `/speaking` | 스피킹 | Guest 포함 전체 | 등록 문장 목록(`docs/SPEAKING_DESIGN.md`) |
 | 스피킹 문장 등록 | `/speaking/new` | — | Guest 포함 전체 | 문장 등록/수정 |
 | 스피킹 녹음 | `/speaking/:id/record` | — | Guest 포함 전체 | TTS + 녹음 + 재생 |
@@ -48,6 +49,7 @@ authenticated + admin
 | 설정 | `/settings` | 설정 | Guest 포함 전체 | 등급별 섹션 분기(§4) |
 | 관리자 진입점 ✅ 구현 완료(2026-09-01) | `/admin` | — | Admin만(`ProtectedRoute` + role 체크) | `/admin/wordbooks`로 즉시 리다이렉트("홈" 개념 없음 — 관리자 하단 탭에서도 제외, `docs/ADMIN_DESIGN.md` §2) |
 | 단어장(관리자) ✅ 구현 완료(2026-09-01, 라벨 통일) | `/admin/wordbooks` | 단어장 | Admin만(`ProtectedRoute requireRole="admin"`) | 단어장 목록(draft/published/hidden/archived 필터), 라벨을 사용자용과 동일하게 "단어장"으로 통일 |
+| 책장(관리자) ✅ 구현 완료(2026-09-08) | `/admin/books`, `/admin/books/new`, `/admin/books/:id` | 책장 | Admin만(`ProtectedRoute requireRole="admin"`) | 책 목록(draft/published/archived 필터), 상세에서 목차 수동 추가 + `.txt` 여러 파일 일괄등록(파일 하나 = 목차 1개) |
 | Master 관리 ✅ 구현 완료(2026-07-18) | `/admin/masters` | Master | Admin만(`ProtectedRoute requireRole="admin"`) | 초대 폼 + 초대 목록 + 현재 Master 목록을 한 페이지에 |
 | 감사 로그 ✅ 구현 완료(2026-07-19) | `/admin/audit-log` | LOG | Admin만(`ProtectedRoute requireRole="admin"`) | `admin_audit_log` 최신 200건 읽기 전용 조회 |
 | Master 초대 수락 ✅ 구현 완료(2026-07-18) | `/master/accept` | — | 세션 기반(§2 편차로 토큰 아님) | `docs/MASTER_INVITATION_DESIGN.md` §4-3, 편차는 상단 참고 |
@@ -76,12 +78,14 @@ authenticated + admin
       <Route path="/wordbooks"  element={<WordbookListPage />} />
       <Route path="/public-wordbooks" element={<PublicWordbookListPage />} />
       <Route path="/schedules"  element={<ScheduleListPage />} />
+      <Route path="/books"      element={<BookshelfListPage />} />
     </Route>
     <Route path="/learn"                 element={<LearnPage />} />
     <Route path="/quiz"                  element={<QuizPage />} />
     <Route path="/quiz/complete"         element={<QuizCompletePage />} />
     <Route path="/wordbooks/:id"         element={<WordbookDetailPage />} />
     <Route path="/public-wordbooks/:id"  element={<PublicWordbookViewPage />} />
+    <Route path="/books/:id"             element={<BookViewPage />} />
     <Route path="/schedules/new"         element={<ScheduleFormPage />} />
     <Route path="/schedules/:id/edit"    element={<ScheduleFormPage />} />
     <Route path="/pricing"               element={<PricingPage />} />
@@ -102,6 +106,9 @@ authenticated + admin
       <Route path="/admin/wordbooks"    element={<AdminWordbookListPage />} />
       <Route path="/admin/wordbooks/new" element={<AdminWordbookFormPage />} />
       <Route path="/admin/wordbooks/:id" element={<AdminWordbookDetailPage />} />
+      <Route path="/admin/books"        element={<AdminBookListPage />} />
+      <Route path="/admin/books/new"    element={<AdminBookFormPage />} />
+      <Route path="/admin/books/:id"    element={<AdminBookDetailPage />} />
       <Route path="/admin/audit-log"    element={<AdminAuditLogPage />} />
     </Route>
   </Route>
@@ -115,8 +122,8 @@ authenticated + admin
 ## 2. 하단 탭
 
 ```
-사용자: [ 홈 ]  [ 단어장 ]  [ 일정 ]  [ 설정 ]
-관리자: [ 단어장 ]  [ Master ]  [ LOG ]  [ 설정 ]
+사용자: [ 홈 ]  [ 단어장 ]  [ 일정 ]  [ 책장 ]  [ 설정 ]
+관리자: [ 단어장 ]  [ 책장 ]  [ Master ]  [ LOG ]  [ 설정 ]
 ```
 
 기존 "Phase 10 이후 추가 예정"이었던 5탭(스피킹 포함) 구성은 아직 스피킹 탭이 구현되지 않아 실제로는
@@ -438,6 +445,19 @@ Pro/Master 전용(`permissions.canUsePublicWordbooks` 아니면 업그레이드 
 
 ---
 
+### 책장 (`/books`) ✅ 구현 완료(2026-09-08, `docs/ADMIN_DESIGN.md` §8)
+
+공용 단어장과 동일한 게이트(Pro/Master, `permissions.canUsePublicWordbooks`). 게시된 책 목록을
+체크박스로 **다중 선택**할 수 있고(`WordbookListPage`의 선택 패턴 재사용), 하나 이상 선택하면
+하단 액션바에 **"선택한 책 자동재생"** 버튼 하나만 뜬다(학습/퀴즈 버튼 없음) — 선택 순서 → 책 안에서는
+목차 순서로 이어 붙여 순차 재생(랜덤 아님). `/books/:id`(`BookViewPage`)는 목차 목록을 읽기 전용으로
+보여주고(제목 탭하면 내용 펼침/접힘), 목차별 **"듣기"** 버튼을 누르면 그 책의 전체 목차를 탭한
+지점부터 재생목록으로 시작한다(미니 플레이어 이전/다음으로 같은 책의 다른 목차 이동). 제목/내용은
+책의 언어 설정과 무관하게 항상 **영어 원음**으로 읽는다. 공용 단어장과 달리 "담기"(개인 복사)·
+학습하기·퀴즈·진행률 추적이 전혀 없다 — 순수 읽기·듣기 콘텐츠.
+
+---
+
 ### 관리자 화면 (`/admin/**`) ✅ 구현 완료(2026-07-19)
 
 상세는 `docs/ADMIN_DESIGN.md` §2. `AdminLayout`(`web/src/components/layout/AdminLayout.tsx`) — 하단
@@ -450,6 +470,12 @@ Pro/Master 전용(`permissions.canUsePublicWordbooks` 아니면 업그레이드 
 필터 탭) → 신규 생성(제목/설명/카테고리/난이도/언어) → 상세(메타 인라인 수정 + 상태 전환 드롭다운 +
 단건/`.txt` 일괄등록 + 단어별 "보관" 버튼, 물리 삭제 없음). `public_wordbooks`/`public_words` 쓰기는
 마이그레이션 30의 트리거가 `admin_audit_log`에 자동 기록.
+
+**책장 관리(`/admin/books`, `/admin/books/new`, `/admin/books/:id`)** ✅ 구현 완료(2026-09-08) — 목록
+(초안/게시/보관 필터) → 신규 생성(제목/언어(선택)/상태) → 상세(메타 인라인 수정 + 목차 수동 추가
+(제목+내용) + **`.txt` 여러 파일 일괄등록**). 일괄등록은 공용 단어장과 방식이 다르다 — 파일 하나 =
+목차 1개, 제목은 파일명(확장자 제외), 파일명 순서(자연 정렬)대로 등록(`docs/ADMIN_DESIGN.md` §8-3).
+`books`/`book_chapters` 쓰기도 마이그레이션 41의 트리거가 `admin_audit_log`에 자동 기록.
 
 **Master 관리(`/admin/masters`)** — `AdminMastersPage`:
 - 초대 폼(이메일 입력 → `master-invite` 호출)

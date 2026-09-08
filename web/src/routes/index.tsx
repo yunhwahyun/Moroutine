@@ -22,6 +22,11 @@ import AdminWordbookDetailPage from '@/pages/admin/AdminWordbookDetailPage'
 import AdminAuditLogPage from '@/pages/admin/AdminAuditLogPage'
 import PublicWordbookListPage from '@/pages/public-wordbook/PublicWordbookListPage'
 import PublicWordbookViewPage from '@/pages/public-wordbook/PublicWordbookViewPage'
+import BookshelfListPage from '@/pages/bookshelf/BookshelfListPage'
+import BookViewPage from '@/pages/bookshelf/BookViewPage'
+import AdminBookListPage from '@/pages/admin/AdminBookListPage'
+import AdminBookFormPage from '@/pages/admin/AdminBookFormPage'
+import AdminBookDetailPage from '@/pages/admin/AdminBookDetailPage'
 
 export default function AppRoutes() {
   return (
@@ -39,12 +44,14 @@ export default function AppRoutes() {
           <Route path="/wordbooks" element={<WordbookListPage />} />
           <Route path="/public-wordbooks" element={<PublicWordbookListPage />} />
           <Route path="/schedules" element={<ScheduleListPage />} />
+          <Route path="/books" element={<BookshelfListPage />} />
         </Route>
         <Route path="/learn" element={<LearnPage />} />
         <Route path="/quiz" element={<QuizPage />} />
         <Route path="/quiz/complete" element={<QuizCompletePage />} />
         <Route path="/wordbooks/:id" element={<WordbookDetailPage />} />
         <Route path="/public-wordbooks/:id" element={<PublicWordbookViewPage />} />
+        <Route path="/books/:id" element={<BookViewPage />} />
         <Route path="/schedules/new" element={<ScheduleFormPage />} />
         <Route path="/schedules/:id/edit" element={<ScheduleFormPage />} />
         <Route path="/pricing" element={<PricingPage />} />
@@ -64,6 +71,9 @@ export default function AppRoutes() {
           <Route path="/admin/wordbooks" element={<AdminWordbookListPage />} />
           <Route path="/admin/wordbooks/new" element={<AdminWordbookFormPage />} />
           <Route path="/admin/wordbooks/:id" element={<AdminWordbookDetailPage />} />
+          <Route path="/admin/books" element={<AdminBookListPage />} />
+          <Route path="/admin/books/new" element={<AdminBookFormPage />} />
+          <Route path="/admin/books/:id" element={<AdminBookDetailPage />} />
           <Route path="/admin/audit-log" element={<AdminAuditLogPage />} />
         </Route>
       </Route>

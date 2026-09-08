@@ -6,6 +6,39 @@
 
 ## 2026-09-08
 
+### 책장(Book) 기능 신규 추가 — 공용 단어장에서 학습/퀴즈/진행률/담기를 뺀 축소판
+
+- **배경**: 단어장과 별개로, 순수한 "읽기/듣기" 전용 콘텐츠 기능("책장")을 새로 추가해달라는 요청.
+  책(제목) 안에 목차(제목+내용)가 여러 개 있고, 사용자는 그걸 읽거나 영어 원음 TTS로 듣기만 한다 —
+  학습하기/복습/문제풀기(퀴즈, 간격 반복)는 전혀 없다.
+- **결정**: 구조상 가장 가까운 기존 기능인 "공용 단어장"(`public_wordbooks`/`public_words`,
+  `docs/ADMIN_DESIGN.md` §3)을 그대로 본떠 `books`/`book_chapters`(마이그레이션 41)를 만들되,
+  학습/퀴즈/진행률(`user_public_word_progress` 상당)/"담기"(개인 복사)/anon 열람 예외를 처음부터
+  전부 빼서 훨씬 단순하게 설계했다. 접근 권한은 사용자 확인 하에 공용 단어장과 완전히 동일한
+  `permissions.canUsePublicWordbooks`(Pro/Master)를 그대로 재사용 — 책장 전용 권한 필드를 새로
+  만들지 않았다.
+- **재생 방식**: 별도 자동재생 로직을 새로 만들지 않고 기존 `useAutoplayStore`(단어 자동재생과
+  동일 인프라, 무수정)를 그대로 재사용했다 — 목차의 제목+내용을 세그먼트로 만들어 넘기기만 하면
+  스토어가 배열 순서대로 순차 재생해준다(랜덤 금지 요구사항이 별도 구현 없이 자연히 충족됨).
+  책장 목록에서 여러 책을 다중 선택(`WordbookListPage.tsx`의 `Set<string>` + `Checkbox` 패턴 재사용)
+  하면 선택 순서 → 책 안에서는 목차 순서로 이어 붙인 재생목록이 만들어진다.
+- **일괄등록 방식이 단어장과 다름**: 단어장의 `.txt` 일괄등록은 한 파일 안에 탭 구분 여러 줄(줄마다
+  단어 1개)이지만, 책장은 **여러 `.txt` 파일을 한 번에 올리면 파일 하나 = 목차 1개**다(사용자 확정).
+  제목은 파일명(확장자 제외, 사용자 확정), 내용은 파일 전체 텍스트, 파일명 순서(숫자 포함 자연
+  정렬)대로 등록된다.
+- **메뉴 아이콘**: 처음엔 기존 아이콘을 복사해 임시 플레이스홀더로 넣을 계획이었으나, 작업 도중
+  사용자가 직접 `menu-05.svg`/`menu-05-on.svg`(책 모양 아이콘)를 만들어 `web/public/`에 넣어줘서
+  그대로 채택 — 플레이스홀더가 아니라 최종 아이콘이다.
+- **적용**: `supabase/migrations/41_books_bookshelf.sql`(신규), `web/src/lib/books.ts`(신규,
+  `publicWordbooks.ts`와 동일한 이유로 `DataRepository` 밖 독립 모듈),
+  `web/src/lib/bookAutoplaySegments.ts`(신규), Admin 3페이지(`AdminBookListPage`/`FormPage`/
+  `DetailPage`), 사용자 2페이지(`BookshelfListPage`/`BookViewPage`), `routes/index.tsx`/
+  `BottomNav.tsx`(사용자·관리자 탭 각각에 "책장" 추가, `no: '05'`)/`GlobalAutoPlayBar.tsx`의
+  `BOTTOM_NAV_ROUTES`에 `/books` 추가. `tsc -b`/`eslint .`/`vite build` 통과.
+- **한계**: 실브라우저 자동화가 없어 코드 리뷰 + 타입체크로만 검증. DB 마이그레이션은 파일만
+  작성했고 실제 Supabase 프로젝트 적용은 사용자가 Dashboard에서 직접 실행해야 한다. `mobile/App.tsx`는
+  전혀 건드리지 않아(자동재생 인프라를 그대로 재사용) EAS 재빌드 불필요, 웹 배포만으로 앱에도 반영된다.
+
 ### 일정 시작/종료 날짜·시간 자동 채움 — 조작 최소화
 
 - **요구사항**: 일정 추가/수정 시 시작/종료 날짜·시간을 최대한 자동으로 채워 사용자가 매번 4개

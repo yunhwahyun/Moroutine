@@ -326,6 +326,16 @@ _현재 진행 중인 작업 없음_
 - [x] `web`: `tsc -b`/`eslint .`/`vite build` 통과
 - [ ] **한계 — 실기기 재검증 필요**: 이 환경엔 실기기가 없어 앱에서 아이콘 겹침/오버플로우가 실제로 해소되는지 확인 불가. 재차 실패 시 네이티브 input CSS 재시도를 완전히 중단하고 커스텀 피커로 전환 예정
 
+### Phase 25 — 책장(Book) 기능 신규 추가 ✅ 완료 2026-09-08
+- [x] 마이그레이션 41(`books`/`book_chapters` + chapter_count/감사로그 트리거, 공용 단어장과 동일 구조) — 학습/퀴즈/진행률/담기/anon 없음
+- [x] `web/src/lib/books.ts`/`bookAutoplaySegments.ts`(신규) — Admin CRUD + 사용자 read만, `DataRepository` 밖 독립 모듈
+- [x] Admin 3페이지(`AdminBookListPage`/`AdminBookFormPage`/`AdminBookDetailPage`) — `.txt` 여러 파일 일괄등록(파일 하나=목차 1개, 제목=파일명)
+- [x] 사용자 2페이지(`BookshelfListPage`/`BookViewPage`) — 다중 선택 + 순차 자동재생(`useAutoplayStore` 무수정 재사용), 목차별 "듣기"
+- [x] 라우트(`/books`, `/books/:id`, `/admin/books*`) + `BottomNav`(사용자·관리자 탭 "책장" 추가, `no:'05'`) + `GlobalAutoPlayBar`의 `BOTTOM_NAV_ROUTES`
+- [x] 메뉴 아이콘 — 사용자가 직접 `menu-05.svg`/`menu-05-on.svg` 제작해 최종 적용(플레이스홀더 아님)
+- [x] `web`: `tsc -b`/`eslint .`/`vite build` 통과, `mobile/App.tsx` 무변경(EAS 재빌드 불필요)
+- [ ] **한계**: 실브라우저 검증 미수행(코드 리뷰만). 마이그레이션 41 Supabase 프로젝트 미적용 — 사용자가 Dashboard에서 직접 실행 필요
+
 ### Phase 23 — 스피킹 재구현 (`docs/SPEAKING_DESIGN.md`) ⏸ 보류 2026-09-01
 - [ ] WebView 녹음 환경 검증 6개 항목(§7, Azure 관련 2개 항목 제거됨)
 - [ ] Migration 23~24: speaking_sentences, speaking_recordings

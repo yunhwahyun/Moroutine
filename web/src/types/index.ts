@@ -83,6 +83,34 @@ export type PublicWordProgress = {
   updated_at: string
 }
 
+// 책장 — 공용 단어장과 같은 구조(Admin만 쓰기, Pro/Master만 조회)지만 학습/퀴즈/진행률/개인
+// 복사("담기")가 전혀 없는 순수 읽기·듣기 콘텐츠. description/category/difficulty 같은 부가
+// 필드도 처음부터 만들지 않는다.
+export type BookStatus = 'draft' | 'published' | 'archived'
+export type BookChapterStatus = 'active' | 'archived'
+
+export type Book = {
+  id: string
+  title: string
+  language: string | null
+  status: BookStatus
+  chapter_count: number
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export type BookChapter = {
+  id: string
+  book_id: string
+  title: string
+  content: string
+  sort_order: number
+  status: BookChapterStatus
+  created_at: string
+  updated_at: string
+}
+
 export type RepeatType = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly' | 'custom'
 export type RepeatEndType = 'none' | 'until' | 'count'
 

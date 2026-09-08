@@ -6,12 +6,14 @@ const userTabs = [
   { to: '/',          label: '홈',    no: '01' },
   { to: '/wordbooks', label: '단어장', no: '02' },
   { to: '/schedules', label: '일정',  no: '03' },
+  { to: '/books',     label: '책장',  no: '05' },
   { to: '/settings',  label: '설정',  no: '04' },
 ]
 
 // docs/ADMIN_DESIGN.md §2 — 관리자는 사용자용 메뉴(홈/일정)를 보지 않고, 관리자 전용 메뉴(Master/LOG)만 본다.
 const adminTabs = [
   { to: '/admin/wordbooks', label: '단어장', no: '02' },
+  { to: '/admin/books',     label: '책장',   no: '05' },
   { to: '/admin/masters',   label: 'Master', no: 'master' },
   { to: '/admin/audit-log', label: 'LOG',    no: 'log' },
   { to: '/settings',        label: '설정',   no: '04' },

@@ -69,6 +69,8 @@
 
 | **일정 시작/종료 날짜·시간 자동 채움 ✅ 완료 2026-09-08** | 일정 추가/수정 시 조작을 최소화하기 위해 반대쪽 필드를 자동으로 채움 — 비어있으면 날짜는 같은 날짜, 시간은 1시간 차이로 채우고, 이미 값이 있는 상태에서 순서가 뒤집히면 수정 전 간격("원래 기간")을 유지한 채 반대쪽을 밀어서 순서를 바로잡음. `adjustScheduleDateTime()` 신설, `ScheduleFormPanel`의 4개 date/time input onChange 전부 교체(add/edit 공용이라 두 플로우 모두 자동 적용), `defaultForm()`도 신규 진입 시 종료 시각을 처음부터 시작+1시간으로 채움. `tsc -b`/`eslint`/`vite build` 통과, 웹 전용이라 EAS 재빌드 불필요 |
 
+| **책장(Book) 기능 신규 추가 ✅ 완료 2026-09-08** | 단어장과 별개인 순수 읽기/듣기 콘텐츠 기능. 공용 단어장(§3)을 그대로 본떠 `books`/`book_chapters`(마이그레이션 41)를 만들되 학습/퀴즈/진행률/"담기"(개인 복사)/anon 열람을 처음부터 전부 뺐다. 접근 권한은 `permissions.canUsePublicWordbooks`(Pro/Master)를 그대로 재사용. 기존 자동재생 인프라(`useAutoplayStore`, 무수정)를 그대로 써서 책 다중 선택 → 선택 순서·목차 순서로 순차 재생(랜덤 없음). `.txt` 일괄등록은 단어장과 달리 **여러 파일 = 목차 여러 개**(파일 하나=목차 1개, 제목은 파일명). `web/src/lib/books.ts`/`bookAutoplaySegments.ts`(신규), Admin 3페이지, 사용자 2페이지(`BookshelfListPage`/`BookViewPage`), 라우트/BottomNav(사용자·관리자 탭 "책장" 추가)/`GlobalAutoPlayBar` 갱신. 메뉴 아이콘(`menu-05.svg`/`-on.svg`)은 사용자가 직접 제작해 최종본으로 적용(플레이스홀더 아님). `tsc -b`/`eslint`/`vite build` 통과, `mobile/App.tsx` 무변경(EAS 재빌드 불필요). **한계**: 실브라우저 검증 미수행, DB 마이그레이션 41은 아직 Supabase 프로젝트에 미적용(Dashboard에서 사용자가 직접 실행 필요) — `docs/DECISION_LOG.md`/`docs/ADMIN_DESIGN.md` §8 참고 |
+
 > 구 "Speaking 설계 완료(Azure 평가 포함)" 항목은 위 재설계로 대체되어 제거함. 두 설계 모두 실제 코드/마이그레이션 파일로 구현된 적은 없었음(`docs/DECISION_LOG.md` 참고).
 
 ---

@@ -1,0 +1,96 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useMutation } from '@tanstack/react-query'
+import { createBook } from '@/lib/books'
+import { BackIcon } from '@/components/icons'
+import type { BookStatus } from '@/types'
+
+const INPUT_CLASS = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400'
+
+const LANG_OPTIONS = [
+  { value: '', label: '언어 선택 (선택사항)' },
+  { value: 'en-ko', label: '영어' },
+  { value: 'ja-ko', label: '일본어' },
+  { value: 'zh-ko', label: '중국어' },
+]
+
+const STATUS_OPTIONS: { value: BookStatus; label: string }[] = [
+  { value: 'draft', label: '초안' },
+  { value: 'published', label: '게시' },
+  { value: 'archived', label: '보관' },
+]
+
+// AdminWordbookFormPage.tsx와 동일한 톤. 언어는 정말 선택사항이라(재생은 항상 영어 원음으로
+// 고정되므로 단어장처럼 기본값을 강제하지 않음) 비워두면 null로 저장한다.
+export default function AdminBookFormPage() {
+  const navigate = useNavigate()
+  const [title, setTitle] = useState('')
+  const [language, setLanguage] = useState('')
+  const [status, setStatus] = useState<BookStatus>('draft')
+
+  const { mutateAsync: create, isPending, error } = useMutation({
+    mutationFn: () =>
+      createBook({
+        title: title.trim(),
+        language: language || null,
+        status,
+      }),
+    onSuccess: (book) => navigate(`/admin/books/${book.id}`),
+  })
+
+  return (
+    <div className="min-h-dvh bg-gray-50 px-4 py-8">
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-2">
+          <button onClick={() => navigate('/admin/books')} className="p-1 -ml-1 text-gray-600" aria-label="뒤로">
+            <BackIcon />
+          </button>
+          <h1 className="text-lg font-bold text-gray-900">책 생성</h1>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm p-4 flex flex-col gap-3">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="책 이름"
+            className={INPUT_CLASS}
+          />
+          <div className="flex gap-2">
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className={`${INPUT_CLASS} bg-white text-gray-700 flex-1`}
+            >
+              {LANG_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as BookStatus)}
+              className={`${INPUT_CLASS} bg-white text-gray-700 flex-1`}
+            >
+              {STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {error && <p className="text-xs text-red-500">{(error as { message?: string })?.message ?? '생성에 실패했습니다.'}</p>}
+
+          <button
+            onClick={() => create()}
+            disabled={!title.trim() || isPending}
+            className="w-full py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium disabled:opacity-50"
+          >
+            {isPending ? '생성 중...' : '생성'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
