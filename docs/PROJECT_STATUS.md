@@ -63,6 +63,8 @@
 
 | **일정 알림 미수신의 진짜 원인 수정 — "오늘" 일정 날짜 비교 버그 ✅ 완료 2026-09-08** | 권한/채널 다 정상인데도 알림이 전혀 안 온 진짜 원인 발견: `refreshScheduleNotifications()`가 자정 기준이 아닌 정확한 현재 시각(`now`)을 `expandScheduleOccurrences`의 rangeStart로 넘겨서, 자정을 넘긴 이후(거의 항상)엔 "오늘" 날짜의 occurrence가 실제 시작 시각과 무관하게 통째로 걸러지고 있었음 — 알림 row 생성도, 브리지 호출도 전혀 발생하지 않는 완전 무음 실패. 플랫폼(iOS/Android)·등급(Guest 포함 전체) 무관하게 100% 재현되는 순수 웹 로직 버그였고, 지금까지의 모든 "알림 안 옴" 리포트가 이 하나로 설명됨. rangeStart를 자정으로 내림한 별도 값으로 분리해 수정. `tsc -b`/`eslint`/`vite build` 통과, 웹 전용이라 EAS 재빌드 불필요. **한계**: 이미 저장된 기존 테스트 일정은 소급 재예약되지 않음 — 사용자가 재저장하거나 새로 등록해야 함(`docs/DECISION_LOG.md` 2026-09-08) |
 
+| **반복 일정 수정/삭제 범위 선택 시트가 BottomNav에 가려지던 버그 수정 ✅ 완료 2026-09-08** | 반복 일정 수정/삭제 시 뜨는 "이 일정만/이후 모두/전체" 바텀시트(`RepeatScopeModal`)가 `BottomNav`와 똑같이 `z-50`을 써서, DOM에서 나중에 그려지는 `BottomNav`(AppLayout에서 Outlet 다음에 렌더링)에 시트 하단 버튼이 가려지던 버그 — 시트를 `z-[60]`으로 올리고 `env(safe-area-inset-bottom)` 패딩 추가. `tsc -b`/`eslint`/`vite build` 통과, 웹 전용이라 EAS 재빌드 불필요(`docs/DECISION_LOG.md` 2026-09-08) |
+
 > 구 "Speaking 설계 완료(Azure 평가 포함)" 항목은 위 재설계로 대체되어 제거함. 두 설계 모두 실제 코드/마이그레이션 파일로 구현된 적은 없었음(`docs/DECISION_LOG.md` 참고).
 
 ---

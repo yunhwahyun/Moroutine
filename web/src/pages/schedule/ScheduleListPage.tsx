@@ -462,9 +462,14 @@ function RepeatScopeModal({
     { scope: 'all', label: mode === 'edit' ? '전체 반복 일정 수정' : '전체 반복 일정 삭제' },
   ]
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    // BottomNav가 fixed z-50이라 이 바텀시트도 같은 z-50이면 DOM 순서상 BottomNav에 가려진다
+    // (메뉴바가 시트 아래쪽 버튼을 덮어버림) — z를 그보다 높여 항상 위에 뜨게 한다.
+    <div className="fixed inset-0 z-[60] flex items-end justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
-      <div className="relative w-full max-w-sm bg-white rounded-t-2xl p-5 flex flex-col gap-3">
+      <div
+        className="relative w-full max-w-sm bg-white rounded-t-2xl p-5 flex flex-col gap-3"
+        style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 1.25rem), 1.25rem)' }}
+      >
         <p className="text-sm font-semibold text-gray-900 text-center mb-1">{title}</p>
         {options.map(({ scope, label }) => (
           <button
