@@ -250,9 +250,8 @@ function ScheduleFormPanel({
       <div className="flex flex-col gap-2">
         <div className="flex items-start gap-2 overflow-hidden">
           <span className={LABEL}>시작</span>
-          {/* 날짜+시간을 한 줄에 나란히 두면 좁은 화면에서 계속 잘리는 문제가 반복돼(iOS 네이티브
-              date input의 최소 너비가 예측 불가) 폭에 상관없이 항상 세로로 쌓는다. */}
-          <div className="flex flex-col gap-2 flex-1 overflow-hidden">
+          {/* 360px 이하 좁은 화면에서만 날짜/시간을 세로로 쌓는다(그 이상은 한 줄에 나란히). */}
+          <div className="flex flex-row gap-2 flex-1 overflow-hidden max-[360px]:flex-col">
             <NativeDateTimeInput
               type="date" value={form.date}
               onChange={(v) => onChange({ ...form, date: v })}
@@ -270,7 +269,7 @@ function ScheduleFormPanel({
         {!form.isAllDay && (
           <div className="flex items-start gap-2 overflow-hidden">
             <span className={LABEL}>종료</span>
-            <div className="flex flex-col gap-2 flex-1 overflow-hidden">
+            <div className="flex flex-row gap-2 flex-1 overflow-hidden max-[360px]:flex-col">
               <NativeDateTimeInput
                 type="date" value={form.endDate}
                 onChange={(v) => onChange({ ...form, endDate: v })}
