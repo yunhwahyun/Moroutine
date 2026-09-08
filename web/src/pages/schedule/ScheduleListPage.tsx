@@ -328,10 +328,13 @@ function ScheduleFormPanel({
               {REPEAT_END_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
             {form.repeatEndType === 'until' && (
+              // min-w-0 필수 — iOS의 네이티브 date input은 flex 컨테이너 안에서 w-full만으로는
+              // 안 줄어들고 고유 최소 너비를 고집해 화면을 넘어간다(위 시작/종료 date input과 동일한
+              // 이슈, 그쪽엔 이미 적용돼 있었는데 이 입력에는 빠져 있었다).
               <input
                 type="date" value={form.repeatUntil}
                 onChange={(e) => onChange({ ...form, repeatUntil: e.target.value })}
-                className={INPUT}
+                className={`${INPUT} min-w-0`}
               />
             )}
             {form.repeatEndType === 'count' && (
