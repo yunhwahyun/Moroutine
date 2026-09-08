@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useTTS } from '@/hooks/useTTS'
 import { useAutoplayStore } from '@/stores/autoplayStore'
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { getRepository } from '@/repositories/factory'
+import type { DataRepository } from '@/repositories/types'
 import { renderLineBreaks } from '@/lib/text'
 import {
   expandScheduleOccurrences,
@@ -18,7 +19,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { SpeakerIcon, PlayIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
 import { STATUS_LABEL, STATUS_COLOR } from '@/lib/wordConstants'
-import type { Schedule, ScheduleException, ScheduleOccurrence, Word } from '@/types'
+import type { ScheduleOccurrence, Word } from '@/types'
 
 // ─── helpers ────────────────────────────────────────────────────
 
@@ -65,21 +66,16 @@ function formatCardTime(startsAt: string, endsAt: string | null, isAllDay: boole
 
 // ─── schedule query ──────────────────────────────────────────────
 
-async function fetchHomeSchedules(): Promise<ScheduleOccurrence[]> {
+async function fetchHomeSchedules(repository: DataRepository): Promise<ScheduleOccurrence[]> {
   const today = floorDay(new Date())
   const todayStr = dateStr(today)
   const rangeEnd = addDays(today, 30)
   const rangeEndStr = dateStr(rangeEnd)
 
-  const [schedulesRes, exceptionsRes] = await Promise.all([
-    supabase.from('schedules').select('*').lte('starts_at', rangeEnd.toISOString()),
-    supabase.from('schedule_exceptions').select('*')
-      .gte('occurrence_date', todayStr)
-      .lte('occurrence_date', rangeEndStr),
+  const [schedules, exceptions] = await Promise.all([
+    repository.getSchedules(),
+    repository.getScheduleExceptions(todayStr, rangeEndStr),
   ])
-
-  const schedules: Schedule[] = schedulesRes.data ?? []
-  const exceptions: ScheduleException[] = exceptionsRes.data ?? []
   const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59)
 
   const todayOccs: ScheduleOccurrence[] = []
@@ -196,12 +192,12 @@ export default function HomePage() {
     )
   }
 
-  // 일정(Schedule)은 아직 Repository/Guest 로컬 저장에 연동되지 않았다(docs/TODO.md Phase 12.5 참고).
-  // Guest가 이 Supabase 쿼리를 그대로 호출하면 인증 없는 요청이라 401만 발생하므로 아예 스킵한다.
+  const scheduleRepository = tier && tier !== 'admin' ? getRepository(tier) : null
+
   const { data: scheduleItems = [], isLoading: schedulesLoading } = useQuery({
     queryKey: ['home_schedules', tier],
-    queryFn: fetchHomeSchedules,
-    enabled: tier !== null && tier !== 'guest',
+    queryFn: () => fetchHomeSchedules(scheduleRepository!),
+    enabled: !!scheduleRepository,
   })
 
   const handleLearnStart = () => {

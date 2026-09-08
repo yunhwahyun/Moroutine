@@ -6,6 +6,50 @@
 
 ## 2026-09-08
 
+### 메인 화면에 등록된 일정이 안 보이던 버그 — HomePage가 Guest에서 항상 Supabase를 직접 조회
+
+- **배경**: "일정이 있는데 메인에는 등록된 일정이 없다고 나와" 리포트. `HomePage.tsx`의
+  `fetchHomeSchedules()`가 `supabase.from('schedules')`/`supabase.from('schedule_exceptions')`를
+  **tier와 무관하게 항상 직접** 조회하고 있었다 — 코드에 남아있던 주석("일정은 아직
+  Repository/Guest 로컬 저장에 연동되지 않았다")이 실제로는 이미 지나간 얘기였다. Guest 일정은
+  IndexedDB(Dexie)에 저장되므로 이 Supabase 직접 조회는 Guest에게 항상 빈 배열만 돌려주고,
+  그래서 쿼리 자체를 `tier !== 'guest'`일 때만 활성화하는 방식으로 **Guest는 애초에 조회를
+  스킵**하도록 막아뒀던 것 — Guest가 일정을 등록해도 메인 화면 미리보기에 절대 나타날 수 없는
+  구조였다. 정작 `ScheduleListPage.tsx`는 이미 오래전에 `getRepository(tier).getSchedules()`
+  경유로 전환돼 있어(Guest 일정 목록 자체는 정상 노출), 이 괴리를 아무도 알아채지 못했다.
+- **결정**: `fetchHomeSchedules()`가 `DataRepository`를 인자로 받아
+  `repository.getSchedules()`/`repository.getScheduleExceptions(from,to)`를 쓰도록 변경
+  (`ScheduleListPage.tsx`와 동일 패턴), `useQuery`의 `enabled`도 `!!repository`로 바꿔 admin을
+  제외한 모든 tier(Guest 포함)에서 정상 조회되게 함. `tsc -b`/`eslint`/`vite build` 통과.
+- **한계**: 실기기/실브라우저 검증 없이 코드 리뷰 + 타입체크로만 확인. Guest로 직접 일정을
+  등록하고 메인 화면에 실제로 나타나는지는 사용자가 재확인 필요.
+
+### 안드로이드 select 드롭다운 화살표 — 우측 여백 추가 확대(0.5rem → 1rem)
+
+- **배경**: `src/index.css`의 전역 `select` 스타일(`background-position: right 0.5rem center`)로
+  그리는 커스텀 화살표가 "우측라인에 너무 붙어있다"는 재확인 리포트. 이전 세션에서 이미 화살표
+  크기(1.4rem)는 두 차례 조정했지만 위치(우측 여백)는 손대지 않았었다.
+  `padding-right: 2.75rem !important`로 텍스트와의 겹침은 막아뒀으나, 화살표 자체의 그리기 위치가
+  박스 우측 끝에서 0.5rem(8px)밖에 안 떨어져 있어 시각적으로 여전히 가장자리에 붙어 보였다.
+- **결정**: `background-position`을 `right 0.5rem center` → `right 1rem center`로 변경. 전역
+  `select` 규칙이라 앱 전체(일정 반복/알림 설정 등 모든 select)에 일괄 적용됨.
+- **한계**: 실기기 확인 없이 적용. 여전히 부족하면 다음엔 값 자체보다 `padding-right`(현재
+  2.75rem)를 더 키우는 방향도 고려.
+
+### 일정 날짜/시간 input — iOS 오버플로우, pr-5로도 미해결(추가 CSS 시도 보류)
+
+- **배경**: 직전 항목(같은 날 앞선 결정, "안드로이드 arrow 여백 + iOS 오버플로우 수정")에서 적용한
+  `pr-5`(우측 패딩 20px 추가)가 배포된 새 빌드에서도 iOS 오버플로우가 그대로 재현됐다는 리포트를
+  받았다. 특히 "반복 종료일"(`repeatUntil`) 입력은 다른 입력과 폭을 나눠 쓰지 않는 **단독 전체 폭
+  입력**인데도 동일하게 오버플로우가 재현된다는 점이 중요한 단서다 — 형제 요소와 폭을 다투는
+  flex-shrink 부족 문제가 아니라, iOS의 `<input type="date">`가 **자신에게 부여된 CSS `width`
+  자체를 무시하고 내용에 필요한 만큼 더 넓게 그리는** 널리 알려진 WebKit 동작일 가능성이 높다는
+  뜻이다. 이런 경우 `padding`/`min-width`/`flex` 어떤 조합을 시도해도 근본적으로 안 먹힌다.
+  실기기가 없는 이 환경에서 이 가설을 직접 확인할 수는 없지만, 이미 이 문제로 3~4차례 각기 다른
+  CSS 시도가 전부 실패한 이력(위 "(시도 후 되돌림)" 항목들)과 정확히 들어맞는 패턴이다.
+  **이번엔 추가 CSS 추측 시도를 하지 않고 사용자에게 방향을 확인하기로 결정** — 이전 교훈("실기기
+  검증 없이는 손대지 말 것, 정말 필요하면 커스텀 피커를 새로 만들 것")을 따름.
+
 ### 일정 알림이 전혀 오지 않던 버그 — WEB_READY 미전송 + 알림 권한 결과 미확인
 
 - **배경**: "일정은 지정된 알림 시간에 알림이 와야하는데 알림이 안와" 리포트로 조사를 시작했다.

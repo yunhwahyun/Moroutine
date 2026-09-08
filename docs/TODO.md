@@ -300,6 +300,12 @@ _현재 진행 중인 작업 없음_
 - [x] `web`: `tsc -b`/`eslint .`/`vite build` 통과, `mobile`: `tsc --noEmit` 통과
 - [ ] **한계 — 실기기 재검증 필요**: 알림 권한 배너 노출/알림 실제 수신 여부, 화면 잠금 자동재생 지속 여부 모두 사용자가 새 EAS 빌드로 직접 확인 필요. 상세는 `docs/DECISION_LOG.md` 2026-09-08
 
+### 메인 화면 일정 미노출 버그 수정 + select 화살표 여백 ✅ 완료 2026-09-08
+- [x] `HomePage.tsx`의 `fetchHomeSchedules()`를 Supabase 직접 조회 → `getRepository(tier)` 경유로 전환(Guest 일정이 메인에 안 보이던 버그 수정)
+- [x] `index.css`의 전역 select 화살표 `background-position`을 `0.5rem`→`1rem`으로 확대
+- [x] `web`: `tsc -b`/`eslint .`/`vite build` 통과
+- [ ] **미해결**: iOS date/time input이 여전히 컨텐츠 박스를 넘어감 — `pr-5`로도 해결 안 됨, 단독 입력(반복 종료일)에서도 재현돼 CSS `width` 자체를 무시하는 WebKit 동작으로 추정. 추가 CSS 추측 대신 사용자와 방향(커스텀 피커 신규 제작 vs 현행 유지) 확인 필요 — `docs/DECISION_LOG.md` 2026-09-08
+
 ### Phase 23 — 스피킹 재구현 (`docs/SPEAKING_DESIGN.md`) ⏸ 보류 2026-09-01
 - [ ] WebView 녹음 환경 검증 6개 항목(§7, Azure 관련 2개 항목 제거됨)
 - [ ] Migration 23~24: speaking_sentences, speaking_recordings
