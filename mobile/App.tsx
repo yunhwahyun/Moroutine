@@ -122,13 +122,25 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    // 결과를 웹에 알려줘서(REQUEST_PERMISSION 응답을 기다리지 않고도) 알림 권한이 거부된 경우
-    // 설정 화면에서 안내 배너를 띄울 수 있게 한다 — 이 요청 자체는 앱 최초 실행 시 딱 한 번만
-    // 시스템 프롬프트를 띄우고, 사용자가 거부하면 이후로는 재요청해도 프롬프트가 다시 안 뜬다
-    // (iOS/Android 공통 정책) — 그래서 "권한 없음"을 사용자에게 보여주는 게 유일한 대응 수단이다.
-    Notifications.requestPermissionsAsync().then(({ granted }) => {
+    // 안드로이드 8.0+(API 26+)는 채널이 있어야 알림을 표시할 수 있고, 안드로이드 13+에서는
+    // 채널이 최소 1개 존재해야 시스템 권한 프롬프트 자체가 뜬다(expo-notifications 공식 문서) —
+    // 채널 없이 requestPermissionsAsync()만 호출하면 프롬프트가 아예 안 뜨고 조용히 거부 상태로
+    // 남을 수 있다. 그래서 반드시 권한 요청보다 먼저 채널을 만든다(iOS는 이 호출 자체가 무해한 no-op).
+    const setupNotifications = async () => {
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: '일정 알림',
+          importance: Notifications.AndroidImportance.MAX,
+        })
+      }
+      // 결과를 웹에 알려줘서(REQUEST_PERMISSION 응답을 기다리지 않고도) 알림 권한이 거부된 경우
+      // 설정 화면에서 안내 배너를 띄울 수 있게 한다 — 이 요청 자체는 앱 최초 실행 시 딱 한 번만
+      // 시스템 프롬프트를 띄우고, 사용자가 거부하면 이후로는 재요청해도 프롬프트가 다시 안 뜬다
+      // (iOS/Android 공통 정책) — 그래서 "권한 없음"을 사용자에게 보여주는 게 유일한 대응 수단이다.
+      const { granted } = await Notifications.requestPermissionsAsync()
       sendToWeb({ type: 'PERMISSION_RESULT', payload: { permission: 'notifications', granted } })
-    })
+    }
+    setupNotifications()
 
     // RevenueCat 초기화. 실계정 준비 전이라 EXPO_PUBLIC_REVENUECAT_API_KEY_* 미설정 시 스킵한다.
     const apiKey = Platform.OS === 'ios'
@@ -239,6 +251,7 @@ export default function App() {
             trigger: {
               type: Notifications.SchedulableTriggerInputTypes.DATE,
               date: new Date(fireAt),
+              ...(Platform.OS === 'android' ? { channelId: 'default' } : {}),
             },
           })
           sendToWeb({ type: 'NOTIFICATION_RESULT', payload: { id, nativeId, success: true } })

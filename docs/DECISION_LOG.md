@@ -6,6 +6,31 @@
 
 ## 2026-09-08
 
+### 일정 알림이 여전히 안 옴(아이폰/안드로이드 둘 다) — 안드로이드 알림 채널 누락 발견 + 미확인 요인 1건
+
+- **배경**: `WEB_READY`/권한 결과 확인 수정 이후에도 "일정 알림이 안 온다"는 재확인 리포트(이번엔
+  아이폰/안드로이드 둘 다). expo-notifications 공식 문서(v56, `docs.expo.dev/versions/v56.0.0/sdk/notifications`)를
+  다시 확인해 안드로이드 전용으로 확실한 버그 하나를 찾았다: **"안드로이드 13+에서는 알림 채널이
+  최소 1개 존재해야 시스템 권한 프롬프트 자체가 뜬다"** — 이 앱은 `setNotificationChannelAsync`를
+  단 한 번도 호출하지 않은 채 `requestPermissionsAsync()`부터 불렀다. 즉 안드로이드에서는 권한
+  프롬프트가 애초에 사용자에게 뜨지 않았을 가능성이 높고(조용히 거부 상태로 남음), 설령 권한이
+  있었더라도 `scheduleNotificationAsync`의 trigger에 `channelId`를 지정하지 않아 어느 채널로
+  갈지 불명확했다.
+- **결정**: `mobile/App.tsx` 마운트 시 `Platform.OS === 'android'`일 때
+  `Notifications.setNotificationChannelAsync('default', { name: '일정 알림', importance:
+  AndroidImportance.MAX })`를 **`requestPermissionsAsync()`보다 먼저** 호출하도록 순서를 명시적으로
+  고정(기존엔 순서 자체가 없었음 — 채널 생성 호출이 아예 없었다). `SCHEDULE_NOTIFICATION` 핸들러의
+  trigger에도 안드로이드일 때 `channelId: 'default'`를 추가.
+- **한계 — 아이폰 원인은 미확인**: 이 채널 문제는 안드로이드에만 해당돼 iOS까지 동시에 안 오는 걸
+  전부 설명하진 못한다. 코드 리뷰로 확인한 가장 유력한 공통 원인은 오히려 더 단순한 것 — 테스트로
+  등록한 일정의 "알림" 드롭다운이 기본값 **"알림 없음"**(`alarm_minutes = null`)으로 남아있으면
+  `refreshScheduleNotifications()`가 아무 것도 예약하지 않고 조용히 리턴한다(정상 동작, 버그
+  아님) — 실제로 사용자가 이전에 보내준 일정 등록 화면 스크린샷에서도 "알림 없음"이 선택돼 있었다.
+  사용자에게 실제 알림 시간을 지정했는지, `설정 > 알림` 섹션에 권한 거부 배너가 떠있는지 확인을
+  요청함.
+- **적용**: `mobile`: `tsc --noEmit` 통과. 실기기 검증은 불가(이 환경엔 기기 없음) — 다음 EAS
+  빌드로 사용자가 직접 확인 필요.
+
 ### 일정 date/time input 폭이 들쭉날쭉하던 버그 — NativeDateTimeInput 래퍼가 flex 크기를 못 받고 있었음
 
 - **배경**: "상단 필터 날짜영역, 시작/종료 일시 date/time 사이즈가 들쭉날쭉하다" 리포트. 원인은

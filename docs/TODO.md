@@ -300,6 +300,12 @@ _현재 진행 중인 작업 없음_
 - [x] `web`: `tsc -b`/`eslint .`/`vite build` 통과, `mobile`: `tsc --noEmit` 통과
 - [ ] **한계 — 실기기 재검증 필요**: 알림 권한 배너 노출/알림 실제 수신 여부, 화면 잠금 자동재생 지속 여부 모두 사용자가 새 EAS 빌드로 직접 확인 필요. 상세는 `docs/DECISION_LOG.md` 2026-09-08
 
+### 일정 알림 여전히 미수신 — 안드로이드 알림 채널 누락 수정 ✅ 완료 2026-09-08
+- [x] `mobile/App.tsx`에 안드로이드 전용 `setNotificationChannelAsync('default', ...)`를 `requestPermissionsAsync()`보다 먼저 호출하도록 추가(문서상 채널이 없으면 안드로이드 13+ 권한 프롬프트 자체가 안 뜸)
+- [x] `SCHEDULE_NOTIFICATION` 핸들러의 trigger에 안드로이드일 때 `channelId: 'default'` 추가
+- [x] `mobile`: `tsc --noEmit` 통과
+- [ ] **미확인**: iOS까지 동시에 안 오는 원인은 이 수정으로 설명 안 됨 — 테스트 일정의 "알림"이 "알림 없음"(`alarm_minutes=null`)으로 남아있었을 가능성이 유력(정상 동작이라 버그 아님). 사용자에게 실제 알림 시간 지정 여부 + 설정 화면 권한 배너 확인 요청
+
 ### 메인 화면 일정 미노출 버그 수정 + select 화살표 여백 ✅ 완료 2026-09-08
 - [x] `HomePage.tsx`의 `fetchHomeSchedules()`를 Supabase 직접 조회 → `getRepository(tier)` 경유로 전환(Guest 일정이 메인에 안 보이던 버그 수정)
 - [x] `index.css`의 전역 select 화살표 `background-position`을 `0.5rem`→`1rem`으로 확대
