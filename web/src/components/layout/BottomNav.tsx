@@ -63,7 +63,7 @@ export default function BottomNav() {
       style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 10px), 1.25rem)' }}
     >
       <nav className="bg-white rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.10)] py-[6px] px-[6px] w-fit mx-auto">
-        <div ref={containerRef} className="relative flex items-center gap-5">
+        <div ref={containerRef} className="relative flex items-center gap-2">
 
           {/* 슬라이딩 indicator */}
           <div
@@ -80,7 +80,7 @@ export default function BottomNav() {
               {({ isActive }) => (
                 <div
                   ref={(el) => { itemRefs.current[i] = el }}
-                  className="relative z-10 flex items-center justify-center h-[46px] w-[54px]"
+                  className="relative z-10 flex items-center justify-center h-[46px] w-[50px]"
                 >
                   <img
                     src={isActive ? `/menu-${tab.no}-on.svg` : `/menu-${tab.no}.svg`}
