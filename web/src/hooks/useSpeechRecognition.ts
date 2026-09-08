@@ -33,8 +33,9 @@ export function useSpeechRecognition(lang = 'en-US') {
     : typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition)
 
   // 네이티브: STT_RESULT 수신 — continuous 모드에서는 말하다 멈출 때마다 final이 여러 번 올 수
-  // 있어(아직 손을 떼기 전인데도), final 여부로 listening을 끄지 않는다. listening은 오직 우리가
-  // 직접 호출한 start()/stop()으로만 관리한다(눌러서 녹음 UI와 정확히 일치시키기 위함).
+  // 있어(아직 정지를 탭하기 전인데도), final 여부로 listening을 끄지 않는다. listening은 오직
+  // 우리가 직접 호출한 start()/stop()으로만 관리한다(탭 토글 UI와 정확히 일치시키기 위함).
+  // interim 결과도 그대로 반영해 말하는 도중 입력창에 실시간으로 텍스트가 보이게 한다.
   useEffect(() => {
     if (!isNative()) return
     return registerBridgeListener((msg) => {
@@ -58,10 +59,14 @@ export function useSpeechRecognition(lang = 'en-US') {
 
     const recognition = new API()
     recognition.lang = lang
-    // 눌러서 녹음, 손을 떼면 종료하는 방식이라 무음 감지로 중간에 자동 종료되면 안 된다 —
+    // 탭해서 녹음 시작, 다시 탭하면 종료하는 방식이라 무음 감지로 중간에 자동 종료되면 안 된다 —
     // 사용자가 명시적으로 stop()을 호출할 때까지 계속 듣는다.
     recognition.continuous = true
-    recognition.interimResults = false
+    // interimResults=false였을 때 iOS에서 "final 결과는 인식이 완전히 끝난 뒤에만 온다"는 제약
+    // 때문에 화면에 아무 반응이 없다가 응답이 아예 안 채워지는 버그가 있었다 — 중간 결과를 받아야
+    // 말하는 도중에도 입력창에 실시간으로 텍스트가 채워지며, stop() 직후 최종 결과도 지연 없이
+    // 확정된다.
+    recognition.interimResults = true
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       // continuous 모드에서는 말하다 멈출 때마다 결과가 누적되므로 항상 가장 최근 결과를 쓴다

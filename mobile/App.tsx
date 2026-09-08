@@ -305,9 +305,11 @@ export default function App() {
           sttSubs.current = []
         })
         sttSubs.current = [resultSub, errorSub]
-        // continuous: true — 눌러서 녹음, 손을 떼면(STOP_STT) 종료하는 방식이라 무음 감지로
+        // continuous: true — 탭해서 시작, 다시 탭하면(STOP_STT) 종료하는 방식이라 무음 감지로
         // 중간에 자동 종료되면 안 된다(사용자가 직접 멈출 때까지 듣는다).
-        ExpoSpeechRecognitionModule.start({ lang, interimResults: false, continuous: true })
+        // interimResults: true — false로 두면 iOS에서 "final 결과는 인식 세션이 완전히 끝난
+        // 뒤에만 온다"는 제약 때문에 화면에 아무 반응 없이 응답이 안 채워지는 버그가 있었다.
+        ExpoSpeechRecognitionModule.start({ lang, interimResults: true, continuous: true })
         break
       }
 

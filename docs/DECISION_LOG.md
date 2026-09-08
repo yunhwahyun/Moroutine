@@ -4,6 +4,36 @@
 
 ---
 
+## 2026-09-09
+
+### 퀴즈 주관식 음성 입력 — 눌러서 녹음(walkie-talkie)을 탭 토글로 되돌림 + 무반응/미인식 버그 수정
+
+- **배경**: "눌러서 녹음 시작이 사용하기 불편하다"(한 손으로 폰을 들고 버튼을 계속 누른 채 말해야
+  해서 불편함) + "녹음한 음성 인식이 제대로 안 되는지 답이 안 채워진다" + "화면에 아무 반응이 없을
+  때도 있어서 하고 있는건지 모르겠다"는 리포트. 세 가지가 한 번에 나왔지만 원인은 서로 다르다.
+- **UX 원복(탭 토글)**: 이전 세션에서 "탭하고 일정 시간 후 자동 종료되는 방식이 답 길이와 안 맞는다"는
+  피드백으로 눌러서 녹음(`onPointerDown`/`Up`/`Leave`/`Cancel`)으로 바꿨었는데, 이번엔 그게 또
+  불편하다는 반대 피드백 — 한 번 탭하면 시작, 다시 탭하면 종료하는 토글로 되돌렸다(`Quiz.tsx`).
+  다만 최초에 문제였던 "무음 감지로 애매하게 자동 종료"는 여전히 막아야 하므로,
+  `useSpeechRecognition`의 `continuous: true`(무음이어도 사용자가 직접 멈출 때까지 계속 듣기)는
+  그대로 유지한다 — 시작/종료 트리거 방식(탭 vs 누르고 있기)과 자동 종료 방지(continuous)는
+  서로 다른 축이라 독립적으로 바꿀 수 있었다.
+- **진짜 원인(코드로 확인)**: `interimResults: false`로 호출하고 있었는데, `expo-speech-recognition`
+  공식 타입 문서(`ExpoSpeechRecognitionModule.types.d.ts`)에 정확히 이렇게 적혀 있다 — "Note for
+  iOS: final results are only available after speech recognition has stopped." 즉 iOS에서
+  `interimResults=false`면 인식 세션이 완전히 끝나야만(정지를 탭한 뒤에도 한참 후에) 결과가 온다 —
+  이게 "화면에 아무 반응이 없다"(중간 결과가 아예 없으니 뭘 하고 있는지 알 수 없음)와 "답이 안
+  채워진다"(최종 결과가 비동기로 늦게 오거나 사실상 누락되는 것처럼 보임) 둘 다의 근본 원인이었다.
+- **결정**: 웹(`useSpeechRecognition.ts`의 `recognition.interimResults`)과 네이티브
+  (`mobile/App.tsx`의 `ExpoSpeechRecognitionModule.start({...})`) 양쪽 다 `interimResults: true`로
+  변경 — 말하는 도중 중간 결과가 실시간으로 입력창에 채워져(이미 `useEffect`가 `transcript`를
+  `shortInput`에 그대로 반영하고 있어 별도 UI 작업 없이 자동으로 해결됨) 그 자체가 "지금 인식되고
+  있다"는 시각적 피드백이 되고, 정지를 탭했을 때 최종 결과도 지연 없이 확정된다. 플레이스홀더도
+  듣는 중엔 "듣고 있어요..."로 바뀌게 추가.
+- **적용**: `web`: `tsc -b`/`eslint .`/`vite build` 통과(Quiz.tsx의 useCallback 조건부 호출 lint
+  에러는 이번 변경과 무관한 기존 이슈, 그대로 둠). `mobile`: `tsc --noEmit` 통과.
+- **한계**: `mobile/App.tsx`를 수정했으므로 실제 동작 확인은 새 EAS 빌드로 실기기 검증 필요.
+
 ## 2026-09-08
 
 ### 책장 구조 오해 수정 — 공용 전용이 아니라 단어장과 동일한 개인+공용 이중 구조였음

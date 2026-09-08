@@ -341,6 +341,13 @@ _현재 진행 중인 작업 없음_
 - [ ] **한계**: 실브라우저 검증 미수행(코드 리뷰만). 마이그레이션 41/42 모두 Supabase 프로젝트 미적용 — 사용자가 Dashboard에서 직접 실행 필요(41은 rename됐으므로 이전에 실행했다면 재확인)
 - [ ] **범위 밖**: 공용 책을 개인 책장으로 복사하는 기능(단어장의 "담기"에 해당) — 필요해지면 후속 작업
 
+### 퀴즈 주관식 음성 입력 — 탭 토글 원복 + 무반응/미인식 버그 수정 ✅ 완료 2026-09-09
+- [x] `Quiz.tsx` 마이크 버튼을 눌러서 녹음(pointer down/up/leave/cancel)에서 탭 토글(onClick)로 되돌림 — `continuous:true`(무음 자동 종료 방지)는 유지
+- [x] 진짜 원인 발견: `interimResults:false`라서 iOS는 인식 세션이 끝나야만 결과가 옴(화면 무반응 + 응답 미채움의 근본 원인) — 웹/네이티브 양쪽 `interimResults:true`로 변경
+- [x] 듣는 중 플레이스홀더 "듣고 있어요..."로 변경(실시간 중간 결과가 입력창에 그대로 채워짐)
+- [x] `web`: `tsc -b`/`eslint .`/`vite build` 통과, `mobile`: `tsc --noEmit` 통과
+- [ ] **한계**: `mobile/App.tsx` 변경 — 실기기 검증은 새 EAS 빌드 필요
+
 ### Phase 23 — 스피킹 재구현 (`docs/SPEAKING_DESIGN.md`) ⏸ 보류 2026-09-01
 - [ ] WebView 녹음 환경 검증 6개 항목(§7, Azure 관련 2개 항목 제거됨)
 - [ ] Migration 23~24: speaking_sentences, speaking_recordings

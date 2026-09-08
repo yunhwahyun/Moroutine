@@ -190,7 +190,9 @@ export default function Quiz({ words, initialMode = 'multiple_choice', onComplet
                 readOnly={!showKeyboard}
                 onChange={showKeyboard ? (e) => setShortInput(e.target.value) : undefined}
                 onKeyDown={showKeyboard ? (e) => e.key === 'Enter' && phase === 'question' && shortInput.trim() && handleSubmitShort() : undefined}
-                placeholder={showKeyboard ? '답을 입력하세요' : '마이크 버튼을 눌러 말해보세요'}
+                placeholder={
+                  showKeyboard ? '답을 입력하세요' : listening ? '듣고 있어요...' : '마이크 버튼을 탭해 말해보세요'
+                }
                 disabled={phase === 'revealed'}
                 className={`flex-1 border rounded-lg px-4 py-4 text-sm outline-none disabled:bg-gray-50 disabled:text-gray-400 ${
                   showKeyboard
@@ -199,20 +201,17 @@ export default function Quiz({ words, initialMode = 'multiple_choice', onComplet
                 }`}
               />
               {showMic && phase === 'question' && (
-                // 눌러서 녹음, 손을 떼면 종료(walkie-talkie 방식) — 무음 감지로 애매하게
-                // 자동 종료되던 것 대신 사용자가 직접 시작/끝을 통제한다. 버튼 밖으로 손가락이
-                // 벗어나는 경우(onPointerLeave/Cancel)도 녹음 종료로 처리한다.
+                // 한 번 탭하면 녹음 시작, 다시 탭하면 종료(토글) — 누르고 있는 동안만 녹음되는
+                // 방식은 한 손으로 들고 말하기 불편하다는 피드백으로 되돌림. 대신 무음 감지로
+                // 애매하게 자동 종료되지 않도록 continuous 모드는 유지한다(useSpeechRecognition).
                 <button
-                  onPointerDown={(e) => { e.preventDefault(); if (!listening) startSTT() }}
-                  onPointerUp={() => { if (listening) stopSTT() }}
-                  onPointerLeave={() => { if (listening) stopSTT() }}
-                  onPointerCancel={() => { if (listening) stopSTT() }}
-                  className={`flex items-center justify-center w-[56px] rounded-lg border transition-colors select-none touch-none ${
+                  onClick={() => { if (listening) stopSTT(); else startSTT() }}
+                  className={`flex items-center justify-center w-[56px] rounded-lg border transition-colors ${
                     listening
                       ? 'border-red-400 bg-red-50 text-red-500'
                       : 'border-gray-200 bg-white text-gray-400 hover:text-gray-600'
                   }`}
-                  aria-label={listening ? '녹음 중 — 손을 떼면 종료' : '눌러서 녹음 시작'}
+                  aria-label={listening ? '녹음 중 — 탭하면 종료' : '탭해서 녹음 시작'}
                 >
                   {listening ? (
                     <span className="w-3.5 h-3.5 rounded-full bg-red-500 animate-pulse" />

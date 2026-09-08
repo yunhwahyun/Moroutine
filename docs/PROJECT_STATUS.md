@@ -1,6 +1,6 @@
 # Project Status
 
-> 최종 업데이트: 2026-09-08
+> 최종 업데이트: 2026-09-09
 
 ---
 
@@ -70,6 +70,8 @@
 | **일정 시작/종료 날짜·시간 자동 채움 ✅ 완료 2026-09-08** | 일정 추가/수정 시 조작을 최소화하기 위해 반대쪽 필드를 자동으로 채움 — 비어있으면 날짜는 같은 날짜, 시간은 1시간 차이로 채우고, 이미 값이 있는 상태에서 순서가 뒤집히면 수정 전 간격("원래 기간")을 유지한 채 반대쪽을 밀어서 순서를 바로잡음. `adjustScheduleDateTime()` 신설, `ScheduleFormPanel`의 4개 date/time input onChange 전부 교체(add/edit 공용이라 두 플로우 모두 자동 적용), `defaultForm()`도 신규 진입 시 종료 시각을 처음부터 시작+1시간으로 채움. `tsc -b`/`eslint`/`vite build` 통과, 웹 전용이라 EAS 재빌드 불필요 |
 
 | **책장(Book) 기능 신규 추가 → 개인+공용 이중 구조로 재구성 ✅ 완료 2026-09-08** | 단어장과 별개인 순수 읽기/듣기 콘텐츠 기능. 최초엔 공용 단어장(§3)만 본떠 관리자 전용으로 만들었으나, 실제 요구사항은 단어장처럼 **개인 책장(Guest 포함 전체가 직접 생성) + 공용 책장(Admin 큐레이션, Pro/Master 열람)** 이중 구조였음을 사용자 지적으로 발견해 같은 날 재구성. 개인 `books`/`book_chapters`(마이그레이션 42, `wordbooks`/`words`와 동일한 `user_id` 소유 구조, `DataRepository`에 9개 메서드 추가, Guest는 Dexie v2 신규 스토어) + 공용 `public_books`/`public_book_chapters`(마이그레이션 41, 기존 관리자 전용 테이블을 rename)로 분리. 화면도 개인용(`web/src/pages/bookshelf/{BookshelfListPage,BookDetailPage}.tsx`, `/books`, BottomNav 탭 — 단어장 바로 다음 순서)과 공용용(`web/src/pages/public-book/{PublicBookListPage,PublicBookViewPage}.tsx`, `/public-books`, 개인 책장 헤더의 "공용 책장" 링크로만 진입)으로 분리. 둘 다 학습/퀴즈/진행률 없음, 기존 자동재생 인프라(`useAutoplayStore`, 무수정) 재사용해 다중 선택 → 순차 재생. `.txt` 일괄등록은 단어장과 달리 여러 파일=목차 여러 개(파일 하나=목차 1개, 제목은 파일명), 개인/공용 상세 화면 양쪽에 동일 규칙 적용. 메뉴 아이콘(`menu-05.svg`/`-on.svg`)은 사용자가 직접 제작해 최종본으로 적용. `tsc -b`/`eslint`/`vite build` 통과, `mobile/App.tsx` 무변경(EAS 재빌드 불필요). **한계**: 실브라우저 검증 미수행, 마이그레이션 41/42 모두 아직 Supabase 프로젝트에 미적용(Dashboard에서 사용자가 직접 실행 필요, 41은 rename됐으므로 기존에 실행했다면 재확인 필요) — `docs/DECISION_LOG.md`/`docs/ADMIN_DESIGN.md` §8 참고 |
+
+| **퀴즈 주관식 음성 입력 — 탭 토글 원복 + 무반응/미인식 버그 수정 ✅ 완료 2026-09-09** | 눌러서 녹음(walkie-talkie) 방식이 불편하다는 피드백으로 탭 토글(한 번 탭=시작, 다시 탭=종료)로 되돌리되, 무음 감지 자동 종료 방지(`continuous:true`)는 유지. 진짜 원인은 `interimResults:false`였음 — `expo-speech-recognition` 문서에 "iOS는 인식이 완전히 끝나야만 final 결과가 온다"고 명시돼 있어 화면 무반응·응답 미채움의 근본 원인이었음. 웹/네이티브 양쪽 `interimResults:true`로 변경, 말하는 도중 실시간으로 입력창이 채워지도록 함(기존 로직 재사용, 별도 UI 불필요). `web`: `tsc -b`/`eslint`/`vite build` 통과, `mobile`: `tsc --noEmit` 통과. **한계**: `mobile/App.tsx` 변경이라 실기기 검증은 새 EAS 빌드 필요 |
 
 > 구 "Speaking 설계 완료(Azure 평가 포함)" 항목은 위 재설계로 대체되어 제거함. 두 설계 모두 실제 코드/마이그레이션 파일로 구현된 적은 없었음(`docs/DECISION_LOG.md` 참고).
 
