@@ -6,6 +6,23 @@
 
 ## 2026-09-08
 
+### 일정 date/time input 폭이 들쭉날쭉하던 버그 — NativeDateTimeInput 래퍼가 flex 크기를 못 받고 있었음
+
+- **배경**: "상단 필터 날짜영역, 시작/종료 일시 date/time 사이즈가 들쭉날쭉하다" 리포트. 원인은
+  바로 위 항목에서 만든 `NativeDateTimeInput`의 구조 — 앱(`isNative()`) 분기에서 실제 flex 자식은
+  아이콘을 겹쳐 그리기 위한 `<div className="relative">` 래퍼인데, 정작 `flex-1`/`min-w-0` 같은
+  크기 배분 클래스는 **래퍼가 아니라 안쪽 `<input>`의 `className`에만** 들어있었다. 래퍼 자체엔
+  아무 폭 지정이 없으니 `flex-basis: auto`가 자기 내용(입력값 텍스트의 고유 너비)을 기준으로
+  각자 다르게 계산돼, 날짜와 시간 칸 너비가 값의 길이에 따라 제각각으로 보였다(브라우저 쪽은 래퍼
+  없이 input이 직접 flex 자식이라 원래 문제없었음 — 그래서 이번에 아이콘 통일 작업 이후에만 새로
+  생긴 회귀).
+- **결정**: `NativeDateTimeInput`에 `wrapperClassName` prop을 추가해 flex 배분 클래스를 **항상 실제
+  flex 자식(앱은 relative div, 웹은 필요 시 감싸는 div)에 적용**하도록 분리, `className`은 순수
+  시각 스타일(테두리/배경/패딩)만 담당하게 함. 상단 필터 fromDate/toDate는 `flex-1`(1:1 동률),
+  시작/종료 일시의 날짜/시간은 `flex-[3]`/`flex-[2]`(날짜가 시간보다 조금 더 넓게)로 명시.
+- **적용**: `tsc -b`/`eslint .`/`vite build` 통과. 빌드 CSS에서 `.flex-\[3\]{flex:3}`,
+  `.flex-\[2\]{flex:2}` 생성 확인.
+
 ### 시작/종료 일시 세로 배치 — "항상 세로"였던 걸 360px 이하 조건부로 되돌림
 
 - **배경**: iOS 오버플로우를 잡으려고 안전 조치로 "화면 크기와 무관하게 항상 세로 배치"로

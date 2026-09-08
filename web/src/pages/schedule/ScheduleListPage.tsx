@@ -252,16 +252,20 @@ function ScheduleFormPanel({
           <span className={LABEL}>시작</span>
           {/* 360px 이하 좁은 화면에서만 날짜/시간을 세로로 쌓는다(그 이상은 한 줄에 나란히). */}
           <div className="flex flex-row gap-2 flex-1 overflow-hidden max-[360px]:flex-col">
+            {/* 날짜/시간 폭이 텍스트 길이에 따라 들쭉날쭉해지는 걸 막기 위해 flex-basis를
+                명시적으로 고정한다(날짜가 시간보다 조금 더 넓게, 3:2). */}
             <NativeDateTimeInput
               type="date" value={form.date}
               onChange={(v) => onChange({ ...form, date: v })}
-              className={`${INPUT} min-w-0 pr-5`}
+              className={`${INPUT} pr-5`}
+              wrapperClassName="flex-[3] min-w-0"
             />
             {!form.isAllDay && (
               <NativeDateTimeInput
                 type="time" value={form.time}
                 onChange={(v) => onChange({ ...form, time: v })}
-                className={`${INPUT} min-w-0 pr-5`}
+                className={`${INPUT} pr-5`}
+                wrapperClassName="flex-[2] min-w-0"
               />
             )}
           </div>
@@ -273,12 +277,14 @@ function ScheduleFormPanel({
               <NativeDateTimeInput
                 type="date" value={form.endDate}
                 onChange={(v) => onChange({ ...form, endDate: v })}
-                className={`${INPUT} min-w-0 pr-5`}
+                className={`${INPUT} pr-5`}
+                wrapperClassName="flex-[3] min-w-0"
               />
               <NativeDateTimeInput
                 type="time" value={form.endTime}
                 onChange={(v) => onChange({ ...form, endTime: v })}
-                className={`${INPUT} min-w-0 pr-5`}
+                className={`${INPUT} pr-5`}
+                wrapperClassName="flex-[2] min-w-0"
               />
             </div>
           </div>
@@ -804,12 +810,14 @@ export default function ScheduleListPage() {
         <div className="flex items-center gap-2 overflow-hidden">
           <NativeDateTimeInput type="date" value={fromDate}
             onChange={(v) => { setFromDate(v); setActivePreset(null) }}
-            className="flex-1 min-w-0 border border-gray-200 rounded-lg pl-3 pr-5 py-2 text-sm outline-none focus:border-gray-400"
+            className="w-full border border-gray-200 rounded-lg pl-3 pr-5 py-2 text-sm outline-none focus:border-gray-400"
+            wrapperClassName="flex-1 min-w-0"
           />
           <span className="text-gray-400 text-sm shrink-0">~</span>
           <NativeDateTimeInput type="date" value={toDate}
             onChange={(v) => { setToDate(v); setActivePreset(null) }}
-            className="flex-1 min-w-0 border border-gray-200 rounded-lg pl-3 pr-5 py-2 text-sm outline-none focus:border-gray-400"
+            className="w-full border border-gray-200 rounded-lg pl-3 pr-5 py-2 text-sm outline-none focus:border-gray-400"
+            wrapperClassName="flex-1 min-w-0"
           />
         </div>
       </div>
