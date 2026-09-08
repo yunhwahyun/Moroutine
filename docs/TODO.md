@@ -290,6 +290,16 @@ _현재 진행 중인 작업 없음_
 - [x] `web`: `tsc -b`/`eslint .`/`vite build` 통과, `mobile`: `tsc --noEmit` 통과
 - [ ] **한계 — 실기기 검증 필요**: `app.json` config plugin 변경은 EAS 빌드로 새 네이티브 앱을 만들어야 반영된다. 이 환경엔 Xcode/Android Studio/기기가 없어 화면 잠금 상태에서 실제로 재생이 지속되는지 확인 불가 — 사용자가 `eas build` 후 실기기(특히 화면 꺼짐/잠금 상태)로 직접 검증 필요. Android는 제조사 배터리 최적화 정책에 따라 일부 기기에서 강제 종료될 수 있음. 상세는 `docs/DECISION_LOG.md` 2026-09-07
 
+### 자동재생 실기기 버그 수정 + 알림 미발송 버그 수정 ✅ 완료 2026-09-08
+- [x] `web/src/App.tsx`에 `bridge.ready()` 호출 추가 — 앱에서 네이티브→웹 메시지(자동재생 진행/알림 권한 결과 등) 전체가 유실되던 근본 원인 수정
+- [x] 자동재생을 전역 스토어(`web/src/stores/autoplayStore.ts`)로 재설계, `useAutoPlay.ts` 삭제, `GlobalAutoPlayBar` 앱 루트 단일 마운트
+- [x] `AUTOPLAY_STEP`(상대 이동)로 전환해 네이티브를 인덱스 단일 진실로 삼음, 순환 재생 추가
+- [x] 잠금화면/이어폰 재생·정지 경합 제거(레벨 트리거 재설계), 배속(0.5x~1.5x) + 단어→뜻→예문 순차 읽기
+- [x] `mobile/App.tsx`의 알림 권한 요청을 결과 확인형으로 변경(`PERMISSION_RESULT` 전송) + `web/src/stores/notificationPermissionStore.ts` 신설 + `SettingsPage.tsx`에 권한 거부 시 안내 배너
+- [x] 일정 폼 date/time input `pr-5`(안드로이드 화살표 여백) + 시작/종료 일시 항상 세로 배치로 단순화
+- [x] `web`: `tsc -b`/`eslint .`/`vite build` 통과, `mobile`: `tsc --noEmit` 통과
+- [ ] **한계 — 실기기 재검증 필요**: 알림 권한 배너 노출/알림 실제 수신 여부, 화면 잠금 자동재생 지속 여부 모두 사용자가 새 EAS 빌드로 직접 확인 필요. 상세는 `docs/DECISION_LOG.md` 2026-09-08
+
 ### Phase 23 — 스피킹 재구현 (`docs/SPEAKING_DESIGN.md`) ⏸ 보류 2026-09-01
 - [ ] WebView 녹음 환경 검증 6개 항목(§7, Azure 관련 2개 항목 제거됨)
 - [ ] Migration 23~24: speaking_sentences, speaking_recordings

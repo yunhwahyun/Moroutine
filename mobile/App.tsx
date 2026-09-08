@@ -122,7 +122,13 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    Notifications.requestPermissionsAsync()
+    // 결과를 웹에 알려줘서(REQUEST_PERMISSION 응답을 기다리지 않고도) 알림 권한이 거부된 경우
+    // 설정 화면에서 안내 배너를 띄울 수 있게 한다 — 이 요청 자체는 앱 최초 실행 시 딱 한 번만
+    // 시스템 프롬프트를 띄우고, 사용자가 거부하면 이후로는 재요청해도 프롬프트가 다시 안 뜬다
+    // (iOS/Android 공통 정책) — 그래서 "권한 없음"을 사용자에게 보여주는 게 유일한 대응 수단이다.
+    Notifications.requestPermissionsAsync().then(({ granted }) => {
+      sendToWeb({ type: 'PERMISSION_RESULT', payload: { permission: 'notifications', granted } })
+    })
 
     // RevenueCat 초기화. 실계정 준비 전이라 EXPO_PUBLIC_REVENUECAT_API_KEY_* 미설정 시 스킵한다.
     const apiKey = Platform.OS === 'ios'

@@ -6,6 +6,49 @@
 
 ## 2026-09-08
 
+### 일정 알림이 전혀 오지 않던 버그 — WEB_READY 미전송 + 알림 권한 결과 미확인
+
+- **배경**: "일정은 지정된 알림 시간에 알림이 와야하는데 알림이 안와" 리포트로 조사를 시작했다.
+  `notificationScheduler.ts`의 예약 로직(발생 시각 계산 → `createNotifications` → 개별
+  `bridge.scheduleNotification`) 자체는 정상이었다.
+- **1차 원인(가장 치명적, 자동재생 버그와 동일 계열)**: `web/src/bridge/index.ts`의
+  `bridge.ready()`(→ `WEB_READY` 전송)가 웹 코드 어디에서도 호출되지 않고 있었다.
+  `mobile/App.tsx`의 `sendToWeb()`는 `WEB_READY`를 받기 전까지 네이티브→웹 모든 메시지를
+  `pendingQueue`에 쌓아두는 구조라, 알림 예약 결과뿐 아니라 자동재생 진행 이벤트·구매 결과·STT
+  결과까지 네이티브 기동 초기엔 전부 유실되고 있었다(이번 세션 자동재생 미니플레이어 고착 버그의
+  진짜 근본 원인도 이것). `web/src/App.tsx`의 최상위 `App()`에 `useEffect(() => { if (isNative())
+  bridge.ready() }, [])`를 추가해 해결.
+- **2차 원인(알림 특정)**: `bridge.requestPermission()`(웹→네이티브, 알림 권한 재요청)이 어떤
+  화면에서도 호출되지 않았고, 유일한 권한 요청은 `mobile/App.tsx` 마운트 시 fire-and-forget으로
+  실행되는 `Notifications.requestPermissionsAsync()`뿐이었다 — 결과(허용/거부)를 아무 데서도
+  확인하지 않아, 사용자가 최초 설치 시 권한을 거부했어도 앱 안에서는 전혀 알 수 없었다(iOS/Android
+  둘 다 한 번 거부하면 OS가 재요청 팝업을 다시 띄우지 않는다).
+- **결정**: `mobile/App.tsx`의 권한 요청을 `Notifications.requestPermissionsAsync().then(({granted})
+  => sendToWeb({type:'PERMISSION_RESULT', payload:{permission:'notifications', granted}}))`로 바꿔
+  결과를 웹에 능동 전달하고, 웹에 `web/src/stores/notificationPermissionStore.ts`(항상 등록되는
+  `registerBridgeListener` 패턴)를 신설해 이를 저장. `SettingsPage.tsx`의 "알림" 섹션에
+  `isNative() && granted === false`일 때 시스템 설정에서 권한을 켜달라는 안내 배너를 추가.
+- **한계**: 이 환경엔 실기기가 없어 권한 거부 상태에서 배너가 실제로 뜨는지, 권한을 켠 뒤 알림이
+  실제로 오는지는 검증 불가 — 사용자가 실기기에서 직접 확인해야 한다. 또한 "테스트로 등록한 일정의
+  알림 시각이 이미 과거였을 가능성"(이 경우 `fireAt > now` 필터로 정상적으로 스킵되는 것이지 버그가
+  아님)은 이번에 배제하지 못했으므로, 권한을 켠 뒤에도 알림이 안 온다면 일정의 알림 시각 자체를
+  다시 확인해봐야 한다.
+
+### 일정 입력 날짜/시간 — 안드로이드 화살표 여백 + iOS 오버플로우 추가 수정 (아이콘 오버레이는 재시도 안 함)
+
+- **배경**: 순정 네이티브 input으로 되돌린 뒤에도 "안드로이드 화살표가 우측에 너무 붙어있다",
+  "아이폰에서 date가 컨텐츠 박스를 뚫고 넘어간다"는 리포트가 있었다. 아래는 셰도우 DOM을 건드리지
+  않는 안전한 여백/레이아웃 수정만 적용한다(아이콘 오버레이 방식은 위 2건의 실패로 재시도하지
+  않기로 확정됨).
+- **결정**: `ScheduleListPage.tsx`의 모든 date/time input에 `pr-5`를 추가해 네이티브 화살표와
+  입력 텍스트/박스 우측 경계 사이 여백을 넓혔다. 시작/종료 일시 행은 기존에 370px 이하에서만
+  세로로 쌓이던 조건부 레이아웃(`max-[370px]:flex-col`)을, 그 임계값으로도 iOS 오버플로우가
+  재현된 점을 감안해 화면 크기와 무관하게 항상 `flex flex-col`로 쌓이도록 단순화했다.
+- **한계**: 실기기 확인 없이 적용한 수정이라 이번에도 완전히 해결됐는지는 사용자의 실기기 재확인이
+  필요하다.
+
+---
+
 ### (시도 후 되돌림) 날짜/시간 입력 아이콘 통일 — 네이티브 아이콘 위에 커스텀 아이콘 오버레이
 
 - **시도**: `<input type="date">`/`type="time">`의 네이티브 달력·시계 아이콘이 Android/iOS/웹마다

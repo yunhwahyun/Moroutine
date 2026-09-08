@@ -249,18 +249,19 @@ function ScheduleFormPanel({
       <div className="flex flex-col gap-2">
         <div className="flex items-start gap-2 overflow-hidden">
           <span className={LABEL}>시작</span>
-          {/* 370px 이하 좁은 화면에서는 날짜/시간이 한 줄에 다 안 들어가고 잘려서 세로로 쌓는다 */}
-          <div className="flex gap-2 flex-1 overflow-hidden max-[370px]:flex-col">
+          {/* 날짜+시간을 한 줄에 나란히 두면 좁은 화면에서 계속 잘리는 문제가 반복돼(iOS 네이티브
+              date input의 최소 너비가 예측 불가) 폭에 상관없이 항상 세로로 쌓는다. */}
+          <div className="flex flex-col gap-2 flex-1 overflow-hidden">
             <input
               type="date" value={form.date}
               onChange={(e) => onChange({ ...form, date: e.target.value })}
-              className={`${INPUT} flex-[3] min-w-0 max-[370px]:flex-none max-[370px]:w-full`}
+              className={`${INPUT} min-w-0 pr-5`}
             />
             {!form.isAllDay && (
               <input
                 type="time" value={form.time}
                 onChange={(e) => onChange({ ...form, time: e.target.value })}
-                className={`${INPUT} flex-[2] min-w-0 max-[370px]:flex-none max-[370px]:w-full`}
+                className={`${INPUT} min-w-0 pr-5`}
               />
             )}
           </div>
@@ -268,16 +269,16 @@ function ScheduleFormPanel({
         {!form.isAllDay && (
           <div className="flex items-start gap-2 overflow-hidden">
             <span className={LABEL}>종료</span>
-            <div className="flex gap-2 flex-1 overflow-hidden max-[370px]:flex-col">
+            <div className="flex flex-col gap-2 flex-1 overflow-hidden">
               <input
                 type="date" value={form.endDate}
                 onChange={(e) => onChange({ ...form, endDate: e.target.value })}
-                className={`${INPUT} flex-[3] min-w-0 max-[370px]:flex-none max-[370px]:w-full`}
+                className={`${INPUT} min-w-0 pr-5`}
               />
               <input
                 type="time" value={form.endTime}
                 onChange={(e) => onChange({ ...form, endTime: e.target.value })}
-                className={`${INPUT} flex-[2] min-w-0 max-[370px]:flex-none max-[370px]:w-full`}
+                className={`${INPUT} min-w-0 pr-5`}
               />
             </div>
           </div>
@@ -332,7 +333,7 @@ function ScheduleFormPanel({
               <input
                 type="date" value={form.repeatUntil}
                 onChange={(e) => onChange({ ...form, repeatUntil: e.target.value })}
-                className={`${INPUT} min-w-0`}
+                className={`${INPUT} min-w-0 pr-5`}
               />
             )}
             {form.repeatEndType === 'count' && (
@@ -803,12 +804,12 @@ export default function ScheduleListPage() {
         <div className="flex items-center gap-2 overflow-hidden">
           <input type="date" value={fromDate}
             onChange={(e) => { setFromDate(e.target.value); setActivePreset(null) }}
-            className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
+            className="flex-1 min-w-0 border border-gray-200 rounded-lg pl-3 pr-5 py-2 text-sm outline-none focus:border-gray-400"
           />
           <span className="text-gray-400 text-sm shrink-0">~</span>
           <input type="date" value={toDate}
             onChange={(e) => { setToDate(e.target.value); setActivePreset(null) }}
-            className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
+            className="flex-1 min-w-0 border border-gray-200 rounded-lg pl-3 pr-5 py-2 text-sm outline-none focus:border-gray-400"
           />
         </div>
       </div>

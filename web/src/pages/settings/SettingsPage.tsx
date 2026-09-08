@@ -8,6 +8,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { getRepository } from '@/repositories/factory'
 import { isNative } from '@/bridge'
+import { useNotificationPermissionStore } from '@/stores/notificationPermissionStore'
 import { Section, Row } from '@/components/ui/SettingsList'
 import {
   buildBackup,
@@ -188,6 +189,7 @@ export default function SettingsPage() {
   const { settings, update } = useUserSettings()
   const { permissions } = usePermissions()
   const { paymentsEnabled } = useAppConfig()
+  const notificationGranted = useNotificationPermissionStore((s) => s.granted)
   const tier = permissions?.serviceTier ?? 'guest'
   const repository = tier !== 'admin' ? getRepository(tier) : null
 
@@ -467,6 +469,15 @@ export default function SettingsPage() {
 
         {/* 알림 */}
         <Section title="알림">
+          {isNative() && notificationGranted === false && (
+            <div className="px-4 py-3 bg-amber-50 border-b border-amber-200">
+              <p className="text-xs text-amber-800 leading-relaxed">
+                알림 권한이 꺼져 있어 일정/복습 알림이 오지 않습니다. 기기의 설정 앱에서 이 앱의
+                알림 권한을 켜주세요. (앱 안에서 다시 요청해도 한 번 거부하면 시스템이 재요청 창을
+                띄우지 않습니다.)
+              </p>
+            </div>
+          )}
           <Row label="일정 알림">
             <Toggle
               value={settings.scheduleNotification}
