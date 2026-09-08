@@ -5,7 +5,6 @@ import { getRepository } from '@/repositories/factory'
 import { refreshScheduleNotifications, cancelScheduleNotifications } from '@/lib/notificationScheduler'
 import { EditIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
-import NativeDateTimeInput from '@/components/ui/DateTimeInput'
 import {
   expandScheduleOccurrences,
   applyScheduleExceptions,
@@ -250,17 +249,18 @@ function ScheduleFormPanel({
       <div className="flex flex-col gap-2">
         <div className="flex items-start gap-2 overflow-hidden">
           <span className={LABEL}>시작</span>
-          <div className="flex gap-2 flex-1 overflow-hidden">
-            <NativeDateTimeInput
+          {/* 370px 이하 좁은 화면에서는 날짜/시간이 한 줄에 다 안 들어가고 잘려서 세로로 쌓는다 */}
+          <div className="flex gap-2 flex-1 overflow-hidden max-[370px]:flex-col">
+            <input
               type="date" value={form.date}
-              onChange={(v) => onChange({ ...form, date: v })}
-              wrapperClassName="flex-[3]"
+              onChange={(e) => onChange({ ...form, date: e.target.value })}
+              className={`${INPUT} flex-[3] min-w-0 max-[370px]:flex-none max-[370px]:w-full`}
             />
             {!form.isAllDay && (
-              <NativeDateTimeInput
+              <input
                 type="time" value={form.time}
-                onChange={(v) => onChange({ ...form, time: v })}
-                wrapperClassName="flex-[2]"
+                onChange={(e) => onChange({ ...form, time: e.target.value })}
+                className={`${INPUT} flex-[2] min-w-0 max-[370px]:flex-none max-[370px]:w-full`}
               />
             )}
           </div>
@@ -268,16 +268,16 @@ function ScheduleFormPanel({
         {!form.isAllDay && (
           <div className="flex items-start gap-2 overflow-hidden">
             <span className={LABEL}>종료</span>
-            <div className="flex gap-2 flex-1 overflow-hidden">
-              <NativeDateTimeInput
+            <div className="flex gap-2 flex-1 overflow-hidden max-[370px]:flex-col">
+              <input
                 type="date" value={form.endDate}
-                onChange={(v) => onChange({ ...form, endDate: v })}
-                wrapperClassName="flex-[3]"
+                onChange={(e) => onChange({ ...form, endDate: e.target.value })}
+                className={`${INPUT} flex-[3] min-w-0 max-[370px]:flex-none max-[370px]:w-full`}
               />
-              <NativeDateTimeInput
+              <input
                 type="time" value={form.endTime}
-                onChange={(v) => onChange({ ...form, endTime: v })}
-                wrapperClassName="flex-[2]"
+                onChange={(e) => onChange({ ...form, endTime: e.target.value })}
+                className={`${INPUT} flex-[2] min-w-0 max-[370px]:flex-none max-[370px]:w-full`}
               />
             </div>
           </div>
@@ -329,9 +329,10 @@ function ScheduleFormPanel({
               {REPEAT_END_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
             {form.repeatEndType === 'until' && (
-              <NativeDateTimeInput
+              <input
                 type="date" value={form.repeatUntil}
-                onChange={(v) => onChange({ ...form, repeatUntil: v })}
+                onChange={(e) => onChange({ ...form, repeatUntil: e.target.value })}
+                className={`${INPUT} min-w-0`}
               />
             )}
             {form.repeatEndType === 'count' && (
@@ -800,14 +801,14 @@ export default function ScheduleListPage() {
           ))}
         </div>
         <div className="flex items-center gap-2 overflow-hidden">
-          <NativeDateTimeInput type="date" value={fromDate}
-            onChange={(v) => { setFromDate(v); setActivePreset(null) }}
-            wrapperClassName="flex-1"
+          <input type="date" value={fromDate}
+            onChange={(e) => { setFromDate(e.target.value); setActivePreset(null) }}
+            className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
           />
           <span className="text-gray-400 text-sm shrink-0">~</span>
-          <NativeDateTimeInput type="date" value={toDate}
-            onChange={(v) => { setToDate(v); setActivePreset(null) }}
-            wrapperClassName="flex-1"
+          <input type="date" value={toDate}
+            onChange={(e) => { setToDate(e.target.value); setActivePreset(null) }}
+            className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
           />
         </div>
       </div>
