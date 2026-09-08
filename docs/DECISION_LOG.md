@@ -6,6 +6,31 @@
 
 ## 2026-09-08
 
+### 일정 날짜/시간 입력 아이콘 통일 — 앱(WebView)에서만 재시도, 웹은 그대로 유지
+
+- **배경**: 위 항목("iOS 오버플로우, pr-5로도 미해결")에서 추가 CSS 추측을 보류하고 사용자에게
+  방향을 물었다. 사용자가 "앱/웹을 분기할 수 있으면 앱은 예전 아이콘 통일 방식대로 처리하고 웹은
+  지금대로 유지"를 선택 — 과거 실패 이력을 다시 보면, 실제로 **데스크톱 웹에서만** 값이 안 보이는
+  치명적 실패가 있었고(2차 시도), iOS/Android 자체에서 이 특정 레시피(appearance-none +
+  `::-webkit-calendar-picker-indicator` display:none)가 실패했다는 기록은 없다(1차 시도의 iOS
+  글리치는 이것과 다른 방식 — opacity로만 숨기고 커스텀 아이콘을 겹쳐 그리는 방식 — 이었다). 즉
+  "웹에서 실패"와 "앱에서 실패"가 서로 다른 시도에서 나온 증상이라 분기하면 각자의 실패를 피할 수
+  있다는 논리가 성립한다.
+- **결정**: `web/src/components/ui/NativeDateTimeInput.tsx` 신설 — `isNative()`가 거짓(브라우저)이면
+  기존과 100% 동일한 순정 `<input type="date"|"time">`을 그대로 렌더링(웹 경로 완전 무변경, 회귀
+  위험 없음). `isNative()`가 참(앱 WebView)일 때만 `appearance-none` + `::-webkit-date-and-time-value`
+  정렬 보정 + `::-webkit-calendar-picker-indicator{display:none}`을 적용하는 `.native-datetime-input`
+  클래스(전역 CSS에 추가하되 이 클래스 자체가 앱에서만 DOM에 붙으므로 웹에는 영향 없음)를 씌우고,
+  네이티브 아이콘 자리에 공용 `CalendarIcon`/`ClockIcon`(신규, `components/icons.tsx`)을
+  `pointer-events-none`으로 절대 위치시켜 아이콘을 통일한다. 우측 여백은 Tailwind 클래스 캐스케이드
+  순서 문제(이전 `pr-5` vs `px-3` 우선순위 혼란 경험)를 피하기 위해 인라인 `style={{paddingRight}}`로
+  고정해 항상 확실히 이기게 했다. `ScheduleListPage.tsx`(6곳)·`SettingsPage.tsx`(1곳) 전부 이
+  컴포넌트로 교체.
+- **한계**: 여전히 이 환경엔 실기기가 없어 앱에서 실제로 아이콘이 겹치지 않고 오버플로우도
+  사라지는지는 검증 불가 — 사용자가 새 EAS 빌드로 확인 필요. 이번에도 실패하면(특히 이 레시피
+  자체가 애초에 iOS 앱에서도 실패했었는데 그 라운드에 마침 다른 증상에 가려 못 알아챘을 가능성),
+  더 이상 네이티브 input CSS를 재시도하지 않고 완전한 커스텀 피커로 전환하는 게 맞다는 판단.
+
 ### 메인 화면에 등록된 일정이 안 보이던 버그 — HomePage가 Guest에서 항상 Supabase를 직접 조회
 
 - **배경**: "일정이 있는데 메인에는 등록된 일정이 없다고 나와" 리포트. `HomePage.tsx`의

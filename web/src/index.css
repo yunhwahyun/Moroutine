@@ -43,4 +43,18 @@
     background-position: right 1rem center;
     background-size: 1.4rem;
   }
+  /* 앱(WebView)에서만 NativeDateTimeInput이 붙이는 클래스 — 네이티브 달력/시계 아이콘을 완전히
+     지우고 공용 SVG 아이콘으로 대체한다(웹은 이 클래스가 아예 안 붙으므로 영향 없음). */
+  .native-datetime-input {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .native-datetime-input::-webkit-date-and-time-value {
+    text-align: left;
+    margin: 0;
+  }
+  .native-datetime-input::-webkit-calendar-picker-indicator {
+    display: none;
+    -webkit-appearance: none;
+  }
 }

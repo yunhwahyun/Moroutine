@@ -306,6 +306,14 @@ _현재 진행 중인 작업 없음_
 - [x] `web`: `tsc -b`/`eslint .`/`vite build` 통과
 - [ ] **미해결**: iOS date/time input이 여전히 컨텐츠 박스를 넘어감 — `pr-5`로도 해결 안 됨, 단독 입력(반복 종료일)에서도 재현돼 CSS `width` 자체를 무시하는 WebKit 동작으로 추정. 추가 CSS 추측 대신 사용자와 방향(커스텀 피커 신규 제작 vs 현행 유지) 확인 필요 — `docs/DECISION_LOG.md` 2026-09-08
 
+### 일정 날짜/시간 아이콘 통일 — 앱 전용 재시도 ✅ 완료 2026-09-08
+- [x] `web/src/components/ui/NativeDateTimeInput.tsx` 신설 — `isNative()`일 때만 아이콘 통일 CSS/오버레이 적용, 웹은 순정 input 그대로
+- [x] `components/icons.tsx`에 `CalendarIcon`/`ClockIcon` 추가
+- [x] `index.css`에 `.native-datetime-input` 스코프 규칙 추가(appearance-none + calendar-picker-indicator 제거)
+- [x] `ScheduleListPage.tsx`(6곳)/`SettingsPage.tsx`(1곳)의 date/time input을 전부 교체
+- [x] `web`: `tsc -b`/`eslint .`/`vite build` 통과
+- [ ] **한계 — 실기기 재검증 필요**: 이 환경엔 실기기가 없어 앱에서 아이콘 겹침/오버플로우가 실제로 해소되는지 확인 불가. 재차 실패 시 네이티브 input CSS 재시도를 완전히 중단하고 커스텀 피커로 전환 예정
+
 ### Phase 23 — 스피킹 재구현 (`docs/SPEAKING_DESIGN.md`) ⏸ 보류 2026-09-01
 - [ ] WebView 녹음 환경 검증 6개 항목(§7, Azure 관련 2개 항목 제거됨)
 - [ ] Migration 23~24: speaking_sentences, speaking_recordings
