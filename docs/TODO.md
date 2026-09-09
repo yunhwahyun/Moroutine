@@ -348,6 +348,14 @@ _현재 진행 중인 작업 없음_
 - [x] `web`: `tsc -b`/`eslint .`/`vite build` 통과, `mobile`: `tsc --noEmit` 통과
 - [ ] **한계**: `mobile/App.tsx` 변경 — 실기기 검증은 새 EAS 빌드 필요
 
+### 복습 알림 신규 구현 ✅ 완료 2026-09-09
+- [x] 설정의 "복습 알림" 토글/시간이 저장만 되고 실제 예약 코드가 전혀 없던(처음부터 미구현) 상태 발견
+- [x] `web/src/lib/reviewNotificationScheduler.ts`(신규) — 앱 로드/설정 변경 시마다 "다음 1회분"만 계산해 예약(복습 대상은 매일 바뀌어 캘린더처럼 미리 예약 불가), 복습할 단어가 0개면 예약 안 함
+- [x] `web/src/components/notifications/ReviewNotificationSync.tsx`(신규) — App.tsx AuthProvider에 마운트, `useSettingsStore` 값 변경 시 즉시 재계산
+- [x] 기존 범용 알림 브리지 메시지 재사용 — `mobile/App.tsx` 무변경, EAS 재빌드 불필요
+- [x] `web`: `tsc -b`/`eslint .`/`vite build` 통과
+- [ ] **한계**: 실기기 검증 불가. 퀴즈 완료 직후 등 앱을 계속 켜둔 채로 데이터가 바뀌는 시점엔 재계산이 다음 앱 재진입까지 지연될 수 있음(범위 밖, 필요 시 후속으로 퀴즈 완료 훅 추가 가능)
+
 ### Phase 23 — 스피킹 재구현 (`docs/SPEAKING_DESIGN.md`) ⏸ 보류 2026-09-01
 - [ ] WebView 녹음 환경 검증 6개 항목(§7, Azure 관련 2개 항목 제거됨)
 - [ ] Migration 23~24: speaking_sentences, speaking_recordings

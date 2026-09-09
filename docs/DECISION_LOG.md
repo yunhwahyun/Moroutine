@@ -6,6 +6,40 @@
 
 ## 2026-09-09
 
+### 복습 알림 신규 구현 — 설정 토글/시간이 저장만 되고 실제로는 아무것도 예약하지 않던 기능
+
+- **배경**: "학습 알림(복습 알림)이 안 온다"는 리포트로 조사한 결과, 설정 화면의 "복습 알림"
+  토글/시간(`reviewNotification`/`reviewNotificationTime`)은 값이 저장은 되지만 그 값을 읽어서
+  실제로 `bridge.scheduleNotification()`을 호출하는 코드가 어디에도 없었다 — 버그가 아니라
+  **처음부터 구현되지 않은 기능**이었다(일정 알림용 `notificationScheduler.ts`만 있고 복습용은
+  없었음).
+- **왜 캘린더 일정과 다르게 만들어야 했는가**: 일정은 미래 날짜가 고정돼 있어 앞으로 30일치를
+  한 번에 예약해둘 수 있지만(`notificationScheduler.ts`), 복습 대상(`words.status='reviewing'`
+  AND `next_review_at <= 시각`)은 사용자가 매일 얼마나 학습하느냐에 따라 계속 바뀐다 — 오늘 복습을
+  다 끝내면 내일 알림이 필요 없어질 수도 있다. 그래서 먼 미래까지 미리 계산해두는 대신, **앱을 열
+  때마다 + 설정이 바뀔 때마다 "다음 1회분"만 다시 계산**해서 예약하는 방식으로 설계했다 — 사용자가
+  "복습 주기도 포함이어야 한다"고 명시한 요구사항과도 일치(그 시각까지 복습할 단어가 하나도 없으면
+  아예 예약하지 않음, 있으면 개수를 본문에 넣어서 예약).
+- **결정**: `web/src/lib/reviewNotificationScheduler.ts`(신규) — `refreshReviewNotification(repository,
+  settings)`가 (1) 이전에 예약해둔 네이티브 알림을 취소(`localStorage`에 저장해둔 native id로,
+  기존 일정 알림처럼 DB `notifications` 테이블을 쓰지 않음 — native id는 기기 로컬 값이라 테이블화할
+  이유가 없어 더 가벼운 방식 선택) → (2) `reviewNotification`이 꺼져 있으면 종료 → (3) 다음 알림
+  시각(오늘 그 시각이 지났으면 내일)을 계산해 `repository.getReviewQueue(그 시각)`으로 그때까지
+  복습할 단어 수를 조회 → (4) 0개면 예약 안 함, 1개 이상이면 그 시각·개수로 `SCHEDULE_NOTIFICATION`
+  전송. 새 컴포넌트 `web/src/components/notifications/ReviewNotificationSync.tsx`(App.tsx의
+  AuthProvider에 다른 Gate들과 나란히 마운트)가 앱 로드 시 + `useSettingsStore()`의 두 설정값이
+  바뀔 때마다 이 함수를 호출한다 — 설정 화면은 `patchSettings()`로 낙관적 즉시 갱신을 하고 있어서
+  (`useUserSettings.ts`), 이 Gate의 `useEffect` 의존성이 그 값을 그대로 구독하는 것만으로 "시간을
+  바꾸면 바로 재예약"이 별도 배선 없이 자연히 충족된다.
+- **네이티브 변경 없음**: 기존 `SCHEDULE_NOTIFICATION`/`CANCEL_NOTIFICATION`/`NOTIFICATION_RESULT`
+  브리지 메시지가 이미 범용적으로(어떤 용도인지 모른 채 id/title/body/fireAt만 다룸) 구현돼 있어
+  `mobile/App.tsx`를 전혀 건드리지 않았다 — 웹 배포만으로 반영되며 EAS 재빌드 불필요.
+- **적용**: `tsc -b`/`eslint .`/`vite build` 통과.
+- **한계**: 실기기 검증 불가(환경 제약). "다음 1회분만 계산" 방식이라 앱을 며칠간 안 열면 그 사이
+  갱신이 안 되고(마지막으로 예약해둔 그 1건만 발사됨), 퀴즈 완료 직후처럼 데이터가 막 바뀐 시점에는
+  다음에 앱을 다시 열 때까지 재계산이 지연될 수 있음(스코프 축소, 필요하면 후속으로 퀴즈 완료
+  시점에도 재계산 훅 추가 가능).
+
 ### 자동재생 미니 플레이어 — 배속 슬라이더 커스텀 스타일 적용(1차: 진행 채움 제외)
 
 - **요구사항**: 기존 `accent-white`만 쓰던 배속 `<input type="range">`를 사용자가 지정한 트랙/썸
