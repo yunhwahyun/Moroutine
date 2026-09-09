@@ -306,11 +306,9 @@ export default function SettingsPage() {
         {/* docs/UI_FLOW.md §3 Guest 안내 배너 */}
         {tier === 'guest' && (
           <div className="bg-yellow-50 text-yellow-700 text-xs px-4 py-3 leading-relaxed">
-            무료 이용 데이터는 현재 기기에만 저장됩니다.
+            데이터는 현재 기기에만 저장됩니다.
             <br />
             앱을 삭제하거나 기기 데이터를 초기화하면 데이터를 복구할 수 없습니다.
-            <br />
-            Pro를 시작하면 데이터를 계정에 저장하고 다른 기기에서도 사용할 수 있습니다.
           </div>
         )}
 
@@ -322,14 +320,16 @@ export default function SettingsPage() {
                 <span className="text-sm text-gray-400">현재 기기에 저장 중</span>
               </Row>
               <Row label="단어 등록">
-                <span className="text-sm text-gray-400">제한 없음(로컬 저장)</span>
+                <span className="text-sm text-gray-400">제한 없음</span>
               </Row>
-              <button
-                onClick={() => navigate('/pricing')}
-                className="w-full flex items-center px-4 py-3.5 min-h-[52px]"
-              >
-                <span className="text-sm text-gray-900 font-medium">Pro 요금제 보기</span>
-              </button>
+              {paymentsEnabled && (
+                <button
+                  onClick={() => navigate('/pricing')}
+                  className="w-full flex items-center px-4 py-3.5 min-h-[52px]"
+                >
+                  <span className="text-sm text-gray-900 font-medium">Pro 요금제 보기</span>
+                </button>
+              )}
             </>
           )}
 
@@ -350,7 +350,9 @@ export default function SettingsPage() {
               <Row label="단어 등록">
                 <span className="text-sm text-gray-400">
                   {tier === 'pro'
-                    ? `${personalWordCount ?? '-'}/${permissions?.personalWordLimit ?? '무제한'}개`
+                    ? permissions?.personalWordLimit === null
+                      ? '무제한'
+                      : `${personalWordCount ?? '-'}/${permissions?.personalWordLimit}개`
                     : '무제한'}
                 </span>
               </Row>

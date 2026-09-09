@@ -357,7 +357,8 @@ export default function WordbookListPage() {
         {!isLoading && wordbooks.length === 0 && !showForm && (
           <div className="flex flex-col items-center justify-center py-16 gap-1">
             <p className="text-gray-400 text-sm">단어장이 없습니다</p>
-            <p className="text-gray-300 text-xs">추가 버튼으로 만들어보세요</p>
+            <p className="text-gray-300 text-xs">단어장을 추가하고,</p>
+            <p className="text-gray-300 text-xs">학습할 단어들로 채워보세요</p>
           </div>
         )}
 
