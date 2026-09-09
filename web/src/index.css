@@ -58,27 +58,31 @@
     -webkit-appearance: none;
   }
   /* 자동재생 미니 플레이어의 배속 슬라이더(AutoPlayBar.tsx) — 트랙/썸을 직접 그린다.
-     진행 채움(흰색 1 → 흰색 .4)은 컴포넌트가 현재 값 기준으로 계산한 linear-gradient를
-     인라인 style.background로 얹는다 — 트랙 자체는 배경을 transparent로 비워 그 위에 비친다. */
+     진행 채움(값 이전/이후 색 다르게)은 스크립트 계산이 필요해 이번엔 제외 — 트랙은 단색
+     고정(rgba(255,255,255,.4)). */
   .autoplay-rate-slider {
     -webkit-appearance: none;
     appearance: none;
+    cursor: pointer;
+    outline: none;
     width: 100%;
     height: 1rem;
-    background: transparent;
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
   }
   .autoplay-rate-slider::-webkit-slider-runnable-track {
     cursor: pointer;
     width: 100%;
     height: 0.25rem;
-    background-color: transparent;
+    background-color: rgba(255, 255, 255, 0.4);
     border-radius: 0.25rem;
   }
   .autoplay-rate-slider::-moz-range-track {
     cursor: pointer;
     width: 100%;
     height: 0.25rem;
-    background-color: transparent;
+    background-color: rgba(255, 255, 255, 0.4);
     border-radius: 0.25rem;
   }
   .autoplay-rate-slider::-webkit-slider-thumb {
@@ -107,5 +111,12 @@
   }
   .autoplay-rate-slider::-moz-range-thumb:active {
     box-shadow: 0 0 0 1px #fff, 0 0 0 0.25rem rgba(255, 255, 255, 0.4);
+  }
+  .autoplay-rate-slider:disabled::-webkit-slider-thumb {
+    pointer-events: none;
+    background-color: rgba(255, 255, 255, 0.4);
+  }
+  .autoplay-rate-slider:disabled::-moz-range-thumb {
+    background-color: rgba(255, 255, 255, 0.4);
   }
 }

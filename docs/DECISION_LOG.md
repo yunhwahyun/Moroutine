@@ -6,20 +6,23 @@
 
 ## 2026-09-09
 
-### 자동재생 미니 플레이어 — 배속 슬라이더 커스텀 스타일 적용
+### 자동재생 미니 플레이어 — 배속 슬라이더 커스텀 스타일 적용(1차: 진행 채움 제외)
 
 - **요구사항**: 기존 `accent-white`만 쓰던 배속 `<input type="range">`를 사용자가 지정한 트랙/썸
   스펙(트랙 높이 0.25rem, 썸 1rem 원형 + 진하게 두른 그림자, active 시 흰 테두리 추가)으로 교체.
-  트랙 배경이 값 이전(불투명 흰색)/이후(반투명 흰색) 두 톤으로 나뉘는 진행 채움도 스펙에 포함.
-- **구현**: `web/src/index.css`에 `.autoplay-rate-slider` 클래스 신설 —
-  `::-webkit-slider-runnable-track`/`::-moz-range-track`는 배경을 transparent로 비우고,
-  `::-webkit-slider-thumb`/`::-moz-range-thumb`(+`:active`)에 스펙 그대로의 크기/그림자/트랜지션을
-  적용(기존 `.native-datetime-input`과 동일하게 네이티브 폼 컨트롤을 직접 재스타일링하는 패턴).
-  진행 채움은 트랙 자체가 아니라 `AutoPlayBar.tsx`가 `rate` 값 기준으로 계산한
-  `linear-gradient(...)`를 `<input>`의 인라인 `style.background`로 얹어 구현(트랙 pseudo-element
-  배경이 transparent라 이 배경이 그대로 비친다).
-- **적용**: `tsc -b`/`eslint`/`vite build` 통과, 빌드 CSS에 벤더 접두사 규칙 전부 생성됨을 확인.
-  웹 전용 수정, EAS 재빌드 불필요.
+- **1차 시도의 실수**: 값 이전(불투명 흰색)/이후(반투명 흰색) 두 톤으로 나뉘는 진행 채움까지
+  욕심내서 `rate` 기준 `linear-gradient(...)`를 `<input>` 자체의 인라인 `style.background`로
+  얹었는데, 트랙(`::-webkit-slider-runnable-track`)은 0.25rem으로 얇아도 그 배경을 투명하게
+  비워둔 탓에 **input 자체의 1rem 높이 전체에 그라디언트가 그대로 비쳐서** 트랙이 썸만큼 두꺼워
+  보이는 버그가 났다(스크린샷으로 확인). 사용자가 "진행 채움은 스크립트가 필요하니 이번엔 제외"라고
+  먼저 밝혔는데 그 부분까지 포함시킨 게 원인 — 사용자가 준 순정 레퍼런스 HTML(스크립트 없이 트랙
+  단색 고정)대로 다시 맞췄다.
+- **최종**: `.autoplay-rate-slider`의 트랙 배경을 `rgba(255,255,255,.4)` 단색 고정으로 되돌리고,
+  `AutoPlayBar.tsx`의 인라인 `style`(그라디언트)을 완전히 제거. `disabled` 상태 스타일도 레퍼런스에
+  맞춰 추가(현재 이 슬라이더는 disabled를 쓰지 않지만 스펙 충실도 차원에서 포함).
+- **적용**: `tsc -b`/`eslint`/`vite build` 통과, 빌드 CSS가 레퍼런스와 동일한 규칙으로 생성됨을
+  확인. 웹 전용 수정, EAS 재빌드 불필요. 진행 채움(두 톤)은 스크립트 연동이 필요해 후속 작업으로
+  남김.
 
 ### 문구 다듬기 — 빈 목록 안내, Guest 배너, 단어 한도 표시, Pro 요금제 노출 시점
 
