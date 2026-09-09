@@ -8,6 +8,8 @@
 
 복습 알림 신규 구현(2026-09-09): 설정의 "복습 알림" 토글/시간이 저장만 되고 실제로 아무것도 예약하지 않던(처음부터 미구현) 기능을 새로 만들었다. `web/src/lib/reviewNotificationScheduler.ts`가 앱 로드/설정 변경 시마다 "다음 1회분"만 다시 계산해 예약 — 그 시각까지 복습할 단어가 없으면 예약하지 않고, 있으면 개수를 알림 본문에 포함. 캘린더 일정과 달리 복습 대상은 매일 학습 여부에 따라 바뀌어 먼 미래까지 미리 예약해둘 수 없다는 게 이유(`docs/DECISION_LOG.md` 참고). 기존 범용 알림 브리지 메시지를 그대로 재사용해 `mobile/App.tsx` 무변경, EAS 재빌드 불필요. `tsc -b`/`eslint`/`vite build` 통과.
 
+자동재생 백그라운드 잠금화면 아트워크 추가(2026-09-09): `web/public/symbol.svg`(브랜드 로고마크)를 macOS Quick Look(`qlmanage -t`)로 PNG 변환해 `web/public/symbol-artwork.png`로 배포하고, `mobile/App.tsx`의 `setActiveForLockScreen` 메타데이터에 `artworkUrl`로 연결(원격 URL만 공식 문서화돼 있어 로컬 번들 에셋 대신 배포된 웹 정적 파일을 참조 — 앞으로 이미지만 교체하면 EAS 재빌드 없이 갱신됨). `mobile/App.tsx` 변경이라 이번엔 EAS 재빌드 필요. `mobile`: `tsc --noEmit`, `web`: `vite build` 통과.
+
 ---
 
 ## Completed

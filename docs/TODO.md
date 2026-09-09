@@ -356,6 +356,12 @@ _현재 진행 중인 작업 없음_
 - [x] `web`: `tsc -b`/`eslint .`/`vite build` 통과
 - [ ] **한계**: 실기기 검증 불가. 퀴즈 완료 직후 등 앱을 계속 켜둔 채로 데이터가 바뀌는 시점엔 재계산이 다음 앱 재진입까지 지연될 수 있음(범위 밖, 필요 시 후속으로 퀴즈 완료 훅 추가 가능)
 
+### 자동재생 백그라운드 잠금화면 아트워크 추가 ✅ 완료 2026-09-09
+- [x] `web/public/symbol.svg`(브랜드 로고마크)를 `qlmanage -t`(macOS Quick Look SVG 렌더링)로 PNG 변환 — `UIImage`/Android 미디어 아트워크가 SVG를 지원하지 않아 필요했음
+- [x] `web/public/symbol-artwork.png`로 배포, `mobile/App.tsx`의 `setActiveForLockScreen` 메타데이터에 `artworkUrl: \`${WEB_APP_URL}/symbol-artwork.png\`` 추가(로컬 번들 에셋은 공식 문서에 없어 검증된 원격 URL 방식 채택)
+- [x] `mobile`: `tsc --noEmit`, `web`: `vite build` 통과(`dist/symbol-artwork.png` 생성 확인)
+- [ ] **한계**: `mobile/App.tsx` 변경이라 EAS 재빌드 필요, 실기기(잠금화면/제어센터/Dynamic Island) 검증 불가
+
 ### Phase 23 — 스피킹 재구현 (`docs/SPEAKING_DESIGN.md`) ⏸ 보류 2026-09-01
 - [ ] WebView 녹음 환경 검증 6개 항목(§7, Azure 관련 2개 항목 제거됨)
 - [ ] Migration 23~24: speaking_sentences, speaking_recordings

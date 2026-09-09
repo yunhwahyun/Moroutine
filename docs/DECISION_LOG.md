@@ -6,6 +6,31 @@
 
 ## 2026-09-09
 
+### 자동재생 백그라운드 잠금화면 아트워크 — symbol.svg를 PNG로 변환해 원격 URL로 참조
+
+- **요구사항**: 자동재생이 백그라운드에서 재생 중일 때 잠금화면/제어센터에 뜨는 미디어 정보
+  (`keepAlivePlayer.setActiveForLockScreen`)에 지금까지 없던 포스터 이미지를 `web/public/symbol.svg`
+  (912x912, 검정 배경 + 흰색 로고마크)로 넣고 싶다는 요청.
+- **SVG를 그대로 못 쓰는 이유(코드로 확인)**: `expo-audio`의 iOS 구현
+  (`node_modules/expo-audio/ios/MediaController.swift`)이 `artworkUrl`을
+  `URLSession.shared.dataTask`로 받아 `UIImage(data:)`로 디코딩하는데, **`UIImage`는 SVG를
+  지원하지 않는다**(PNG/JPEG 등 래스터 포맷만). Android도 `AudioMetadata.artworkUrl`이
+  `URL` 타입으로 선언돼 있어 마찬가지로 래스터 이미지를 기대한다. 그래서 `symbol.svg`를 PNG로
+  변환하는 과정이 필요했다 — 이 환경엔 `rsvg-convert`/`inkscape` 같은 SVG 렌더러가 없어, macOS
+  내장 Quick Look의 SVG 렌더링을 이용하는 `qlmanage -t -s 1024 -o <dir> symbol.svg` 트릭으로
+  1024x1024 PNG를 뽑아냈다(결과를 직접 열어 로고가 정확히 렌더링됐는지 확인).
+- **로컬 번들 에셋 대신 원격 URL 선택**: `expo-audio` 공식 문서(v56)에는 `artworkUrl`의 원격
+  HTTPS URL 예시만 있고 `require()`+`expo-asset`으로 만든 로컬 `file://` URI 사용은 문서화돼
+  있지 않다 — 이 환경엔 실기기가 없어 로컬 에셋 경로가 실제로 동작하는지 검증할 방법이 없으므로,
+  공식적으로 확인된 유일한 방식(원격 URL)을 택했다. 변환한 PNG를 `web/public/symbol-artwork.png`로
+  배포하고, `mobile/App.tsx`가 이미 갖고 있던 `WEB_APP_URL`(dev/prod 자동 분기)을 그대로 재사용해
+  `${WEB_APP_URL}/symbol-artwork.png`로 참조한다 — 덕분에 앞으로 아트워크를 바꿀 때도 이 파일만
+  교체하면 되고 EAS 재빌드가 필요 없다.
+- **적용**: `mobile`: `tsc --noEmit` 통과. `web`: `vite build` 통과, `dist/symbol-artwork.png` 생성
+  확인.
+- **한계**: 실기기가 없어 잠금화면/제어센터에 실제로 아트워크가 표시되는지는 검증 불가 — 이번
+  변경은 `mobile/App.tsx`를 건드렸으므로(URL 문자열 추가) 새 EAS 빌드가 필요하다.
+
 ### 복습 알림 신규 구현 — 설정 토글/시간이 저장만 되고 실제로는 아무것도 예약하지 않던 기능
 
 - **배경**: "학습 알림(복습 알림)이 안 온다"는 리포트로 조사한 결과, 설정 화면의 "복습 알림"

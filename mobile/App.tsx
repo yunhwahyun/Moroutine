@@ -392,7 +392,16 @@ export default function App() {
             console.error('[autoplay] requestNotificationPermissionsAsync error', error)
           }
         }
-        keepAlivePlayer.setActiveForLockScreen(true, { title: 'Moroutine', artist: '자동재생 중' })
+        // artworkUrl은 원격 URL만 공식 문서에 나와 있고 로컬 번들 에셋(file://) 사용은
+        // 문서화돼 있지 않아(실기기 검증도 불가한 환경) 안전하게 배포된 웹 앱의 정적 파일을
+        // 그대로 가리킨다 — web/public/symbol-artwork.png(symbol.svg를 PNG로 변환한 것,
+        // OS 락스크린/미디어 아트워크는 SVG를 지원하지 않는다). WEB_APP_URL이 이미 dev/prod를
+        // 구분해주므로 그대로 재사용한다.
+        keepAlivePlayer.setActiveForLockScreen(true, {
+          title: 'Moroutine',
+          artist: '자동재생 중',
+          artworkUrl: `${WEB_APP_URL}/symbol-artwork.png`,
+        })
         setKeepAlivePlaying(true)
         speakAutoplayWord(gen)
         break
