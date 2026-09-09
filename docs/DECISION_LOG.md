@@ -6,6 +6,21 @@
 
 ## 2026-09-09
 
+### 자동재생 미니 플레이어 — 배속 슬라이더 커스텀 스타일 적용
+
+- **요구사항**: 기존 `accent-white`만 쓰던 배속 `<input type="range">`를 사용자가 지정한 트랙/썸
+  스펙(트랙 높이 0.25rem, 썸 1rem 원형 + 진하게 두른 그림자, active 시 흰 테두리 추가)으로 교체.
+  트랙 배경이 값 이전(불투명 흰색)/이후(반투명 흰색) 두 톤으로 나뉘는 진행 채움도 스펙에 포함.
+- **구현**: `web/src/index.css`에 `.autoplay-rate-slider` 클래스 신설 —
+  `::-webkit-slider-runnable-track`/`::-moz-range-track`는 배경을 transparent로 비우고,
+  `::-webkit-slider-thumb`/`::-moz-range-thumb`(+`:active`)에 스펙 그대로의 크기/그림자/트랜지션을
+  적용(기존 `.native-datetime-input`과 동일하게 네이티브 폼 컨트롤을 직접 재스타일링하는 패턴).
+  진행 채움은 트랙 자체가 아니라 `AutoPlayBar.tsx`가 `rate` 값 기준으로 계산한
+  `linear-gradient(...)`를 `<input>`의 인라인 `style.background`로 얹어 구현(트랙 pseudo-element
+  배경이 transparent라 이 배경이 그대로 비친다).
+- **적용**: `tsc -b`/`eslint`/`vite build` 통과, 빌드 CSS에 벤더 접두사 규칙 전부 생성됨을 확인.
+  웹 전용 수정, EAS 재빌드 불필요.
+
 ### 문구 다듬기 — 빈 목록 안내, Guest 배너, 단어 한도 표시, Pro 요금제 노출 시점
 
 - **단어장/책장 빈 목록 안내**: "추가 버튼으로 만들어보세요"를 좀 더 구체적인 문구로 교체 —

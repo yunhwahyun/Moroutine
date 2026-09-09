@@ -30,6 +30,7 @@ export default function AutoPlayBar({
   term, caption, index, total, playing, rate, onToggle, onNext, onPrevious, onRateChange, onClose,
 }: Props) {
   const [showSpeed, setShowSpeed] = useState(false)
+  const ratePercent = ((rate - AUTOPLAY_MIN_RATE) / (AUTOPLAY_MAX_RATE - AUTOPLAY_MIN_RATE)) * 100
 
   return (
     <div>
@@ -62,7 +63,12 @@ export default function AutoPlayBar({
             step={RATE_STEP}
             value={rate}
             onChange={(e) => onRateChange(Number(e.target.value))}
-            className="w-full accent-white"
+            className="autoplay-rate-slider"
+            style={{
+              // 트랙 자체 배경은 index.css에서 transparent로 비워두고, 여기서 값 기준
+              // 진행 채움(썸 이전=불투명 흰색, 이후=반투명 흰색)을 그린다.
+              background: `linear-gradient(to right, rgba(255,255,255,1) 0%, rgba(255,255,255,1) ${ratePercent}%, rgba(255,255,255,.4) ${ratePercent}%, rgba(255,255,255,.4) 100%)`,
+            }}
             aria-label="자동재생 배속"
           />
           <div className="flex justify-between mt-1 px-0.5">
