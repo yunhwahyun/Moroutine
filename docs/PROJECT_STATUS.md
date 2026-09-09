@@ -2,6 +2,8 @@
 
 > 최종 업데이트: 2026-09-09
 
+관리자 화면 잔여 UI 정리(2026-09-09): (1) `/settings`가 사용자/관리자 공유 라우트라 `AppLayout`의 `RetentionBanner`(구독 만료 데이터 삭제 경고)가 tier 확인 없이 Admin에게도 노출되던 버그 수정(`serviceTier==='admin'`이면 렌더링 자체를 생략). (2) BottomNav 사용자/관리자 탭 완전 분리(2026-09-01) 이후 죽은 도입부가 된 설정 화면의 "관리자 화면으로 이동" 버튼 제거(권한/이메일 정보 행은 유지). `tsc -b`/`eslint`/`vite build` 통과, 웹 전용이라 EAS 재빌드 불필요.
+
 ---
 
 ## Completed

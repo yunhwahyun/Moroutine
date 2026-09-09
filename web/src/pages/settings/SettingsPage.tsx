@@ -394,12 +394,6 @@ export default function SettingsPage() {
               <Row label="이메일">
                 <span className="text-sm text-gray-400">{user?.email ?? '-'}</span>
               </Row>
-              <button
-                onClick={() => navigate('/admin')}
-                className="w-full flex items-center px-4 py-3.5 min-h-[52px]"
-              >
-                <span className="text-sm text-gray-900 font-medium">관리자 화면으로 이동</span>
-              </button>
             </>
           )}
         </Section>
