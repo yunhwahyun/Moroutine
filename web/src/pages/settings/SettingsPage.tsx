@@ -143,7 +143,6 @@ function ChangePasswordRow() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const reset = () => {
@@ -152,12 +151,10 @@ function ChangePasswordRow() {
     setNewPassword('')
     setConfirmPassword('')
     setError('')
-    setSuccess(false)
   }
 
   const handleSave = async () => {
     setError('')
-    setSuccess(false)
     if (newPassword.length < 6) {
       setError('비밀번호는 6자 이상이어야 합니다.')
       return
@@ -176,10 +173,8 @@ function ChangePasswordRow() {
       setError(translateAuthError(updateError.message))
       return
     }
-    setSuccess(true)
-    setCurrentPassword('')
-    setNewPassword('')
-    setConfirmPassword('')
+    window.alert('비밀번호가 변경되었습니다.')
+    reset()
   }
 
   return (
@@ -219,7 +214,6 @@ function ChangePasswordRow() {
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
           />
           {error && <p className="text-red-500 text-xs">{error}</p>}
-          {success && <p className="text-green-600 text-xs">비밀번호가 변경되었습니다.</p>}
           <div className="flex gap-2 mt-1">
             <button
               onClick={handleSave}
