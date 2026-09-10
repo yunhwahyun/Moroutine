@@ -16,6 +16,7 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   'Signup requires a valid password': '올바른 비밀번호를 입력해주세요.',
   'Email rate limit exceeded': '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
   'Database error saving new user': '회원가입 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+  'Signups not allowed for otp': '가입되지 않은 이메일입니다. Master로 초대받은 이메일로만 로그인할 수 있습니다.',
 }
 
 function translateAuthError(message: string): string {
@@ -45,9 +46,14 @@ export default function LoginPage() {
         // 있음)로 보내버린다 — 항상 지금 접속 중인 실제 주소로 돌아오도록 명시한다. 단, Dashboard의
         // Authentication → URL Configuration → Redirect URLs 허용 목록에 이 주소가 등록돼 있어야
         // Supabase가 실제로 받아준다(안 그러면 여전히 Site URL로 폴백됨).
+        //
+        // shouldCreateUser: false — docs/launch/PHASE1_POLICY.md §1 P0(2026-09-10 QA 발견): 이 옵션 없이
+        // signInWithOtp를 호출하면 미가입 이메일이어도 Supabase가 자동으로 새 계정을 만들어버려
+        // "회원가입 탭 제거"만으로는 막히지 않는 self-signup 우회 경로가 된다. 기존 계정(Master/Admin)
+        // 로그인만 허용하고, 미가입 이메일은 에러로 거부한다.
         const { error } = await supabase.auth.signInWithOtp({
           email,
-          options: { emailRedirectTo: window.location.origin },
+          options: { emailRedirectTo: window.location.origin, shouldCreateUser: false },
         })
         if (error) throw error
         setMessage('이메일을 확인하세요. 로그인 링크를 보냈습니다.')

@@ -88,7 +88,9 @@ export default function AdminMastersPage() {
     invalidateAll()
   }
 
-  const handleRevokeInvite = async (invitationId: string) => {
+  // 2026-09-10 — "취소"가 아니라 실제 삭제(다시 쓰지 않는 초대가 목록에 계속 쌓이는 문제 수정)
+  const handleDeleteInvite = async (invitationId: string) => {
+    if (!confirm('이 초대를 삭제하시겠습니까? 삭제 후에는 되돌릴 수 없습니다.')) return
     setPendingAction(invitationId)
     await supabase.functions.invoke('master-invite-revoke', { body: { invitation_id: invitationId } })
     setPendingAction(null)
@@ -170,11 +172,11 @@ export default function AdminMastersPage() {
                 )}
                 {(inv.status === 'pending' || inv.status === 'sent') && (
                   <button
-                    onClick={() => handleRevokeInvite(inv.id)}
+                    onClick={() => handleDeleteInvite(inv.id)}
                     disabled={pendingAction === inv.id}
                     className="text-xs text-red-500 border border-red-200 rounded-md px-3 py-1.5 disabled:opacity-50"
                   >
-                    취소
+                    삭제
                   </button>
                 )}
               </div>

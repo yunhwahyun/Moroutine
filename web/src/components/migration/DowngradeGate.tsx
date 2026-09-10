@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router-dom'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useAuthStore } from '@/stores/authStore'
 import { useSubscriptionDowngrade } from '@/hooks/useSubscriptionDowngrade'
@@ -12,13 +13,25 @@ import DowngradeModal from './DowngradeModal'
 // 회원가입 직후(SignupPricingGate가 /pricing으로 먼저 보내는 구간)에는 이 모달을 띄우지 않는다 —
 // isSignupPending()이 true인 동안은 SignupPricingGate가 전담하고, PricingPage의
 // "무료로 계속 사용하기"를 선택하거나 결제가 완료돼야 이 게이트가 다시 개입한다.
+//
+// docs/launch/PHASE1_POLICY.md §3.2(2026-09-10 QA 발견): Master 초대 링크를 클릭하면 세션은 즉시
+// 생기지만 special_access='master'는 MasterAcceptPage의 동의 폼을 제출해야 부여된다 — 그 사이엔
+// authenticated+guest 상태가 (사용자가 체크박스를 누르는 동안) 꽤 길게 지속된다. 라우트 구분 없이
+// 전역으로 뜨는 이 모달이 그 틈에 끼어들어 MasterAcceptPage 위를 덮어버리는 버그가 있었다 —
+// /master/accept에서는 이 게이트를 끈다.
 export default function DowngradeGate() {
   const { permissions } = usePermissions()
   const { user } = useAuthStore()
   const { progress, start } = useSubscriptionDowngrade()
+  const { pathname } = useLocation()
 
   const shouldDowngrade =
-    !!user && !!permissions && permissions.serviceTier === 'guest' && permissions.isAuthenticated && !isSignupPending()
+    !!user &&
+    !!permissions &&
+    permissions.serviceTier === 'guest' &&
+    permissions.isAuthenticated &&
+    !isSignupPending() &&
+    pathname !== '/master/accept'
 
   if (!shouldDowngrade) return null
 

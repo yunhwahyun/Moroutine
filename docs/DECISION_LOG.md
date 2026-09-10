@@ -6,6 +6,15 @@
 
 ## 2026-09-10
 
+### QA 중 발견한 P0 회귀 2건 수정 — 매직링크 self-signup 우회, DowngradeGate가 MasterAcceptPage를 덮는 문제
+
+- **매직링크 self-signup 우회**: `LoginPage.tsx`의 "링크 로그인"(`signInWithOtp`)이 `shouldCreateUser` 기본값(true)으로 인해 미가입 이메일도 자동으로 새 계정을 만들어버렸다 — "회원가입 탭/`signUp()` 제거"만으로는 안 막히는 두 번째 self-signup 경로였다. `shouldCreateUser: false` 추가로 수정. 이 과정에서 실제로 생성된 테스트 계정 정리를 사용자에게 안내함.
+- **DowngradeGate가 MasterAcceptPage를 덮는 문제**: `DowngradeGate`는 라우트 구분 없이 전역에서 "인증됨+tier=guest"면 닫을 수 없는 모달을 띄운다. Master 초대 수락은 세션 생성 → 동의 폼 체크 → 제출 → `special_access='master'` 부여 순서라, 동의 폼을 보는 동안은 정확히 이 조건("인증됨+guest")에 해당한다. 기존(자동 즉시 호출) 방식일 땐 이 틈이 거의 0초라 문제가 안 됐는데, 이번 P0에서 동의 폼을 추가하며 이 틈이 길어져 처음으로 드러난 회귀다. `DowngradeGate`에 `useLocation()`을 추가해 `/master/accept`에서는 비활성화하도록 수정.
+- **초대 취소 → 삭제로 변경**: 관리자 초대 목록의 "취소" 버튼이 `status='revoked'`로 표시만 하고 행을 영구 보존해, 다시 쓰지 않을 취소 건이 계속 쌓이는 문제가 있었다(사용자 지적). `master-invite-revoke` Edge Function을 실제 `DELETE`로 변경(삭제 전 `admin_audit_log`에 `action='master_invite_delete'`로 기록해 이력은 감사 로그로 남김), 버튼 라벨도 "삭제"로 변경. `docs/MASTER_INVITATION_DESIGN.md` §4-4 원안(이력 보존)을 수정하는 결정 — 상세 이유는 해당 문서에 기록. 이 변경 이전에 이미 쌓인 `status='revoked'` 행은 자동 정리되지 않음(필요 시 수동 삭제 안내).
+- **자동 검증**: `web`: `tsc -b && vite build` 통과.
+
+---
+
 ### Supabase 리전 확인 → 개인정보처리방침 국외이전 항목 확정, 법인명 오류 발견·수정
 
 - **배경**: 사용자가 Supabase 프로젝트 Region을 Dashboard에서 직접 확인해 `ap-southeast-1`(싱가포르)이라고 알려줌. `docs/legal/PRIVACY_POLICY_PHASE1.md` §8의 `[확인 필요]` 항목을 이 값으로 채우는 김에, "이전 근거" 칸을 임의로 채우지 않기 위해 Supabase 공식 DPA(`supabase.com/legal/dpa`)를 WebSearch/WebFetch로 직접 확인했다.

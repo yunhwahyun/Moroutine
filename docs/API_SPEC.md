@@ -198,8 +198,14 @@ Response: 200 (idempotent — 중복 event.id는 no-op 후에도 200)
 // master-invite (Authorization: 관리자 세션 JWT)
 { email: string } → { invitation_id: string, status: 'sent' }
 
-// master-invite-resend / master-invite-revoke (Authorization: 관리자 세션 JWT)
+// master-invite-resend (Authorization: 관리자 세션 JWT)
 { invitation_id: string } → { status: string }
+
+// master-invite-revoke (Authorization: 관리자 세션 JWT)
+// 2026-09-10부터 이름과 달리 "철회 표시"가 아니라 실제 행 삭제 — admin_audit_log에
+// action='master_invite_delete'로 먼저 기록한 뒤 master_invitations 행을 DELETE한다
+// (docs/MASTER_INVITATION_DESIGN.md §4-4 참고, 함수명은 하위호환을 위해 그대로 유지)
+{ invitation_id: string } → { status: 'deleted' }
 
 // master-accept (Authorization: 초대/매직 링크로 확립된 사용자 세션 JWT)
 // P0(2026-09-10)부터 body 필수 — 이용약관 동의/만 14세 확인 서버 재검증(docs/launch/PHASE1_POLICY.md §4, §5)

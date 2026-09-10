@@ -1,4 +1,6 @@
-// Master 초대 철회. 스펙: docs/MASTER_INVITATION_DESIGN.md §4-4
+// Master 초대 취소 — pending/sent 상태의 초대를 실제로 삭제한다(2026-09-10 변경).
+// 기존엔 status='revoked'로 이력만 남기고 행을 영구 보존했으나, 취소한 초대는 다시 쓰지 않는데도
+// 목록에 계속 쌓이는 문제가 있어 하드 삭제로 변경했다. 스펙: docs/MASTER_INVITATION_DESIGN.md §4-4
 import { corsHeaders, handleCorsPreflight } from '../_shared/cors.ts'
 import { createServiceClient, requireAdmin } from '../_shared/auth.ts'
 
@@ -50,23 +52,25 @@ async function handle(req: Request): Promise<Response> {
     return new Response('초대를 찾을 수 없습니다.', { status: 404, headers: corsHeaders })
   }
 
-  const { error: updateError } = await serviceClient
-    .from('master_invitations')
-    .update({ status: 'revoked', revoked_at: new Date().toISOString(), revoked_by: admin.id })
-    .eq('id', invitationId)
-  if (updateError) {
-    return new Response(updateError.message, { status: 500, headers: corsHeaders })
-  }
-
+  // admin_audit_log에 먼저 기록 — 삭제 후에도 "누가 무슨 이메일 초대를 언제 취소했는지"는
+  // detail.email로 남는다(target_id는 FK가 아닌 text라 행이 삭제돼도 값 자체는 유효하게 남음).
   await serviceClient.from('admin_audit_log').insert({
     actor_id: admin.id,
-    action: 'master_invite_revoke',
+    action: 'master_invite_delete',
     target_type: 'master_invitation',
     target_id: invitationId,
     detail: { email: invitation.email },
   })
 
-  return new Response(JSON.stringify({ status: 'revoked' }), {
+  const { error: deleteError } = await serviceClient
+    .from('master_invitations')
+    .delete()
+    .eq('id', invitationId)
+  if (deleteError) {
+    return new Response(deleteError.message, { status: 500, headers: corsHeaders })
+  }
+
+  return new Response(JSON.stringify({ status: 'deleted' }), {
     status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })

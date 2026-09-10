@@ -65,8 +65,8 @@ CREATE POLICY "master_invitations_admin_select" ON master_invitations
 | 1회 사용 후 재사용 차단 | `accept` 처리 시 `status='accepted'`로 트랜잭션 내 원자적 업데이트. 이미 `accepted`/`expired`/`revoked`면 거부 |
 | 동일 이메일 중복 초대 방지 | `idx_master_invitations_active_email` 유니크 인덱스(부분 인덱스로 pending/sent만 제한) |
 | 이미 가입된 이메일 처리 | 초대 등록 시 `auth.users`에 해당 이메일이 이미 존재하면 "신규 가입" 대신 "기존 계정에 Master 권한 부여" 플로우로 분기(§4-2) |
-| 초대 철회 | `status='revoked'`, `revoked_at`/`revoked_by` 기록. 이후 해당 토큰은 검증 실패 처리 |
-| 만료 후 재발송 | 기존 `expired`/`revoked` 건은 그대로 두고(이력 보존) 신규 `master_invitations` 행을 새 토큰으로 생성 |
+| 초대 취소 | **행을 실제로 삭제**(2026-09-10 변경, 아래 §4-4 참고). 삭제 전 `admin_audit_log`에 이메일을 기록해두므로 이력은 감사 로그로만 남는다 |
+| 만료 후 재발송 | 기존 `expired` 건은 그대로 두고(이력 보존) 신규 `master_invitations` 행을 새 토큰으로 생성. 취소(삭제)된 건은 애초에 행이 없으므로 해당 없음 |
 | 관리자 작업 감사 로그 | 모든 초대/철회/재발송/해제를 `admin_audit_log`(`docs/ADMIN_DESIGN.md` §4)에 기록 |
 | 이메일 인증 완료 후 Master 권한 부여 | `accept` Edge Function은 Supabase Auth의 이메일 인증 완료 콜백 이후에만 `special_access='master'`를 부여(가입 직후 미인증 상태로 권한을 먼저 주지 않음) |
 
@@ -126,8 +126,16 @@ CREATE POLICY "master_invitations_admin_select" ON master_invitations
   → admin_audit_log INSERT (action='master_invite_resend')
 
 취소: POST /functions/v1/master-invite-revoke { invitation_id }
-  → is_admin 검증 → status='revoked' → admin_audit_log INSERT (action='master_invite_revoke')
+  → is_admin 검증 → admin_audit_log INSERT (action='master_invite_delete') → 행 DELETE
 ```
+
+**2026-09-10 변경(§4-4 원안 수정)**: 원래는 `status='revoked'`로 표시만 하고 행을 영구 보존하는
+설계였으나, 취소한 초대는 다시 쓰지 않는데도 목록에 계속 쌓여 나중에 관리 화면이 지저분해지는
+문제가 있어 **실제 DELETE로 변경**했다(관리자 화면 버튼 라벨도 "취소" → "삭제"로 변경).
+`admin_audit_log.target_id`는 FK가 아닌 `text`라 행이 삭제돼도 감사 로그 자체는 남고,
+`detail.email`로 어떤 이메일의 초대였는지는 계속 추적 가능하다 — "이력 보존"이 필요하면 감사
+로그를 보면 된다는 판단. 이 변경 이전에 `status='revoked'`로 남아있는 과거 행은 자동으로
+정리되지 않는다(필요하면 `delete from master_invitations where status = 'revoked';`로 일괄 정리 가능).
 
 ---
 
