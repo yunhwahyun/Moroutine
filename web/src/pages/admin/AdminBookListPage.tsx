@@ -90,7 +90,7 @@ export default function AdminBookListPage() {
       </div>
 
       {/* 필터 — 전체 너비, 좌측 정렬 */}
-      <div className="bg-white px-4 pb-4 border-b border-gray-100">
+      <div className="bg-white px-4 pt-3 pb-4 border-b border-gray-100">
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-full justify-start">
           {FILTERS.map((f) => (
             <button
@@ -131,12 +131,10 @@ export default function AdminBookListPage() {
           >
             <Checkbox checked={selectedIds.has(b.id)} />
             <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-gray-900 truncate">{b.title}</span>
-                <span className="text-xs text-gray-400 shrink-0 ml-2">{STATUS_LABEL[b.status]}</span>
-              </div>
+              <span className="text-sm font-semibold text-gray-900 truncate block">{b.title}</span>
               <p className="text-xs text-gray-400 mt-1">목차 {b.chapter_count}개</p>
             </div>
+            <span className="text-xs text-gray-400 shrink-0">{STATUS_LABEL[b.status]}</span>
             <button
               onClick={(e) => { e.stopPropagation(); navigate(`/admin/books/${b.id}`) }}
               className="p-1 text-gray-300 shrink-0"

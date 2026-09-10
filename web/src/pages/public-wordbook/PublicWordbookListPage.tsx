@@ -73,10 +73,12 @@ export default function PublicWordbookListPage() {
       }
       return newWordbook
     },
-    onSuccess: (newWordbook) => {
+    onSuccess: () => {
+      // 2026-09-10 — 새로 추가된 단어장의 상세로 이동시키면 뒤로가기를 두 번 눌러야 "단어장" 목록이
+      // 나왔다(공용 목록 → 개인 상세 → 뒤로 → 공용 목록 → 뒤로 → 목록). 목록으로 바로 보낸다.
       queryClient.invalidateQueries({ queryKey: ['public-wordbook-enrollments', user?.id] })
       queryClient.invalidateQueries({ queryKey: ['wordbooks'] })
-      navigate(`/wordbooks/${newWordbook.id}`)
+      navigate('/wordbooks')
     },
     onError: (err) => {
       console.error('[public wordbook add error]', err)
