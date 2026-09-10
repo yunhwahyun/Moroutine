@@ -17,6 +17,21 @@ export default function LoginPage() {
 
   if (user) return <Navigate to="/" replace />
 
+  // 2026-09-10 — 모드 전환 버튼(탭/"비밀번호를 잊으셨나요?"/"로그인으로 돌아가기")이 네이티브
+  // WebView(iOS WKWebView)에서 "고스트 탭"을 유발하는 문제 수정. 버튼을 탭하면 React가 그 자리에서
+  // 즉시 폼을 다른 폼으로 바꿔치기하는데(예: "로그인으로 돌아가기"가 있던 자리에 로그인 폼의 제출
+  // 버튼이 들어옴), 같은 터치의 뒤늦은 synthetic click이 원래 탭한 좌표에 새로 나타난 엘리먼트로
+  // 다시 전달되면서 그 폼까지 같이 제출돼버렸다(HTML5 required 검증 팝업이 그 증거). 상태 변경을
+  // setTimeout으로 한 틱 미뤄서, WebView의 이벤트 디스패치가 먼저 끝난 뒤에 DOM이 바뀌도록 한다.
+  const switchMode = (next: Mode) => {
+    setTimeout(() => {
+      setMode(next)
+      setPassword('')
+      setError('')
+      setMessage('')
+    }, 0)
+  }
+
   // 2026-09-10 — 비밀번호 찾기. resetPasswordForEmail()(POST /auth/v1/recover) 자체는 계정 존재
   // 여부를 절대 노출하지 않도록 Supabase가 설계해뒀다(항상 성공 응답) — 회원 여부에 따라 다른
   // 안내를 보여주려면 별도 확인이 필요해, email_exists() RPC(마이그레이션 47)로 먼저 가입 여부를
@@ -102,7 +117,7 @@ export default function LoginPage() {
               ([m, label]) => (
                 <button
                   key={m}
-                  onClick={() => { setMode(m); setPassword(''); setError(''); setMessage('') }}
+                  onClick={() => switchMode(m)}
                   className={`flex-1 min-h-[38px] py-2 text-xs font-medium rounded-lg transition-all ${
                     mode === m ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
                   }`}
@@ -138,7 +153,7 @@ export default function LoginPage() {
             </button>
             <button
               type="button"
-              onClick={() => { setMode('login'); setPassword(''); setError(''); setMessage('') }}
+              onClick={() => switchMode('login')}
               className="text-xs text-gray-500 underline text-center mt-1"
             >
               로그인으로 돌아가기
@@ -171,7 +186,7 @@ export default function LoginPage() {
             {mode === 'login' && (
               <button
                 type="button"
-                onClick={() => { setMode('forgot'); setPassword(''); setError(''); setMessage('') }}
+                onClick={() => switchMode('forgot')}
                 className="text-xs text-gray-500 underline self-end -mt-1"
               >
                 비밀번호를 잊으셨나요?
