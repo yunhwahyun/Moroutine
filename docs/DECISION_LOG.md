@@ -6,6 +6,21 @@
 
 ## 2026-09-10
 
+### Dashboard 설정 3종 확인 완료 — Secure password change / Email OTP Expiration / Resend TLS
+
+- **Supabase Auth "Secure password change"**: 사용자가 켬 — `SettingsPage`의 `current_password` 검증이
+  이제 서버에서 실제로 강제된다(코드는 이미 대응돼 있었음, Dashboard 쪽 전제조건만 남아있었던 상태).
+- **Supabase Auth "Email OTP Expiration"**: 확인 결과 이미 `3600`초(1시간)로 설정돼 있음 —
+  권장값과 일치, 별도 변경 불필요.
+- **Resend Click Tracking**: 확인 결과 트래킹용 서브도메인 자체가 설정 안 돼 있어 기본적으로
+  꺼진 상태(Configure 버튼만 있고 토글이 없는 UI가 그 증거) — 별도 조치 불필요, "Configure"를
+  누르지 않도록 안내함(누르면 오히려 트래킹이 켜져 링크가 트래킹 도메인을 거치게 됨).
+- **Resend TLS**: 필수 항목은 아니었으나 인증 토큰이 담긴 메일(재설정/초대 링크)의 전송 구간
+  보안을 위해 "Opportunistic"에서 **"Enforced"**로 사용자가 변경.
+- 이로써 비밀번호 재설정/변경 기능 관련 Dashboard 의존 항목은 전부 해소됨.
+
+---
+
 ### 개인정보처리방침 미확정값 추가 확정 — 운영자 정보/Vercel 리전/문의 채널
 
 - 사용자가 직접 확인해 제공한 값을 반영: 운영자 성명 윤화현, 연락처/문의 채널 yunhwahyun@gmail.com,
