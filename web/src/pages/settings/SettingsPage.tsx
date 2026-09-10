@@ -8,6 +8,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { getRepository } from '@/repositories/factory'
 import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError'
+import { translateAuthError } from '@/lib/authErrors'
 import { isNative } from '@/bridge'
 import { useNotificationPermissionStore } from '@/stores/notificationPermissionStore'
 import { Section, Row } from '@/components/ui/SettingsList'
@@ -126,6 +127,112 @@ function NicknameRow({
           <span className="text-sm text-gray-400">{value || '미설정'}</span>
           <span className="text-xs text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">편집</span>
         </button>
+      )}
+    </div>
+  )
+}
+
+// ─── 비밀번호 변경(로그인 상태) ─────────────────────────────────
+// 2026-09-10 — Master/Admin 공용(비밀번호로 로그인하는 계정 전부, Guest는 계정이 없어 해당 없음).
+// current_password 방식(@supabase/supabase-js 2.107.0, >=2.102.0 지원) 사용 — 단, 서버(Supabase
+// Dashboard)의 "Secure password change" 옵션이 꺼져 있으면 current_password가 실제로 검증되지
+// 않을 수 있다(코드만으로는 보장 불가, 실기기 QA 필요).
+function ChangePasswordRow() {
+  const [editing, setEditing] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const reset = () => {
+    setEditing(false)
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmPassword('')
+    setError('')
+    setSuccess(false)
+  }
+
+  const handleSave = async () => {
+    setError('')
+    setSuccess(false)
+    if (newPassword.length < 6) {
+      setError('비밀번호는 6자 이상이어야 합니다.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setError('새 비밀번호가 일치하지 않습니다.')
+      return
+    }
+    setSaving(true)
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword,
+      current_password: currentPassword,
+    })
+    setSaving(false)
+    if (updateError) {
+      setError(translateAuthError(updateError.message))
+      return
+    }
+    setSuccess(true)
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmPassword('')
+  }
+
+  return (
+    <div className="px-4 py-3.5 min-h-[52px]">
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-gray-800">비밀번호 변경</span>
+        {!editing && (
+          <button
+            onClick={() => setEditing(true)}
+            className="text-xs text-gray-400 border border-gray-200 rounded px-1.5 py-0.5"
+          >
+            변경
+          </button>
+        )}
+      </div>
+      {editing && (
+        <div className="flex flex-col gap-2 mt-3">
+          <input
+            type="password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            placeholder="현재 비밀번호"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
+          />
+          <input
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="새 비밀번호 (6자 이상)"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
+          />
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="새 비밀번호 확인"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
+          />
+          {error && <p className="text-red-500 text-xs">{error}</p>}
+          {success && <p className="text-green-600 text-xs">비밀번호가 변경되었습니다.</p>}
+          <div className="flex gap-2 mt-1">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 py-2 rounded-lg bg-gray-900 text-white text-xs font-medium disabled:opacity-50"
+            >
+              {saving ? '변경 중...' : '저장'}
+            </button>
+            <button onClick={reset} className="flex-1 py-2 rounded-lg border border-gray-200 text-gray-600 text-xs">
+              취소
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )
@@ -375,6 +482,7 @@ export default function SettingsPage() {
               <Row label="동기화">
                 <span className="text-sm text-gray-400">실시간 동기화 중</span>
               </Row>
+              <ChangePasswordRow />
               {/* 결제가 아직 없는 무료 출시 기간에는 실제 구독이 없으므로 "구독 관리" 자체를 숨긴다
                   (docs/SUBSCRIPTION_DESIGN.md §11 — 사업자 등록 전 앱 심사에 결제 UI 비노출). */}
               {tier !== 'master' && paymentsEnabled && (
@@ -411,6 +519,7 @@ export default function SettingsPage() {
               <Row label="이메일">
                 <span className="text-sm text-gray-400">{user?.email ?? '-'}</span>
               </Row>
+              <ChangePasswordRow />
             </>
           )}
         </Section>

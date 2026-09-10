@@ -6,6 +6,50 @@
 
 ## 2026-09-10
 
+### 비밀번호 재설정/변경 구현
+
+- **배경**: Master 가입에 비밀번호를 도입(바로 위 항목)하면서, "비밀번호를 잊어버리면?"이라는
+  당연한 후속 요구가 생김 — 설정 화면에서 로그인 상태로 변경하는 경로와, 로그인 페이지에서
+  "비밀번호를 잊으셨나요?"로 재설정 메일을 받는 경로 둘 다 설계·구현.
+- **버전/메커니즘 확인**: `@supabase/supabase-js` 2.107.0(요구사항 기준 ≥2.102.0 충족) → 공식
+  `updateUser({ password, current_password })` 방식 사용 가능(`auth-js` 타입 정의로 확인).
+  `AuthChangeEvent`에 `'PASSWORD_RECOVERY'` 존재 확인. 클라이언트에 `flowType` 미지정 → 기본값
+  `implicit`(URL 해시 기반 세션 확립, `MasterAcceptPage`/매직 링크와 동일 메커니즘 — PKCE 아님).
+- **중요 발견 1 — `current_password` 서버 강제는 Dashboard 설정에 달림**: 공식 GitHub 이슈로 확인한
+  결과, `current_password` 검증이 실제로 강제되려면 Supabase Dashboard의 **"Secure password
+  change"** 옵션이 켜져 있어야 한다 — 클라이언트 라이브러리가 파라미터를 지원한다고 해서 서버가
+  자동으로 검증을 강제하는 게 아니다. 이 옵션은 npm 패키지가 아니라 Dashboard 설정이라 코드로
+  확인·변경 불가 — 사용자가 직접 켜야 하는 항목으로 안내.
+- **중요 발견 2 — 단순 세션 존재만으로는 recovery flow 여부를 구분 못 함**: `/reset-password`에서
+  `if (user)`만 보고 폼을 열면, 이미 로그인된 사용자가 URL을 직접 입력해도 통과해버린다(공유
+  기기에서 다른 사람이 로그인된 세션의 비밀번호를 탈취하는 경로가 될 수 있음). 기존
+  `App.tsx`의 `onAuthStateChange` 핸들러가 `event` 파라미터를 아예 버리고 있었던 걸 고쳐서,
+  `'PASSWORD_RECOVERY'` 이벤트가 왔을 때만 `authStore.isPasswordRecovery`를 true로 남기고,
+  `ResetPasswordPage`는 이 플래그가 true일 때만 새 비밀번호 폼을 연다.
+- **결정 — 계정 존재 여부 비노출**: `resetPasswordForEmail()`은 성공/실패와 무관하게 항상 동일한
+  문구("입력하신 이메일로 비밀번호 재설정 안내를 보냈습니다...")만 보여준다. 이건 지난번 링크
+  로그인(`signInWithOtp`)에서 사용자가 명시적으로 에러를 노출하라고 결정했던 것과 반대 방향인데,
+  "비밀번호 찾기"와 "로그인 시도"는 보안 성격이 다르다는 사용자 판단에 따른 것 — 더 이상 결정
+  사항으로 열어두지 않기로 확정.
+- **Redirect URL 조사 결과**: `supabase config pull --dry-run`(조사용으로 `supabase init` 후 임시
+  생성한 `config.toml`은 조사 후 삭제, 저장소에 반영 안 함)으로 원격 Auth 설정을 확인한 결과,
+  `additional_redirect_urls`에 이미 `https://www.moroutine.kr/**`(와일드카드)가 등록돼 있어
+  `/reset-password`를 위한 **별도 추가가 필요 없을 가능성이 높다** — 다만 로컬 개발 환경
+  (`http://localhost:5173`)은 이 와일드카드에 포함되지 않으므로, 로컬에서 실제 이메일 링크를
+  테스트하려면 별도로 추가해야 한다. SMTP는 `smtp.resend.com:465`, 발신자 `Moroutine
+  <noreply@moroutine.kr>`로 커스텀 SMTP(Resend)가 이미 설정돼 있음도 함께 확인됨(§6 판단의 근거
+  보강).
+- **미해결(사용자 액션 필요)**: (1) Email OTP Expiration 값 — Supabase CLI의 `config` 관리 스키마에
+  이 필드가 없어(dry-run diff에 전혀 등장하지 않음) 코드/CLI로 조회 불가, Dashboard에서 직접 확인
+  필요. CLI 인증 토큰이 macOS Keychain(`security find-generic-password -s "Supabase CLI"`)에 있는
+  걸 확인했으나, 이걸 추출해 Management API를 직접 호출하는 건 이 조사 목적에 비해 과도한 접근이라
+  시도하지 않음. (2) Resend의 "Click Tracking" 활성화 여부 — Resend 대시보드 영역이라 확인 불가,
+  켜져 있으면 재설정 링크의 URL 해시(`#access_token=...`)가 트래킹 리다이렉트 과정에서 손상될
+  위험이 있어 끄고 실제 이메일로 QA 필요.
+- **자동 검증**: `web`: `tsc -b && vite build` 통과, `eslint .` 신규 에러 없음.
+
+---
+
 ### Master 가입에 비밀번호 설정 복원 + 링크 로그인 에러 문구 정리
 
 - **배경**: 사용자가 현재 Master 가입 플로우(매직 링크 전용, 비밀번호 없음)가 "일반적이지 않다"고

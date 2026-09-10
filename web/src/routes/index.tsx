@@ -5,6 +5,7 @@ import ProtectedRoute from '@/components/layout/ProtectedRoute'
 import UserRouteGuard from '@/components/layout/UserRouteGuard'
 import PublicContentGuestGuard from '@/components/layout/PublicContentGuestGuard'
 import LoginPage from '@/pages/auth/LoginPage'
+import ResetPasswordPage from '@/pages/auth/ResetPasswordPage'
 import HomePage from '@/pages/home/HomePage'
 import LearnPage from '@/pages/learn/LearnPage'
 import QuizPage from '@/pages/quiz/QuizPage'
@@ -83,6 +84,8 @@ export default function AppRoutes() {
       <Route path="/terms" element={<TermsPage />} />
 
       <Route path="/master/accept" element={<MasterAcceptPage />} />
+      {/* 비밀번호 재설정 메일 링크 도착 지점 — UserRouteGuard 밖(로그인 여부와 무관하게 도달해야 함). */}
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       <Route element={<ProtectedRoute requireRole="admin" />}>
         <Route element={<AdminLayout />}>

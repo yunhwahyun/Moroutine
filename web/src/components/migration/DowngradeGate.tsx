@@ -20,7 +20,9 @@ import DowngradeModal from './DowngradeModal'
 // 전역으로 뜨는 이 모달이 그 틈에 끼어들어 MasterAcceptPage 위를 덮어버리는 버그가 있었다.
 // /terms, /privacy도 동일 — 동의 폼에서 약관/방침 링크를 새 탭으로 열면 같은 세션 상태(인증+guest)로
 // 그 페이지에 도달하므로 여기서도 떠서는 안 된다(2026-09-10 QA에서 추가 발견).
-const EXEMPT_PATHS = ['/master/accept', '/terms', '/privacy']
+// /reset-password도 동일한 이유로 추가 — 비밀번호 재설정 세션(PASSWORD_RECOVERY)도 tier가 guest일
+// 수 있는 authenticated 상태라 여기서도 막아야 한다.
+const EXEMPT_PATHS = ['/master/accept', '/terms', '/privacy', '/reset-password']
 
 export default function DowngradeGate() {
   const { permissions } = usePermissions()

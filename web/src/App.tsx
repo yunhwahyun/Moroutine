@@ -26,7 +26,7 @@ const queryClient = new QueryClient({
 })
 
 function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { setSession, setLoading } = useAuthStore()
+  const { setSession, setLoading, setPasswordRecovery } = useAuthStore()
   useLoadSettings()
   useBridgeListener()
   useSubscriptionRealtimeSync()
@@ -39,15 +39,20 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       if (isNative()) bridge.setUserId({ userId: session?.user?.id ?? null })
     })
 
-    // 세션 변경 구독 — 네이티브에 로그인 상태 전달(RevenueCat app_user_id를 Supabase user_id와 맞추기 위함)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // 세션 변경 구독 — 네이티브에 로그인 상태 전달(RevenueCat app_user_id를 Supabase user_id와 맞추기 위함).
+    // event를 더 이상 버리지 않는다 — 'PASSWORD_RECOVERY'는 비밀번호 재설정 이메일 링크로 세션이
+    // 확립됐을 때만 오는 이벤트라(implicit flow, URL 해시 기반 — MasterAcceptPage와 동일한 메커니즘),
+    // ResetPasswordPage가 "진짜 재설정 링크로 들어왔는지"를 판단하는 유일한 근거로 쓴다.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
       setLoading(false)
+      if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true)
+      if (event === 'SIGNED_OUT') setPasswordRecovery(false)
       if (isNative()) bridge.setUserId({ userId: session?.user?.id ?? null })
     })
 
     return () => subscription.unsubscribe()
-  }, [setSession, setLoading])
+  }, [setSession, setLoading, setPasswordRecovery])
 
   return (
     <>

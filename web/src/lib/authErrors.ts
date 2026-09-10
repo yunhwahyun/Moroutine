@@ -12,6 +12,10 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   'Email rate limit exceeded': '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
   'Database error saving new user': '회원가입 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
   'Signups not allowed for otp': '가입되지 않은 이메일입니다. 메일 주소를 확인해주세요.',
+  // 2026-09-10 — 비밀번호 재설정/변경(ResetPasswordPage, SettingsPage) 추가로 필요해진 매핑.
+  // current_password 오검증 시 정확한 GoTrue 응답 문구는 실기기 QA로 확인 필요 — 매핑에 없으면
+  // 원문이 그대로 노출된다(기존 방침과 동일, 오역보다 원문이 낫다는 판단).
+  'New password should be different from the old password.': '새 비밀번호는 기존 비밀번호와 달라야 합니다.',
 }
 
 export function translateAuthError(message: string): string {

@@ -547,6 +547,37 @@ Pro/Master 전용(`permissions.canUsePublicWordbooks` 아니면 업그레이드 
 
 ---
 
+### 비밀번호 재설정/변경 ✅ 구현 완료(2026-09-10)
+
+Master/Admin 대상(비밀번호로 로그인하는 계정 전부, Guest는 계정이 없어 해당 없음). Pro는 2차에
+공유 코드로 자동 적용되나 1차 기능 명세엔 노출하지 않는다.
+
+**로그인 상태에서 변경(`SettingsPage` "계정" 섹션 "비밀번호 변경")**: 현재 비밀번호 / 새 비밀번호 /
+새 비밀번호 확인 3칸을 인라인으로 펼쳐서 입력받고, `supabase.auth.updateUser({ password,
+current_password })`(`current_password` 방식, `@supabase/supabase-js` 2.107.0 지원) 호출. **서버
+(Supabase Dashboard)의 "Secure password change" 옵션이 꺼져 있으면 `current_password` 검증이 실제로
+강제되지 않을 수 있어** 실기기 QA로 확인 필요.
+
+**로그인 못 하는 상태에서 재설정(`LoginPage` "로그인" 탭 하단 "비밀번호를 잊으셨나요?")**: 클릭하면
+탭 대신 이메일 입력 + "재설정 메일 보내기" 폼으로 전환("로그인으로 돌아가기" 링크로 복귀).
+`supabase.auth.resetPasswordForEmail(email, { redirectTo: origin + '/reset-password' })` 호출 —
+**계정 존재 여부를 추론할 수 없도록 성공/실패 관계없이 항상 동일한 문구**("입력하신 이메일로 비밀번호
+재설정 안내를 보냈습니다. 가입된 계정인 경우 이메일을 확인해주세요.")만 보여준다(에러는 콘솔에만 기록).
+
+**신규 라우트 `/reset-password`(`ResetPasswordPage`)**: `UserRouteGuard` 밖에 위치(`/master/accept`,
+`/privacy`, `/terms`와 동일). 단순히 세션 존재 여부만으로 폼을 열지 않는다 — 이미 로그인된 사용자가
+URL을 직접 입력해 들어온 경우와 실제 재설정 메일 링크로 들어온 경우를 구분해야 하므로,
+`App.tsx`의 `AuthProvider`가 `supabase.auth.onAuthStateChange()`의 `'PASSWORD_RECOVERY'` 이벤트를
+감지해 `authStore.isPasswordRecovery`에 기록하고, 이 값이 true일 때만 새 비밀번호 폼을 연다(이
+프로젝트는 `flowType` 기본값 `implicit` — URL 해시 기반 세션 확립, `MasterAcceptPage`와 동일한
+메커니즘). `isPasswordRecovery`가 false면 "비밀번호 재설정 링크가 유효하지 않습니다" 안내.
+`DowngradeGate`의 예외 경로 목록에도 추가(다른 세 라우트와 동일한 이유).
+
+**`web/src/lib/authErrors.ts`** — `LoginPage`/`MasterAcceptPage`/`SettingsPage`/`ResetPasswordPage`가
+전부 공유하는 GoTrue 에러 한국어 번역 테이블(2026-09-10 통합).
+
+---
+
 ### 개인정보처리방침 / 이용약관 (`/privacy`, `/terms`) ✅ 구현 완료(2026-09-10, P0 §6)
 
 `SettingsPage`의 "정보" 섹션과 `MasterAcceptPage`의 동의 폼에서 링크로 진입. 로그인 여부와 무관하게
