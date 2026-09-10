@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
+import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError'
 
 type Status = 'checking' | 'form' | 'submitting' | 'success' | 'no-session'
 
@@ -43,7 +44,7 @@ export default function MasterAcceptPage() {
     if (error || !data?.success) {
       // 실패해도 폼으로 되돌아가 인라인 에러만 보여준다 — 체크박스를 다시 채우게 만들지 않는다.
       setStatus('form')
-      setErrorMessage(error?.message ?? '초대 수락에 실패했습니다.')
+      setErrorMessage(await getEdgeFunctionErrorMessage(error, '초대 수락에 실패했습니다.'))
       return
     }
     queryClient.invalidateQueries({ queryKey: ['permissions', user.id] })

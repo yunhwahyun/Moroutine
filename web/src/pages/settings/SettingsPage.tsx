@@ -7,6 +7,7 @@ import { useUserSettings } from '@/hooks/useUserSettings'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useAppConfig } from '@/hooks/useAppConfig'
 import { getRepository } from '@/repositories/factory'
+import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError'
 import { isNative } from '@/bridge'
 import { useNotificationPermissionStore } from '@/stores/notificationPermissionStore'
 import { Section, Row } from '@/components/ui/SettingsList'
@@ -218,7 +219,9 @@ export default function SettingsPage() {
     try {
       const { data, error } = await supabase.functions.invoke('master-delete-account')
       if (error || !data?.success) {
-        window.alert(error?.message ?? '회원탈퇴에 실패했습니다. 잠시 후 다시 시도해주세요.')
+        // error.message는 항상 "Edge Function returned a non-2xx status code"라는 뭉뚱그린
+        // 문구라 실제 원인을 보여주지 못한다 — 함수가 실제로 응답한 본문을 읽어 보여준다.
+        window.alert(await getEdgeFunctionErrorMessage(error, '회원탈퇴에 실패했습니다. 잠시 후 다시 시도해주세요.'))
         return
       }
       await supabase.auth.signOut()
