@@ -5,8 +5,11 @@ import {
   getAdminPublicWordbook,
   getAdminPublicWords,
   updatePublicWordbook,
+  deletePublicWordbook,
   createPublicWord,
   bulkCreatePublicWords,
+  deletePublicWord,
+  clearPublicWordbookWords,
 } from '@/lib/publicWordbooks'
 import { BackIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
@@ -114,6 +117,40 @@ export default function AdminWordbookDetailPage() {
     },
   })
 
+  // 2026-09-10 신설 — 단어장 자체 삭제(삭제 후 목록으로 이동).
+  const { mutate: deleteWordbook, isPending: isDeletingWordbook } = useMutation({
+    mutationFn: () => deletePublicWordbook(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'public-wordbooks'] })
+      navigate('/admin/wordbooks')
+    },
+    onError: (err) => console.error('[admin wordbook delete error]', err),
+  })
+
+  const { mutate: removeWord, isPending: isRemovingWord } = useMutation({
+    mutationFn: (wordId: string) => deletePublicWord(wordId),
+    onSuccess: invalidate,
+    onError: (err) => console.error('[admin word delete error]', err),
+  })
+
+  // "비우기" — 단어장은 유지, 하위 단어만 전부 삭제.
+  const { mutate: clearWords, isPending: isClearingWords } = useMutation({
+    mutationFn: () => clearPublicWordbookWords(id!),
+    onSuccess: invalidate,
+    onError: (err) => console.error('[admin wordbook clear words error]', err),
+  })
+
+  const handleDeleteWordbook = () => {
+    if (!confirm('이 단어장을 삭제하시겠습니까? 포함된 단어도 함께 삭제되며, 되돌릴 수 없습니다.')) return
+    deleteWordbook()
+  }
+
+  const handleClearWords = () => {
+    if (words.length === 0) return
+    if (!confirm(`이 단어장의 단어 ${words.length}개를 전부 삭제하시겠습니까? 되돌릴 수 없습니다.`)) return
+    clearWords()
+  }
+
   const handleBulkImportClick = () => {
     setBulkError('')
     setBulkPreview(null)
@@ -180,6 +217,13 @@ export default function AdminWordbookDetailPage() {
           >
             .txt 일괄등록
           </button>
+          <button
+            onClick={handleDeleteWordbook}
+            disabled={isDeletingWordbook}
+            className="text-xs text-red-500 px-2.5 py-1.5 rounded-md border border-red-200 disabled:opacity-50"
+          >
+            {isDeletingWordbook ? '삭제 중...' : '삭제'}
+          </button>
         </div>
         <input ref={fileInputRef} type="file" accept=".txt" className="hidden" onChange={handleFileChange} />
       </div>
@@ -216,13 +260,22 @@ export default function AdminWordbookDetailPage() {
               ))}
             </select>
           </div>
-          <button
-            onClick={() => saveMeta()}
-            disabled={!metaForm.title.trim() || isSavingMeta}
-            className="w-full py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium disabled:opacity-50"
-          >
-            {isSavingMeta ? '저장 중...' : '저장'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => saveMeta()}
+              disabled={!metaForm.title.trim() || isSavingMeta}
+              className="flex-1 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium disabled:opacity-50"
+            >
+              {isSavingMeta ? '저장 중...' : '저장'}
+            </button>
+            <button
+              onClick={handleClearWords}
+              disabled={words.length === 0 || isClearingWords}
+              className="px-4 py-2.5 rounded-lg border border-red-200 text-red-500 text-sm disabled:opacity-50"
+            >
+              {isClearingWords ? '비우는 중...' : '비우기'}
+            </button>
+          </div>
         </div>
 
         <h2 className="text-sm font-bold text-gray-900 px-0.5">단어 목록</h2>
@@ -292,7 +345,19 @@ export default function AdminWordbookDetailPage() {
         <div className="flex flex-col gap-3">
           {words.map((word) => (
             <div key={word.id} className="bg-white rounded-2xl shadow-sm p-4">
-              <span className="text-sm font-semibold text-gray-900">{word.term}</span>
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-sm font-semibold text-gray-900">{word.term}</span>
+                <button
+                  onClick={() => {
+                    if (!confirm(`"${word.term}" 단어를 삭제하시겠습니까?`)) return
+                    removeWord(word.id)
+                  }}
+                  disabled={isRemovingWord}
+                  className="text-xs text-red-400 shrink-0 disabled:opacity-50"
+                >
+                  삭제
+                </button>
+              </div>
               <p className="text-xs text-gray-600 mt-1">{word.definition}</p>
               {word.example && <p className="text-xs text-gray-400 mt-1">{word.example}</p>}
             </div>

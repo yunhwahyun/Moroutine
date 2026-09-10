@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { getAdminPublicBooks } from '@/lib/publicBooks'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { getAdminPublicBooks, deletePublicBooks } from '@/lib/publicBooks'
+import { ChevronRightIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
 import type { PublicBookStatus } from '@/types'
 
@@ -13,11 +14,30 @@ const STATUS_LABEL: Record<PublicBookStatus, string> = {
 
 const FILTERS: (PublicBookStatus | 'all')[] = ['all', 'draft', 'published', 'archived']
 
+function Checkbox({ checked }: { checked: boolean }) {
+  return (
+    <div
+      className={`w-5 h-5 rounded border-2 flex-none flex items-center justify-center transition-colors ${
+        checked ? 'bg-gray-900 border-gray-900' : 'border-gray-200'
+      }`}
+    >
+      {checked && (
+        <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+          <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
+    </div>
+  )
+}
+
 // AdminWordbookListPage.tsx와 헤더/필터/카드 톤을 맞춘다. 여기서 관리하는 건 "공용 책장"이다
 // (사용자가 직접 만드는 개인 책장은 web/src/pages/bookshelf/에 별도로 있다).
+// 2026-09-10 — 멀티 선택 삭제 추가.
 export default function AdminBookListPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [filter, setFilter] = useState<PublicBookStatus | 'all'>('all')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const { data: books = [], isLoading } = useQuery({
     queryKey: ['admin', 'public-books'],
@@ -29,11 +49,38 @@ export default function AdminBookListPage() {
     [books, filter],
   )
 
+  const { mutate: deleteSelected, isPending: isDeleting } = useMutation({
+    mutationFn: (ids: string[]) => deletePublicBooks(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'public-books'] })
+      setSelectedIds(new Set())
+    },
+    onError: (err) => console.error('[admin book bulk delete error]', err),
+  })
+
+  const toggleId = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleDeleteSelected = () => {
+    if (selectedIds.size === 0) return
+    if (!confirm(`선택한 책 ${selectedIds.size}개를 삭제하시겠습니까? 포함된 목차도 함께 삭제되며, 되돌릴 수 없습니다.`)) return
+    deleteSelected([...selectedIds])
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* 헤더 */}
       <div className="bg-white flex items-center justify-between px-4 pt-6 pb-4 border-b border-gray-100">
-        <h1 className="text-lg font-bold text-gray-900">책장</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-lg font-bold text-gray-900">책장</h1>
+          {selectedIds.size > 0 && <span className="text-xs text-gray-400">{selectedIds.size}개 선택됨</span>}
+        </div>
         <button
           onClick={() => navigate('/admin/books/new')}
           className="text-sm text-gray-600 font-medium px-3 py-1.5 rounded-lg border border-gray-200"
@@ -75,19 +122,44 @@ export default function AdminBookListPage() {
         )}
 
         {filtered.map((b) => (
-          <button
+          <div
             key={b.id}
-            onClick={() => navigate(`/admin/books/${b.id}`)}
-            className="text-left bg-white rounded-2xl shadow-sm overflow-hidden px-4 py-4"
+            className={`bg-white rounded-2xl shadow-sm overflow-hidden flex items-center gap-3 px-4 py-4 cursor-pointer ${
+              selectedIds.has(b.id) ? 'ring-2 ring-gray-900 ring-inset' : ''
+            }`}
+            onClick={() => toggleId(b.id)}
           >
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-gray-900">{b.title}</span>
-              <span className="text-xs text-gray-400">{STATUS_LABEL[b.status]}</span>
+            <Checkbox checked={selectedIds.has(b.id)} />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-gray-900 truncate">{b.title}</span>
+                <span className="text-xs text-gray-400 shrink-0 ml-2">{STATUS_LABEL[b.status]}</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">목차 {b.chapter_count}개</p>
             </div>
-            <p className="text-xs text-gray-400 mt-1">목차 {b.chapter_count}개</p>
-          </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate(`/admin/books/${b.id}`) }}
+              className="p-1 text-gray-300 shrink-0"
+              aria-label="책 상세"
+            >
+              <ChevronRightIcon />
+            </button>
+          </div>
         ))}
       </div>
+
+      {/* 선택 시 하단 액션바 */}
+      {selectedIds.size > 0 && (
+        <div className="px-4 py-3 bg-white border-t border-gray-100">
+          <button
+            onClick={handleDeleteSelected}
+            disabled={isDeleting}
+            className="w-full py-3 rounded-lg bg-red-500 text-white text-sm font-medium disabled:opacity-50"
+          >
+            {isDeleting ? '삭제 중...' : `선택한 ${selectedIds.size}개 삭제`}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

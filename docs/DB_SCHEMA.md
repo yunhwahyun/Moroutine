@@ -459,6 +459,7 @@ ALTER TABLE profiles
 | 45 | admin_audit_log_actor_delete_set_null | `admin_audit_log.actor_id` FK를 `ON DELETE SET NULL`로 변경(기존 FK는 ON DELETE 미지정=NO ACTION이라, Master 본인이 actor인 감사 로그가 남아있으면 `auth.admin.deleteUser()` 자체가 FK 위반으로 실패하는 문제를 P0 `master-delete-account` 구현 중 발견해 수정) | `docs/launch/PHASE1_POLICY.md` §3.5, §7 |
 | 46 | master_invitations_fk_set_null | `master_invitations.accepted_user_id`/`revoked_by` FK를 `ON DELETE SET NULL`로 변경 — 45번과 같은 문제가 이 테이블에도 있었음(`master-accept`가 본인 id를 `accepted_user_id`에 항상 기록하므로 가입을 마친 모든 Master가 자기 자신을 가리키는 행을 가짐). 실제 Master 계정 탈퇴 시도 중 재현·발견(`invited_by`는 NOT NULL + Admin 삭제 플로우 없어 그대로 둠) | `docs/DECISION_LOG.md` 2026-09-10 |
 | 47 | email_exists_rpc | `email_exists(p_email text) RETURNS boolean`(SECURITY DEFINER, `anon`/`authenticated` 실행 권한) — 비밀번호 찾기 화면에서 가입 여부를 확인하기 위한 RPC. `is_admin()`/`list_masters()`와 동일한 SQL RPC 패턴. 이메일 가입 여부를 의도적으로 노출함(account enumeration, 사용자 결정) | `docs/DECISION_LOG.md` 2026-09-10 |
+| 48 | public_content_delete_audit | `log_public_wordbook_action()`/`log_public_word_action()`/`log_public_book_action()`/`log_public_book_chapter_action()` 4개 트리거 함수를 확장해 `AFTER DELETE`도 처리(OLD 참조, `*_delete` action 기록) — 마이그레이션 30/41 트리거가 INSERT/UPDATE만 커버해 그동안 없었던 관리자 삭제 기능(신규)의 감사 로그 공백을 메움 | `docs/DECISION_LOG.md` 2026-09-10 |
 
 > **참고(2026-09-10)**: 38번 마이그레이션의 `get_service_tier()` 정의는 44번이 즉시 대체했다 — 38번 파일 자체(과거 마이그레이션)는 수정하지 않고 `CREATE OR REPLACE FUNCTION`으로 다음 마이그레이션이 덮어쓰는 기존 관례를 그대로 따랐다.
 

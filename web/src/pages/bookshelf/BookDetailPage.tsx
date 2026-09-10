@@ -118,6 +118,21 @@ export default function BookDetailPage() {
     },
   })
 
+  // 2026-09-10 신설 — "비우기" — 책은 유지, 목차만 전부 삭제.
+  const { mutate: clearChapters, isPending: isClearingChapters } = useMutation({
+    mutationFn: async () => {
+      await Promise.all(chapters.map((c) => repository!.deleteChapter(c.id)))
+    },
+    onSuccess: invalidate,
+    onError: (err) => console.error('[book clear chapters error]', err),
+  })
+
+  const handleClearChapters = () => {
+    if (chapters.length === 0) return
+    if (!confirm(`이 책의 목차 ${chapters.length}개를 전부 삭제하시겠습니까? 되돌릴 수 없습니다.`)) return
+    clearChapters()
+  }
+
   const handleEditStart = (chapter: BookChapter) => {
     setShowNewForm(false)
     setEditingId(chapter.id)
@@ -212,6 +227,13 @@ export default function BookDetailPage() {
             className="text-xs text-gray-600 font-medium px-2.5 py-1.5 rounded-lg border border-gray-200 disabled:opacity-40"
           >
             + 추가
+          </button>
+          <button
+            onClick={handleClearChapters}
+            disabled={chapters.length === 0 || isClearingChapters}
+            className="text-xs text-red-500 px-2.5 py-1.5 rounded-md border border-red-200 disabled:opacity-40"
+          >
+            {isClearingChapters ? '비우는 중...' : '비우기'}
           </button>
         </div>
         <input

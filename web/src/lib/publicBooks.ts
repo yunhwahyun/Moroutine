@@ -58,6 +58,18 @@ export async function updatePublicBook(id: string, input: UpdatePublicBookInput)
   if (error) throw error
 }
 
+// 2026-09-10 신설 — 하위 public_book_chapters는 ON DELETE CASCADE(마이그레이션 41)로 함께 삭제된다.
+export async function deletePublicBook(id: string): Promise<void> {
+  const { error } = await supabase.from('public_books').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function deletePublicBooks(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  const { error } = await supabase.from('public_books').delete().in('id', ids)
+  if (error) throw error
+}
+
 export async function getAdminPublicBookChapters(bookId: string): Promise<PublicBookChapter[]> {
   const { data, error } = await supabase
     .from('public_book_chapters')
@@ -100,6 +112,18 @@ export async function bulkCreatePublicBookChapters(bookId: string, chapters: Pub
     sort_order: sortOrder++,
   }))
   const { error } = await supabase.from('public_book_chapters').insert(rows)
+  if (error) throw error
+}
+
+// 2026-09-10 신설
+export async function deletePublicBookChapter(id: string): Promise<void> {
+  const { error } = await supabase.from('public_book_chapters').delete().eq('id', id)
+  if (error) throw error
+}
+
+// "비우기" — 책은 유지한 채 하위 목차 전체만 삭제.
+export async function clearPublicBookChapters(bookId: string): Promise<void> {
+  const { error } = await supabase.from('public_book_chapters').delete().eq('book_id', bookId)
   if (error) throw error
 }
 

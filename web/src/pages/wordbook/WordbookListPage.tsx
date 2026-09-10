@@ -125,6 +125,27 @@ export default function WordbookListPage() {
     onError: (err) => console.error('[wordbook delete error]', err),
   })
 
+  // 2026-09-10 신설 — 멀티 선택 삭제. 'review'(복습 단어모음, 가상 컬렉션)는 삭제 대상에서 제외.
+  const { mutate: deleteSelectedWordbooks, isPending: isBulkDeleting } = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(ids.map((wid) => repository!.deleteWordbook(wid)))
+    },
+    onSuccess: (_, ids) => {
+      queryClient.setQueryData<WordbookWithStats[]>(['wordbooks', tier], (old = []) =>
+        old.filter((wb) => !ids.includes(wb.id)),
+      )
+      setSelectedIds(new Set())
+    },
+    onError: (err) => console.error('[wordbook bulk delete error]', err),
+  })
+
+  const handleDeleteSelected = () => {
+    const ids = [...selectedIds].filter((sid) => sid !== 'review')
+    if (ids.length === 0) return
+    if (!confirm(`선택한 단어장 ${ids.length}개를 삭제하시겠습니까? 포함된 단어도 함께 삭제되며, 되돌릴 수 없습니다.`)) return
+    deleteSelectedWordbooks(ids)
+  }
+
   const { mutate: updateWordbook, isPending: isUpdating } = useMutation({
     mutationFn: async ({ id, name, language }: { id: string; name: string; language: string | null }) => {
       await repository!.updateWordbook(id, { name, language })
@@ -494,6 +515,16 @@ export default function WordbookListPage() {
           >
             {isActionLoading ? '로딩 중...' : '문제풀기'}
           </button>
+          {[...selectedIds].some((sid) => sid !== 'review') && (
+            <button
+              onClick={handleDeleteSelected}
+              disabled={isBulkDeleting}
+              className="w-12 shrink-0 rounded-lg border border-red-200 text-red-500 text-xs font-medium disabled:opacity-50"
+              aria-label="선택한 단어장 삭제"
+            >
+              {isBulkDeleting ? '...' : '삭제'}
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -5,8 +5,11 @@ import {
   getAdminPublicBook,
   getAdminPublicBookChapters,
   updatePublicBook,
+  deletePublicBook,
   createPublicBookChapter,
   bulkCreatePublicBookChapters,
+  deletePublicBookChapter,
+  clearPublicBookChapters,
 } from '@/lib/publicBooks'
 import { BackIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
@@ -109,6 +112,40 @@ export default function AdminBookDetailPage() {
     },
   })
 
+  // 2026-09-10 신설 — 책 자체 삭제(삭제 후 목록으로 이동).
+  const { mutate: deleteBook, isPending: isDeletingBook } = useMutation({
+    mutationFn: () => deletePublicBook(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'public-books'] })
+      navigate('/admin/books')
+    },
+    onError: (err) => console.error('[admin book delete error]', err),
+  })
+
+  const { mutate: removeChapter, isPending: isRemovingChapter } = useMutation({
+    mutationFn: (chapterId: string) => deletePublicBookChapter(chapterId),
+    onSuccess: invalidate,
+    onError: (err) => console.error('[admin book chapter delete error]', err),
+  })
+
+  // "비우기" — 책은 유지, 하위 목차만 전부 삭제.
+  const { mutate: clearChapters, isPending: isClearingChapters } = useMutation({
+    mutationFn: () => clearPublicBookChapters(id!),
+    onSuccess: invalidate,
+    onError: (err) => console.error('[admin book clear chapters error]', err),
+  })
+
+  const handleDeleteBook = () => {
+    if (!confirm('이 책을 삭제하시겠습니까? 포함된 목차도 함께 삭제되며, 되돌릴 수 없습니다.')) return
+    deleteBook()
+  }
+
+  const handleClearChapters = () => {
+    if (chapters.length === 0) return
+    if (!confirm(`이 책의 목차 ${chapters.length}개를 전부 삭제하시겠습니까? 되돌릴 수 없습니다.`)) return
+    clearChapters()
+  }
+
   const handleBulkImportClick = () => {
     setBulkError('')
     setBulkPreview(null)
@@ -171,6 +208,13 @@ export default function AdminBookDetailPage() {
           >
             .txt 일괄등록
           </button>
+          <button
+            onClick={handleDeleteBook}
+            disabled={isDeletingBook}
+            className="text-xs text-red-500 px-2.5 py-1.5 rounded-md border border-red-200 disabled:opacity-50"
+          >
+            {isDeletingBook ? '삭제 중...' : '삭제'}
+          </button>
         </div>
         <input
           ref={fileInputRef}
@@ -214,13 +258,22 @@ export default function AdminBookDetailPage() {
               ))}
             </select>
           </div>
-          <button
-            onClick={() => saveMeta()}
-            disabled={!metaForm.title.trim() || isSavingMeta}
-            className="w-full py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium disabled:opacity-50"
-          >
-            {isSavingMeta ? '저장 중...' : '저장'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => saveMeta()}
+              disabled={!metaForm.title.trim() || isSavingMeta}
+              className="flex-1 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium disabled:opacity-50"
+            >
+              {isSavingMeta ? '저장 중...' : '저장'}
+            </button>
+            <button
+              onClick={handleClearChapters}
+              disabled={chapters.length === 0 || isClearingChapters}
+              className="px-4 py-2.5 rounded-lg border border-red-200 text-red-500 text-sm disabled:opacity-50"
+            >
+              {isClearingChapters ? '비우는 중...' : '비우기'}
+            </button>
+          </div>
         </div>
 
         <h2 className="text-sm font-bold text-gray-900 px-0.5">목차 목록</h2>
@@ -284,9 +337,21 @@ export default function AdminBookDetailPage() {
         <div className="flex flex-col gap-3">
           {chapters.map((chapter, i) => (
             <div key={chapter.id} className="bg-white rounded-2xl shadow-sm p-4">
-              <span className="text-sm font-semibold text-gray-900">
-                {i + 1}. {chapter.title}
-              </span>
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-sm font-semibold text-gray-900">
+                  {i + 1}. {chapter.title}
+                </span>
+                <button
+                  onClick={() => {
+                    if (!confirm(`"${chapter.title}" 목차를 삭제하시겠습니까?`)) return
+                    removeChapter(chapter.id)
+                  }}
+                  disabled={isRemovingChapter}
+                  className="text-xs text-red-400 shrink-0 disabled:opacity-50"
+                >
+                  삭제
+                </button>
+              </div>
               <p className="text-xs text-gray-600 mt-1 line-clamp-3 whitespace-pre-wrap">{chapter.content}</p>
             </div>
           ))}

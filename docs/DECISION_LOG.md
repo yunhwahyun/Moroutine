@@ -6,6 +6,41 @@
 
 ## 2026-09-10
 
+### 단어장/책장 삭제 기능 추가(관리자 + 사용자, 목록 멀티선택/상세 개별/비우기)
+
+- **배경**: 관리자 화면(공용 단어장/책장)에 삭제 기능이 전혀 없다는 지적으로 시작 — 조사해보니
+  사용자(개인) 단어장/책장 쪽은 이미 목록에서 편집모드 경유 삭제, 책 상세의 목차 삭제까지는
+  있었지만 단어장 상세의 "단어 개별 삭제"와 "여러 개 선택해서 한번에 삭제"는 둘 다 없었고, 관리자
+  쪽은 DB 레이어(`lib/publicWordbooks.ts`/`publicBooks.ts`)에 delete 함수 자체가 하나도 없어 UI
+  이전에 막혀 있었다.
+- **RLS/권한 확인**: `public_wordbooks`/`public_words`/`public_books`/`public_book_chapters`의
+  `_admin_write` 정책이 이미 `FOR ALL`(SELECT 제외 CRUD 전부)이라 DELETE 권한 자체는 막혀있지
+  않았다 — 순전히 애플리케이션 레이어(lib 함수 부재)의 문제였음을 확인 후 별도 RLS 변경 없이 진행.
+- **발견(신규) — DELETE가 감사 로그에서 빠져 있었음**: 마이그레이션 30/41의 4개 트리거가
+  `AFTER INSERT OR UPDATE`만 커버해, 삭제 기능을 추가하면 그 즉시 "관리자가 뭘 지웠는지 감사
+  로그에 안 남는" 상태가 됨을 발견. `docs/ADMIN_DESIGN.md` §4 "모든 관리자 작업을 감사 로그에
+  남긴다" 원칙에 어긋나므로, 마이그레이션 48로 4개 트리거 함수를 OLD 기반 DELETE 분기까지
+  확장(`*_delete` action, `AFTER DELETE` 추가) — 새 정책 결정이 아니라 이미 확정된 원칙을
+  실제로 지키기 위한 보완으로 판단해 별도 확인 없이 진행.
+- **삭제 방식 — 물리 삭제로 결정**: 마이그레이션 17 주석에 "공용 단어는 물리 삭제하지 않고
+  status='archived'로 관리한다"는 원래 설계 의도가 있었으나, 이를 구현한 코드가 처음부터 전혀
+  없었고(word/chapter 단위 status 변경 UI 자체가 없음) 사용자가 명시적으로 "삭제" 기능을 요청한
+  것이라 실제 물리 DELETE로 구현 — CASCADE(단어장→단어, 책→목차)와 `sync_public_word_count`/
+  `sync_public_book_chapter_count` 카운트 트리거가 이미 DELETE를 정상 처리하도록 구현돼 있어
+  정합성 문제는 없음을 확인.
+- **구현 범위**: `lib/publicWordbooks.ts`/`publicBooks.ts`에 삭제 계열 함수 신설
+  (`deletePublicWordbook(s)`, `deletePublicWord`, `clearPublicWordbookWords`,
+  `deletePublicBook(s)`, `deletePublicBookChapter`, `clearPublicBookChapters`). 관리자
+  목록 2곳(단어장/책)에 멀티선택+일괄삭제, 상세 2곳에 단어장/책 자체 삭제(헤더) + 단어/목차
+  개별 삭제 + "비우기"(하위 항목 전체 삭제, 저장 버튼 옆) 추가. 사용자 쪽은 이미 있던 목록
+  멀티선택(학습/퀴즈/자동재생용)에 삭제 액션을 얹고, 단어장 상세엔 없던 단어 개별 삭제 +
+  "비우기"를 신설, 책 상세엔 "비우기"만 추가(목차 개별 삭제는 이미 있었음). 전부 `window.confirm`
+  경고 후 진행(기존 회원탈퇴/로컬데이터초기화와 동일한 확인 패턴).
+- **자동 검증**: `web`: `tsc -b && vite build` 통과, `eslint .` 신규 에러 없음. 마이그레이션 48은
+  원격 DB에 즉시 적용 확인.
+
+---
+
 ### 비밀번호 찾기 — "계정 존재 비노출" 결정을 사용자가 재번복
 
 - **배경**: 몇 메시지 전 "resetPasswordForEmail은 계정 존재 여부를 노출하지 않는 Supabase 기본

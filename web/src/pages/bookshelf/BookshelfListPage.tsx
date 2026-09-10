@@ -86,6 +86,24 @@ export default function BookshelfListPage() {
     onError: (err) => console.error('[book delete error]', err),
   })
 
+  // 2026-09-10 신설 — 멀티 선택 삭제.
+  const { mutate: deleteSelectedBooks, isPending: isBulkDeleting } = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(ids.map((bid) => repository!.deleteBook(bid)))
+    },
+    onSuccess: (_, ids) => {
+      queryClient.setQueryData<Book[]>(['books', tier], (old = []) => old.filter((b) => !ids.includes(b.id)))
+      setSelectedIds(new Set())
+    },
+    onError: (err) => console.error('[book bulk delete error]', err),
+  })
+
+  const handleDeleteSelected = () => {
+    if (selectedIds.size === 0) return
+    if (!confirm(`선택한 책 ${selectedIds.size}개를 삭제하시겠습니까? 포함된 목차도 함께 삭제되며, 되돌릴 수 없습니다.`)) return
+    deleteSelectedBooks([...selectedIds])
+  }
+
   const { mutate: updateBook, isPending: isUpdating } = useMutation({
     mutationFn: async ({ id, name, language }: { id: string; name: string; language: string | null }) => {
       await repository!.updateBook(id, { name, language })
@@ -338,16 +356,23 @@ export default function BookshelfListPage() {
         ))}
       </div>
 
-      {/* 선택 시 하단 액션바 — 학습/퀴즈가 없어 자동재생 버튼 하나뿐 */}
+      {/* 선택 시 하단 액션바 — 학습/퀴즈가 없어 자동재생 + 삭제뿐 */}
       {selectedIds.size > 0 && (
-        <div className="px-4 py-3 bg-white border-t border-gray-100">
+        <div className="px-4 py-3 bg-white border-t border-gray-100 flex gap-2">
           <button
             onClick={handleAutoPlayStart}
             disabled={isActionLoading || !autoSupported}
-            className="w-full py-3 rounded-lg bg-gray-900 text-white text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+            className="flex-1 py-3 rounded-lg bg-gray-900 text-white text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <PlayIcon size={18} />
             {isActionLoading ? '로딩 중...' : '선택한 책 자동재생'}
+          </button>
+          <button
+            onClick={handleDeleteSelected}
+            disabled={isBulkDeleting}
+            className="w-16 shrink-0 rounded-lg border border-red-200 text-red-500 text-xs font-medium disabled:opacity-50"
+          >
+            {isBulkDeleting ? '...' : '삭제'}
           </button>
         </div>
       )}
