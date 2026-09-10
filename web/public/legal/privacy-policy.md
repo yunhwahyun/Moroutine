@@ -10,7 +10,7 @@ Guest는 회원가입을 위한 개인정보를 직접 제공하지 않습니다
 
 ## 1. 개인정보 처리 목적
 
-- **Master**: 회원 식별 및 가입 의사 확인, 로그인 인증, 서비스 부정이용 방지, 학습 데이터(단어장·일정 등) 저장 및 기기 간 동기화, 회원탈퇴 처리
+- **Master**: 회원 식별 및 가입 의사 확인, 로그인 인증, 계정 관리(비밀번호 변경·재설정 포함), 서비스 부정이용 방지, 학습 데이터(단어장·일정 등) 저장 및 기기 간 동기화, 회원탈퇴 처리
 - **Admin**: 운영자 계정 식별 및 로그인 인증, 관리 활동 감사(audit log)
 - **Guest**: 계정을 생성하지 않으므로 본 목적에서 제외 — 다만 접속 자체로 발생하는 자동수집정보(§13)는 인프라 운영 목적으로 처리
 
@@ -54,7 +54,7 @@ Master: 회원탈퇴 시까지 보유 후 지체없이 파기. 관계 법령에 
 |---|---|---|
 | Supabase Pte. Ltd. | 데이터베이스, 사용자 인증(Auth), Edge Function 등 백엔드 인프라 | 위탁계약 종료 시 또는 회원탈퇴 시까지 |
 | Vercel Inc. | 웹 애플리케이션 정적 파일 호스팅(서버리스 기능 없음, 접속기록만 처리 — 위탁 해당 여부는 법무 확인 필요, 보수적으로 기재) | `[확인 필요]` |
-| Plus Five Five, Inc.(Resend) | Master 초대 및 인증 관련 이메일 발송 | 계정 활성 중 30일(이메일·발송로그), 위탁계약 종료 후 90일 이내 삭제(백업 7일 추가 보관) |
+| Plus Five Five, Inc.(Resend) | Master 초대, 인증 및 계정(비밀번호 재설정 등) 관련 이메일 발송 | 계정 활성 중 30일(이메일·발송로그), 위탁계약 종료 후 90일 이내 삭제(백업 7일 추가 보관) |
 
 실제 사용 중인 이메일 발송 사업자는 Resend(법인명 Plus Five Five, Inc.)로 확인해 반영했습니다. Vercel은 애플리케이션 개인정보를 처리하지 않고 정적 호스팅만 하지만, 위탁 여부를 보수적으로 판단해 목록에 유지했습니다.
 
@@ -65,7 +65,7 @@ Master: 회원탈퇴 시까지 보유 후 지체없이 파기. 관계 법령에 
 | 수탁자 | 이전 국가/리전 | 이전 항목 | 이전 목적 | 이전 방법 | 이전 근거 |
 |---|---|---|---|---|---|
 | Supabase Pte. Ltd. | 싱가포르(ap-southeast-1) | 이메일, 회원 식별정보, 서비스 이용정보(§2②) | 데이터베이스·인증 서비스 제공 | 네트워크를 통한 전송·서버 저장 | EU 표준계약조항(SCC, Module Two/Three) + UK ICO 승인 Addendum — Supabase 공식 DPA(supabase.com/legal/dpa) 기준. 국내법상 근거는 개인정보 보호법 제28조의8제1항제1호(본 방침에 공개) |
-| Plus Five Five, Inc.(Resend) | 미국 | Master 초대 대상 이메일 주소, 발송 로그(발송시각·전송상태 등) | Master 초대 및 인증 관련 이메일 발송 | Edge Function → Supabase Auth Admin API → Supabase Auth의 커스텀 SMTP(Resend)를 통한 실제 발송 | EU 표준계약조항(SCC, Module 2 Controller-Processor) + EU-U.S. Data Privacy Framework(및 UK Extension) |
+| Plus Five Five, Inc.(Resend) | 미국 | Master 초대·비밀번호 재설정 대상 이메일 주소, 발송 로그(발송시각·전송상태 등) | Master 초대, 인증 및 계정(비밀번호 재설정 등) 관련 이메일 발송 | Edge Function → Supabase Auth Admin API → Supabase Auth의 커스텀 SMTP(Resend)를 통한 실제 발송(비밀번호 재설정은 Supabase Auth가 동일한 커스텀 SMTP 경로로 직접 발송) | EU 표준계약조항(SCC, Module 2 Controller-Processor) + EU-U.S. Data Privacy Framework(및 UK Extension) |
 | Vercel Inc. | 싱가포르(ap-southeast-1, Southeast Asia) | 접속기록(IP, User-Agent, 요청 경로·시각)만 — 애플리케이션 개인정보는 Vercel을 경유하지 않음 | 웹 애플리케이션 정적 호스팅 | 웹 접속(정적 파일 요청) 시 자동 발생 | 위탁 해당 여부 자체가 아직 확정되지 않아 국외이전 법적 근거도 함께 확인 필요 |
 
 ## 9. 개인정보 파기 절차 및 방법

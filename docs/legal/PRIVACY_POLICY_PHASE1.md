@@ -16,7 +16,7 @@ Guest는 회원가입을 위한 개인정보를 직접 제공하지 않습니다
 
 ## 1. 개인정보 처리 목적
 
-- **Master**: 회원 식별 및 가입 의사 확인, 로그인 인증, 서비스 부정이용 방지, 학습 데이터(단어장·일정 등) 저장 및 기기 간 동기화, 회원탈퇴 처리
+- **Master**: 회원 식별 및 가입 의사 확인, 로그인 인증, 계정 관리(비밀번호 변경·재설정 포함), 서비스 부정이용 방지, 학습 데이터(단어장·일정 등) 저장 및 기기 간 동기화, 회원탈퇴 처리
 - **Admin**: 운영자 계정 식별 및 로그인 인증, 관리 활동 감사(audit log)
 - **Guest**: 계정을 생성하지 않으므로 본 목적에서 제외 — 다만 접속 자체로 발생하는 자동수집정보(§13)는 인프라 운영 목적으로 처리
 
@@ -62,7 +62,7 @@ Master: 회원탈퇴 시까지 보유 후 지체없이 파기. 관계 법령에 
 |---|---|---|
 | Supabase Pte. Ltd. | 데이터베이스, 사용자 인증(Auth), Edge Function 등 백엔드 인프라 | 위탁계약 종료 시 또는 회원탈퇴 시까지 |
 | Vercel Inc. | 웹 애플리케이션 정적 파일 호스팅(서버리스 기능 없음, 접속기록만 처리 — 위탁 해당 여부는 법무 확인 필요, 보수적으로 기재) | `[확인 필요]` |
-| Plus Five Five, Inc.(Resend) | Master 초대 및 인증 관련 이메일 발송 | 계정 활성 중 30일(이메일·발송로그), 위탁계약 종료 후 90일 이내 삭제(백업 7일 추가 보관) — Resend 공식 자료 기준(§8 출처 참고) |
+| Plus Five Five, Inc.(Resend) | Master 초대, 인증 및 계정(비밀번호 재설정 등) 관련 이메일 발송 | 계정 활성 중 30일(이메일·발송로그), 위탁계약 종료 후 90일 이내 삭제(백업 7일 추가 보관) — Resend 공식 자료 기준(§8 출처 참고) |
 
 실제 사용 중인 이메일 발송 사업자는 Resend(법인명 Plus Five Five, Inc.)로 확인해 반영했습니다. Vercel은 애플리케이션 개인정보를 처리하지 않고 정적 호스팅만 하지만, 위탁 여부를 보수적으로 판단해 목록에 유지했습니다. Supabase의 법인명은 "Supabase, Inc."(미국 델라웨어)로 잘못 기재돼 있었으나, Supabase 공식 DPA([supabase.com/legal/dpa](https://supabase.com/legal/dpa)) 원문을 직접 확인한 결과 계약 당사자(data importer)로 정의된 법인은 "Supabase Pte. Ltd."(싱가포르)였다 — 이 문서 전체에서 "Supabase, Inc."는 한 번도 등장하지 않는다(2026-09-10 확인). **다만 이는 공개된 DPA 문서 하나만 근거로 한 판단이라, 실제 이 프로젝트의 결제·계약 화면에 표시되는 법인명과 다를 가능성을 배제할 수 없다 — 최종 게시 전 Supabase Dashboard의 청구/계약 정보에서 재확인 권장.**
 
@@ -73,7 +73,7 @@ Master: 회원탈퇴 시까지 보유 후 지체없이 파기. 관계 법령에 
 | 수탁자 | 이전 국가/리전 | 이전 항목 | 이전 목적 | 이전 방법 | 이전 근거 |
 |---|---|---|---|---|---|
 | Supabase Pte. Ltd. | **싱가포르(ap-southeast-1)** — Project Settings > General > Region에서 사용자가 직접 확인(2026-09-10) | 이메일, 회원 식별정보, 서비스 이용정보(§2②) | 데이터베이스·인증 서비스 제공 | 네트워크를 통한 전송·서버 저장 | EU 표준계약조항(SCC, Module Two Controller-to-Processor / Module Three Processor-to-Processor) + UK ICO 승인 Addendum(UK 데이터 적용 시) — Supabase 공식 DPA([supabase.com/legal/dpa](https://supabase.com/legal/dpa), Version 1, 2026-08-01) 기준. 국내법상 근거는 개인정보 보호법 제28조의8제1항제1호(본 방침에 국외이전 사항을 공개) |
-| Plus Five Five, Inc.(Resend) | **미국** — Resend 공식 DPA: "primary processing operations take place in the United States". 서브프로세서 21개 전부 미국 소재(AWS 등) | Master 초대 대상 이메일 주소, 발송 로그(발송시각·전송상태 등) | Master 초대 및 인증 관련 이메일 발송 | Edge Function → Supabase Auth Admin API(`inviteUserByEmail`) → Supabase Auth의 커스텀 SMTP(Resend)를 통한 실제 발송 | EU 표준계약조항(SCC, Module 2 Controller-Processor) + EU-U.S. Data Privacy Framework(및 UK Extension) — Resend 공식 DPA 기준 |
+| Plus Five Five, Inc.(Resend) | **미국** — Resend 공식 DPA: "primary processing operations take place in the United States". 서브프로세서 21개 전부 미국 소재(AWS 등) | Master 초대·비밀번호 재설정 대상 이메일 주소, 발송 로그(발송시각·전송상태 등) | Master 초대, 인증 및 계정(비밀번호 재설정 등) 관련 이메일 발송 | Edge Function → Supabase Auth Admin API(`inviteUserByEmail`) → Supabase Auth의 커스텀 SMTP(Resend)를 통한 실제 발송(비밀번호 재설정은 Supabase Auth `resetPasswordForEmail()`이 동일한 커스텀 SMTP 경로로 직접 발송) | EU 표준계약조항(SCC, Module 2 Controller-Processor) + EU-U.S. Data Privacy Framework(및 UK Extension) — Resend 공식 DPA 기준 |
 | Vercel Inc. | **싱가포르(ap-southeast-1, Southeast Asia)** — Vercel 프로젝트 설정에서 사용자가 직접 확인(2026-09-10) | 접속기록(IP, User-Agent, 요청 경로·시각)만 — 애플리케이션 개인정보는 Vercel을 경유하지 않음 | 웹 애플리케이션 정적 호스팅 | 웹 접속(정적 파일 요청) 시 자동 발생 | 위탁 해당 여부 자체가 아직 확정되지 않아(§7 참고) 국외이전 법적 근거도 함께 법무 확인 필요 — 리전은 확인됐으나 근거 판단은 남아있음 |
 
 Resend 행: [resend.com/legal/dpa](https://resend.com/legal/dpa), [resend.com/legal/subprocessors](https://resend.com/legal/subprocessors), [resend.com/security/gdpr](https://resend.com/security/gdpr) 공식 자료 확인(2026-09 기준). Supabase 행은 사용자가 Dashboard에서 직접 확인한 리전(싱가포르, ap-southeast-1, 2026-09-10)과 [supabase.com/legal/dpa](https://supabase.com/legal/dpa) 공식 DPA(Version 1, 2026-08-01) 원문 확인 결과를 반영했습니다. Vercel 리전도 사용자가 프로젝트 설정에서 직접 확인해(싱가포르, ap-southeast-1, 2026-09-10) 반영했습니다.
