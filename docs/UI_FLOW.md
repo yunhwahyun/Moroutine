@@ -524,20 +524,26 @@ Pro/Master 전용(`permissions.canUsePublicWordbooks` 아니면 업그레이드 
 
 ---
 
-### Master 초대 수락 (`/master/accept`) ✅ 구현 완료(2026-07-18, 세션 기반으로 편차 / 2026-09-10 동의 폼 추가)
+### Master 초대 수락 (`/master/accept`) ✅ 구현 완료(2026-07-18, 세션 기반으로 편차 / 2026-09-10 동의 폼+비밀번호 추가)
 
 `docs/MASTER_INVITATION_DESIGN.md` §4-3, 편차는 §2 상단 참고. `?token=...` 쿼리 파라미터는 쓰지 않는다 —
-초대/매직 링크를 클릭하면 Supabase가 이미 세션을 확립한 채로 이 페이지에 도착한다. 비밀번호 생성 폼은
-없음(`LoginPage`의 매직 링크 로그인 탭으로 항상 재로그인 가능).
+초대/매직 링크를 클릭하면 Supabase가 이미 세션을 확립한 채로 이 페이지에 도착한다.
 
 **2026-09-10(P0) 변경**: 세션이 확인되면 더 이상 `master-accept`를 곧바로 호출하지 않는다. 대신
-① `[필수] 이용약관에 동의합니다`(체크박스, `/terms`로 링크) ② `[필수] 만 14세 이상입니다`(체크박스)
-두 항목과, 체크박스가 아닌 개인정보처리방침 안내 문구 + `/privacy` 링크를 먼저 보여주고, 두 체크박스를
-모두 선택해야 "동의하고 계속하기" 버튼이 활성화된다(`docs/launch/PHASE1_POLICY.md` §5). 제출 시
-`master-accept`를 `{ agreedTerms: true, agreedAge: true, policyVersion }` body로 호출 — 서버가 다시
-검증 후 `user_policy_agreements`에 `terms`/`age_eligibility` 두 행을 기록한다. 실패하면 폼으로 돌아가
-인라인 에러만 보여준다(체크박스 상태 유지). 완료 시 "Master 권한이 부여되었습니다" 표시 후 홈으로 이동,
-세션이 없으면 "초대 링크가 유효하지 않습니다" 안내.
+① 비밀번호 / 비밀번호 확인 입력(6자 이상, 둘이 일치해야 함) ② `[필수] 이용약관에 동의합니다`(체크박스,
+`/terms`로 링크) ③ `[필수] 만 14세 이상입니다`(체크박스)와, 체크박스가 아닌 개인정보처리방침 안내
+문구 + `/privacy` 링크를 먼저 보여주고, 비밀번호 2칸 + 체크박스 2개를 모두 채워야 "가입 완료하기"
+버튼이 활성화된다(`docs/launch/PHASE1_POLICY.md` §3.2, §5). 제출 시 먼저
+`supabase.auth.updateUser({ password })`로 비밀번호를 설정한 뒤, `master-accept`를
+`{ agreedTerms: true, agreedAge: true, policyVersion }` body로 호출 — 서버가 다시 검증 후
+`user_policy_agreements`에 `terms`/`age_eligibility` 두 행을 기록한다. 실패하면 폼으로 돌아가 인라인
+에러만 보여준다(입력값 유지). 완료 시 "Master 권한이 부여되었습니다" 표시 후 홈으로 이동, 세션이 없으면
+"초대 링크가 유효하지 않습니다" 안내.
+
+**2026-09-10 추가 수정**: 원래 "비밀번호 생성 폼 없음"(LoginPage 매직 링크로만 재로그인)으로 편차를
+뒀었으나, 이건 `docs/launch/PHASE1_POLICY.md` §3.2가 이미 5번 단계로 "비밀번호 설정"을 명시하고 있던
+것과 어긋난 상태였다 — 최초 P0 구현 때 놓친 부분을 이번에 바로잡았다. 비밀번호를 설정해도 매직 링크
+로그인은 계속 가능(두 방식 모두 지원, 배타적이지 않음).
 
 ---
 

@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError'
+import { translateAuthError } from '@/lib/authErrors'
 
 type Status = 'checking' | 'form' | 'submitting' | 'success' | 'no-session'
 
@@ -16,14 +17,19 @@ type Status = 'checking' | 'form' | 'submitting' | 'success' | 'no-session'
 // POLICY_VERSION_FALLBACK과 반드시 같은 값으로 맞출 것).
 const POLICY_VERSION = 'phase1-v1'
 
-// docs/MASTER_INVITATION_DESIGN.md §4-3 편차(2026-07-18) — 자체 토큰 없이, 초대/매직 링크 클릭으로
-// 이미 확립된 세션만으로 master-accept를 호출한다. 비밀번호 설정 단계는 없음(LoginPage의 매직 링크
-// 로그인으로 항상 재로그인 가능하므로 비밀번호가 필수가 아님). P0(2026-09-10)부터는 세션이 확인되면
-// 바로 호출하지 않고, 이용약관 동의 + 만 14세 이상 확인 체크박스를 통과해야 호출한다.
+// docs/MASTER_INVITATION_DESIGN.md §4-3 — 자체 토큰 없이, 초대/매직 링크 클릭으로 이미 확립된
+// 세션만으로 진행한다(2026-07-18 편차 유지).
+//
+// 2026-09-10 재변경 — "비밀번호 설정 단계 없음"(2026-07-18 편차)을 되돌린다. 매직 링크로만 항상
+// 재로그인 가능하다는 이유로 비밀번호를 생략했으나, 일반적인 회원가입과 동떨어진 경험이라는 지적에
+// 따라 여기서 비밀번호를 입력받아 supabase.auth.updateUser({ password })로 설정한다 — 이후에는
+// LoginPage의 "로그인"(이메일/비밀번호) 탭으로도 로그인할 수 있다(매직 링크도 계속 가능, 둘 다 지원).
 export default function MasterAcceptPage() {
   const { user, isLoading: isAuthLoading } = useAuthStore()
   const [status, setStatus] = useState<Status>('checking')
   const [errorMessage, setErrorMessage] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [agreedTerms, setAgreedTerms] = useState(false)
   const [agreedAge, setAgreedAge] = useState(false)
   const navigate = useNavigate()
@@ -37,12 +43,31 @@ export default function MasterAcceptPage() {
   const handleSubmit = async () => {
     if (!user || !agreedTerms || !agreedAge) return
     setErrorMessage('')
+
+    if (password.length < 6) {
+      setErrorMessage('비밀번호는 6자 이상이어야 합니다.')
+      return
+    }
+    if (password !== confirmPassword) {
+      setErrorMessage('비밀번호가 일치하지 않습니다.')
+      return
+    }
+
     setStatus('submitting')
+
+    const { error: passwordError } = await supabase.auth.updateUser({ password })
+    if (passwordError) {
+      setStatus('form')
+      setErrorMessage(translateAuthError(passwordError.message))
+      return
+    }
+
     const { data, error } = await supabase.functions.invoke('master-accept', {
       body: { agreedTerms: true, agreedAge: true, policyVersion: POLICY_VERSION },
     })
     if (error || !data?.success) {
       // 실패해도 폼으로 되돌아가 인라인 에러만 보여준다 — 체크박스를 다시 채우게 만들지 않는다.
+      // 비밀번호는 이미 설정됐으므로 다시 입력받을 필요는 없다(재시도 시 그대로 재사용).
       setStatus('form')
       setErrorMessage(await getEdgeFunctionErrorMessage(error, '초대 수락에 실패했습니다.'))
       return
@@ -77,6 +102,25 @@ export default function MasterAcceptPage() {
       {(status === 'form' || status === 'submitting') && (
         <div className="w-full max-w-sm text-left">
           <p className="text-base font-bold text-gray-900 mb-6 text-center">Master 가입 안내</p>
+
+          <div className="flex flex-col gap-3 mb-4">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="비밀번호 (6자 이상)"
+              disabled={status === 'submitting'}
+              className="w-full border border-gray-200 rounded-lg px-4 py-3.5 text-sm outline-none focus:border-gray-400"
+            />
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="비밀번호 확인"
+              disabled={status === 'submitting'}
+              className="w-full border border-gray-200 rounded-lg px-4 py-3.5 text-sm outline-none focus:border-gray-400"
+            />
+          </div>
 
           <label className="flex items-start gap-2.5 py-3 border-b border-gray-100 cursor-pointer">
             <input
@@ -121,10 +165,10 @@ export default function MasterAcceptPage() {
 
           <button
             onClick={handleSubmit}
-            disabled={!agreedTerms || !agreedAge || status === 'submitting'}
+            disabled={!agreedTerms || !agreedAge || !password || !confirmPassword || status === 'submitting'}
             className="w-full py-4 rounded-lg bg-gray-900 text-white text-sm font-medium mt-6 disabled:opacity-50"
           >
-            {status === 'submitting' ? '처리 중...' : '동의하고 계속하기'}
+            {status === 'submitting' ? '처리 중...' : '가입 완료하기'}
           </button>
         </div>
       )}

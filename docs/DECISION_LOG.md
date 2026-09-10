@@ -6,6 +6,36 @@
 
 ## 2026-09-10
 
+### Master 가입에 비밀번호 설정 복원 + 링크 로그인 에러 문구 정리
+
+- **배경**: 사용자가 현재 Master 가입 플로우(매직 링크 전용, 비밀번호 없음)가 "일반적이지 않다"고
+  지적 — 비회원에게 초대 메일을 보내면 일반 회원가입처럼 비밀번호를 입력받아 이후 이메일/비밀번호로도
+  로그인 가능하게 해달라는 요청.
+- **발견**: `docs/launch/PHASE1_POLICY.md` §3.2(P0 정책, 2026-09-09 확정)는 이미 5번 단계로 "비밀번호
+  설정"을 명시하고 있었다 — 정책 자체는 항상 비밀번호를 요구했는데, P0 구현 세션(2026-09-10) 당시
+  `MasterAcceptPage`의 기존 코드에 있던 2026-07-18 편차 주석("비밀번호 설정 단계는 없음")을 그대로
+  따라가면서 이 부분을 놓치고 구현했다. 이번 요청은 새 정책 결정이 아니라 **이미 확정된 정책과 어긋나게
+  구현했던 부분을 바로잡는 것**이다.
+- **적용**: `MasterAcceptPage`에 비밀번호/비밀번호 확인 입력을 추가(6자 이상, 일치 검증). 제출 시
+  `supabase.auth.updateUser({ password })`로 먼저 비밀번호를 설정한 뒤 `master-accept`를 호출한다.
+  이후 Master는 매직 링크와 이메일/비밀번호 로그인을 둘 다 쓸 수 있다(매직 링크를 없애는 게 아니라
+  비밀번호를 추가하는 것). `LoginPage.tsx`와 `MasterAcceptPage.tsx`가 각자 갖고 있던 GoTrue 에러
+  메시지 한국어 번역 테이블을 `web/src/lib/authErrors.ts`로 통합(중복 제거, 비밀번호 관련 에러
+  문구를 두 화면에서 동일하게 재사용하기 위함).
+- **링크 로그인 비회원 에러 문구 변경**: "가입되지 않은 이메일입니다. Master로 초대받은 이메일로만
+  로그인할 수 있습니다." → **"가입되지 않은 이메일입니다. 메일 주소를 확인해주세요."**(사용자 지정
+  문구, 더 간결함). GoTrue의 실제 에러 문자열이 `"Signups not allowed for otp"`(에러 코드
+  `otp_disabled`)인 것을 Supabase 공식 GitHub 이슈로 재확인 — 기존 매핑 키가 정확히 일치함을 확인.
+- **"비회원이 Sign-in 링크를 눌러도 로그인되면 안 된다"는 요구사항**: 이미 만족된 상태로 확인—
+  `LoginPage.tsx`의 `signInWithOtp`에 `shouldCreateUser: false`가 있어 비회원에게는 애초에 메일 자체가
+  발송되지 않는다(클릭할 링크가 존재하지 않음). 서버 쪽 `_shared/masterInvite.ts`의 OTP 폴백은
+  `inviteUserByEmail`이 "이미 가입됨" 에러를 반환했을 때만 타는 경로라 정의상 항상 기존 회원 대상이라
+  별도 조치 불필요. 참고: 이 설계는 이메일 가입 여부가 에러로 노출되는 특성이 있음(Supabase 자체
+  GitHub 이슈에서도 지적된 부분) — 초대 전용 서비스라 이번엔 사용자가 의도적으로 이 방식을 택함.
+- **자동 검증**: `web`: `tsc -b && vite build` 통과.
+
+---
+
 ### QA 중 발견한 P0 회귀 2건 수정 — 매직링크 self-signup 우회, DowngradeGate가 MasterAcceptPage를 덮는 문제
 
 - **매직링크 self-signup 우회**: `LoginPage.tsx`의 "링크 로그인"(`signInWithOtp`)이 `shouldCreateUser` 기본값(true)으로 인해 미가입 이메일도 자동으로 새 계정을 만들어버렸다 — "회원가입 탭/`signUp()` 제거"만으로는 안 막히는 두 번째 self-signup 경로였다. `shouldCreateUser: false` 추가로 수정. 이 과정에서 실제로 생성된 테스트 계정 정리를 사용자에게 안내함.
