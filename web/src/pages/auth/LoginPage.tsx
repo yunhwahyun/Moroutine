@@ -102,7 +102,7 @@ export default function LoginPage() {
               ([m, label]) => (
                 <button
                   key={m}
-                  onClick={() => { setMode(m); setError(''); setMessage('') }}
+                  onClick={() => { setMode(m); setPassword(''); setError(''); setMessage('') }}
                   className={`flex-1 min-h-[38px] py-2 text-xs font-medium rounded-lg transition-all ${
                     mode === m ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
                   }`}
@@ -138,7 +138,7 @@ export default function LoginPage() {
             </button>
             <button
               type="button"
-              onClick={() => { setMode('login'); setError(''); setMessage('') }}
+              onClick={() => { setMode('login'); setPassword(''); setError(''); setMessage('') }}
               className="text-xs text-gray-500 underline text-center mt-1"
             >
               로그인으로 돌아가기
@@ -171,7 +171,7 @@ export default function LoginPage() {
             {mode === 'login' && (
               <button
                 type="button"
-                onClick={() => { setMode('forgot'); setError(''); setMessage('') }}
+                onClick={() => { setMode('forgot'); setPassword(''); setError(''); setMessage('') }}
                 className="text-xs text-gray-500 underline self-end -mt-1"
               >
                 비밀번호를 잊으셨나요?
