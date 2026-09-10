@@ -10,7 +10,7 @@ Moroutine(이하 "회사"는 본 서비스를 운영하는 자연인 또는 법�
 
 Guest는 회원가입을 위한 개인정보를 직접 제공하지 않습니다. Guest가 입력한 학습 데이터는 이용자의 기기에 저장됩니다. 다만 서비스 접속 과정에서 서비스 운영 및 보안을 위한 접속정보 등이 처리될 수 있습니다.
 
-**시행일**: `[확인 필요: YYYY-MM-DD]`
+**시행일**: `[확인 필요: YYYY-MM-DD — 운영자 확인 결과 아직 미정, 스토어 제출 시점에 확정 예정(2026-09-10)]`
 
 ---
 
@@ -74,9 +74,9 @@ Master: 회원탈퇴 시까지 보유 후 지체없이 파기. 관계 법령에 
 |---|---|---|---|---|---|
 | Supabase Pte. Ltd. | **싱가포르(ap-southeast-1)** — Project Settings > General > Region에서 사용자가 직접 확인(2026-09-10) | 이메일, 회원 식별정보, 서비스 이용정보(§2②) | 데이터베이스·인증 서비스 제공 | 네트워크를 통한 전송·서버 저장 | EU 표준계약조항(SCC, Module Two Controller-to-Processor / Module Three Processor-to-Processor) + UK ICO 승인 Addendum(UK 데이터 적용 시) — Supabase 공식 DPA([supabase.com/legal/dpa](https://supabase.com/legal/dpa), Version 1, 2026-08-01) 기준. 국내법상 근거는 개인정보 보호법 제28조의8제1항제1호(본 방침에 국외이전 사항을 공개) |
 | Plus Five Five, Inc.(Resend) | **미국** — Resend 공식 DPA: "primary processing operations take place in the United States". 서브프로세서 21개 전부 미국 소재(AWS 등) | Master 초대 대상 이메일 주소, 발송 로그(발송시각·전송상태 등) | Master 초대 및 인증 관련 이메일 발송 | Edge Function → Supabase Auth Admin API(`inviteUserByEmail`) → Supabase Auth의 커스텀 SMTP(Resend)를 통한 실제 발송 | EU 표준계약조항(SCC, Module 2 Controller-Processor) + EU-U.S. Data Privacy Framework(및 UK Extension) — Resend 공식 DPA 기준 |
-| Vercel Inc. | 미국(본사 소재) 추정 — 실제 리전 지정 여부 `[확인 필요]` | 접속기록(IP, User-Agent, 요청 경로·시각)만 — 애플리케이션 개인정보는 Vercel을 경유하지 않음 | 웹 애플리케이션 정적 호스팅 | 웹 접속(정적 파일 요청) 시 자동 발생 | 위탁 해당 여부 자체가 확정되지 않아 근거도 함께 확인 필요 |
+| Vercel Inc. | **싱가포르(ap-southeast-1, Southeast Asia)** — Vercel 프로젝트 설정에서 사용자가 직접 확인(2026-09-10) | 접속기록(IP, User-Agent, 요청 경로·시각)만 — 애플리케이션 개인정보는 Vercel을 경유하지 않음 | 웹 애플리케이션 정적 호스팅 | 웹 접속(정적 파일 요청) 시 자동 발생 | 위탁 해당 여부 자체가 아직 확정되지 않아(§7 참고) 국외이전 법적 근거도 함께 법무 확인 필요 — 리전은 확인됐으나 근거 판단은 남아있음 |
 
-Resend 행: [resend.com/legal/dpa](https://resend.com/legal/dpa), [resend.com/legal/subprocessors](https://resend.com/legal/subprocessors), [resend.com/security/gdpr](https://resend.com/security/gdpr) 공식 자료 확인(2026-09 기준). Supabase 행은 사용자가 Dashboard에서 직접 확인한 리전(싱가포르, ap-southeast-1, 2026-09-10)과 [supabase.com/legal/dpa](https://supabase.com/legal/dpa) 공식 DPA(Version 1, 2026-08-01) 원문 확인 결과를 반영했습니다. Vercel 리전은 여전히 이 프로젝트의 실제 설정 확인 없이는 알 수 없어 추측하지 않았습니다 — **최종 게시 전 Vercel 리전을 확인해 국가명을 특정해야 합니다.**
+Resend 행: [resend.com/legal/dpa](https://resend.com/legal/dpa), [resend.com/legal/subprocessors](https://resend.com/legal/subprocessors), [resend.com/security/gdpr](https://resend.com/security/gdpr) 공식 자료 확인(2026-09 기준). Supabase 행은 사용자가 Dashboard에서 직접 확인한 리전(싱가포르, ap-southeast-1, 2026-09-10)과 [supabase.com/legal/dpa](https://supabase.com/legal/dpa) 공식 DPA(Version 1, 2026-08-01) 원문 확인 결과를 반영했습니다. Vercel 리전도 사용자가 프로젝트 설정에서 직접 확인해(싱가포르, ap-southeast-1, 2026-09-10) 반영했습니다.
 
 ## 9. 개인정보 파기 절차 및 방법
 
@@ -84,7 +84,7 @@ Resend 행: [resend.com/legal/dpa](https://resend.com/legal/dpa), [resend.com/le
 
 ## 10. 정보주체의 권리 및 행사방법
 
-이용자는 언제든지 개인정보 열람, 정정, 삭제, 처리정지를 요구할 수 있습니다. 설정 화면 또는 `[확인 필요: 문의 채널]`을 통해 요청할 수 있습니다.
+이용자는 언제든지 개인정보 열람, 정정, 삭제, 처리정지를 요구할 수 있습니다. 설정 화면 또는 이메일(yunhwahyun@gmail.com)을 통해 요청할 수 있습니다.
 
 ## 11. 계정 삭제
 
@@ -104,7 +104,7 @@ Guest를 포함한 전체 이용자의 웹 접속 시 IP주소·접속 시각·�
 
 ## 15. 개인정보 보호 문의처
 
-`[확인 필요: 개인정보 보호책임자 또는 운영자 성명/연락처/이메일]`
+개인정보 보호책임자 겸 운영자: 윤화현 (이메일: yunhwahyun@gmail.com)
 
 ## 16. 개인정보처리방침 변경
 
@@ -112,7 +112,7 @@ Guest를 포함한 전체 이용자의 웹 접속 시 IP주소·접속 시각·�
 
 ## 17. 시행일
 
-`[확인 필요: 실제 게시일]`
+`[확인 필요: 실제 게시일 — 운영자 확인 결과 아직 미정, 스토어 제출 시점에 확정 예정(2026-09-10)]`
 
 ---
 
@@ -120,16 +120,16 @@ Guest를 포함한 전체 이용자의 웹 접속 시 IP주소·접속 시각·�
 
 아래가 전부 확정되기 전에는 임의 값으로 방침을 완성·게시하지 않는다.
 
-- [ ] 운영자 성명(개인정보 보호책임자)
-- [ ] 개인정보 문의 이메일/연락처
-- [ ] 시행일
+- [x] 운영자 성명(개인정보 보호책임자) — 윤화현(2026-09-10 확인)
+- [x] 개인정보 문의 이메일/연락처 — yunhwahyun@gmail.com(2026-09-10 확인)
+- [ ] 시행일 — 운영자 확인 결과 아직 미정(2026-09-10). 스토어 제출 시점에 반드시 확정 필요
 - [x] Supabase 법인명(정확한 사명) — Supabase Pte. Ltd.(공식 DPA 원문 확인, 2026-09-10). **단, 실제 계약 화면 재확인 권장**(§7 각주 참고)
 - [x] Supabase 프로젝트 Region(대시보드 확인) — 싱가포르(ap-southeast-1), 사용자 확인(2026-09-10)
-- [ ] Vercel 법인명(정확한 사명)
-- [ ] Vercel 배포 리전 지정 여부
-- [x] 국외이전 국가 — 싱가포르(Supabase 리전 확정에 따라 특정 완료)
-- [x] 국외이전 항목·방법(§8 표 확정) — Supabase 행 확정. Vercel 행은 여전히 미확정
-- [ ] 정보주체 권리행사 문의 채널(이메일/양식 등)
+- [x] Vercel 법인명(정확한 사명) — Vercel Inc.(2026-09-10 확인)
+- [x] Vercel 배포 리전 지정 여부 — 싱가포르(ap-southeast-1, Southeast Asia), 사용자 확인(2026-09-10)
+- [x] 국외이전 국가 — Supabase/Vercel 둘 다 싱가포르로 확정(2026-09-10)
+- [x] 국외이전 항목·방법(§8 표 확정) — Supabase/Vercel 리전 확정. **단, Vercel의 "위탁 해당 여부" 자체와 국외이전 법적 근거는 여전히 법무 확인 필요**(§7, §8 각주 참고)
+- [x] 정보주체 권리행사 문의 채널(이메일/양식 등) — yunhwahyun@gmail.com(2026-09-10 확인)
 - [ ] 자동수집 로그의 실제 보관기간(Vercel/Supabase 기본 로그 보관정책 확인)
 - [ ] Analytics 사용 여부(현재 없음, 향후 도입 시 갱신)
 - [ ] Crash Reporting 사용 여부(현재 없음, 향후 도입 시 갱신)

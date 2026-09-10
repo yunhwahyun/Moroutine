@@ -164,7 +164,7 @@ create table user_policy_agreements (
 |---|---|---|---|---|---|
 | **Supabase Pte. Ltd.**(2026-09-10 확인 — 공식 DPA 원문엔 "Supabase, Inc." 표기 없음, `docs/legal/PRIVACY_POLICY_PHASE1.md` §7 각주 참고) | DB, Auth, Edge Function | **해당** | **발생** | **싱가포르(ap-southeast-1)** — 사용자가 Dashboard에서 직접 확인(2026-09-10) | 회원탈퇴 시까지 |
 | **Plus Five Five, Inc.(Resend)** | Master 초대 이메일 발송(Supabase Auth 커스텀 SMTP 경유, Edge Function이 Resend API를 직접 호출하지 않음 — `supabase/functions/_shared/masterInvite.ts:24`의 `inviteUserByEmail`만 호출) | **해당** | **발생** | **미국**(Resend 공식 DPA "primary processing operations take place in the United States", 서브프로세서 21개 전부 미국) | 계정 활성 중 30일, 종료 후 90일 내 삭제(백업 +7일) |
-| **Vercel Inc.** | 웹앱 **정적 SPA 호스팅만**(서버리스/API Routes 없음 — `web/vercel.json`엔 rewrite만, `api/` 폴더 없음, Vite 정적 빌드로 코드 확인) | **법무 확인 필요**(애플리케이션 개인정보 미경유, 접속기록만 처리 — "호스팅=위탁 예시" 관행과 상충하는 견해가 둘 다 있음. 1차 방침은 보수적으로 위탁 관계로 기재) | 가능성 높음 | 미국 추정(본사 소재), 리전 지정 여부 [확인 필요] | [확인 필요] |
+| **Vercel Inc.** | 웹앱 **정적 SPA 호스팅만**(서버리스/API Routes 없음 — `web/vercel.json`엔 rewrite만, `api/` 폴더 없음, Vite 정적 빌드로 코드 확인) | **법무 확인 필요**(애플리케이션 개인정보 미경유, 접속기록만 처리 — "호스팅=위탁 예시" 관행과 상충하는 견해가 둘 다 있음. 1차 방침은 보수적으로 위탁 관계로 기재) | 가능성 높음 | **싱가포르(ap-southeast-1, Southeast Asia)** — 사용자가 프로젝트 설정에서 직접 확인(2026-09-10) | [확인 필요](접속 로그 실제 보관기간, Vercel 기본 정책 확인 필요) |
 
 **Guest 접속 시 실제 발생하는 요청 (코드로 확인, 추측 아님)**:
 - Vercel: 앱 접속 자체가 정적 파일 요청이라 **항상** 접속기록(IP/UA) 발생
@@ -331,6 +331,6 @@ Self-signup 차단을 위해 `auth.users` AFTER INSERT 트리거 + `invited_at` 
 | 데이터 삭제 고지 vs 마케팅 수신거부 | 계정 삭제 예고 알림이 마케팅 수신거부와 무관하게 발송 가능한지 |
 | Storage 버킷 정책 | 현재 미사용이나, 스피킹 기능(Phase 23) 재개 시 회원탈퇴·보관 정책에 파일 삭제 로직을 어떻게 편입할지 |
 | Vercel 위탁 해당 여부 | §6 — 애플리케이션 데이터 미경유 vs "호스팅=위탁 예시" 관행, 법무 확인 필요 |
-| Vercel 실제 리전 | 대시보드 확인 필요(국외이전 여부·국가 특정에 직결). Supabase는 싱가포르(ap-southeast-1)로 확인 완료(2026-09-10) |
+| ~~Vercel 실제 리전~~ | ✅ 확정(2026-09-10): 싱가포르(ap-southeast-1). Supabase도 동일 리전(2026-09-10 확인) |
 | 문서 구조 | 이번에 `docs/launch/`, `docs/legal/` 하위 디렉토리를 신설해 채택함(기존 평면 구조 대신) |
-| 운영자 정보 | 사업자등록 없는 개인 운영 확인됨 — 1차엔 문제 없음(전자상거래법 미적용), `docs/legal/*_PHASE1.md`의 운영자 성명/연락처만 실값으로 채우면 됨 |
+| ~~운영자 정보~~ | ✅ 확정(2026-09-10): 윤화현 / yunhwahyun@gmail.com. 사업자등록 없는 개인 운영 확인됨 — 1차엔 문제 없음(전자상거래법 미적용) |
