@@ -560,9 +560,18 @@ current_password })`(`current_password` 방식, `@supabase/supabase-js` 2.107.0 
 
 **로그인 못 하는 상태에서 재설정(`LoginPage` "로그인" 탭 하단 "비밀번호를 잊으셨나요?")**: 클릭하면
 탭 대신 이메일 입력 + "재설정 메일 보내기" 폼으로 전환("로그인으로 돌아가기" 링크로 복귀).
-`supabase.auth.resetPasswordForEmail(email, { redirectTo: origin + '/reset-password' })` 호출 —
-**계정 존재 여부를 추론할 수 없도록 성공/실패 관계없이 항상 동일한 문구**("입력하신 이메일로 비밀번호
-재설정 안내를 보냈습니다. 가입된 계정인 경우 이메일을 확인해주세요.")만 보여준다(에러는 콘솔에만 기록).
+
+**2026-09-10 방침 변경**: 처음엔 "계정 존재 여부를 추론할 수 없도록 성공/실패 관계없이 항상 동일한
+문구"로 구현했으나(Supabase의 `resetPasswordForEmail()`이 원래 그렇게 설계돼 있음 — 항상 성공
+응답), 사용자가 이를 뒤집어 **가입된 이메일에만 메일을 보내고 아니면 명확한 에러를 보여달라**고
+재요청했다. `resetPasswordForEmail()` 자체는 여전히 존재 여부를 노출하지 않으므로, 먼저
+`email_exists(p_email)` RPC(마이그레이션 47, `is_admin()`/`list_masters()`와 같은 SQL
+SECURITY DEFINER 패턴, `anon`도 호출 가능)로 가입 여부를 확인한 뒤에만
+`resetPasswordForEmail(email, { redirectTo: origin + '/reset-password' })`를 호출한다.
+- 가입 안 된 이메일 → "가입되지 않은 이메일입니다. 메일 주소를 확인해주세요."
+- 가입된 이메일 → 메일 발송 후 "입력하신 이메일로 비밀번호 재설정 안내를 보냈습니다."
+- 이 방식 자체가 이메일 가입 여부를 노출하는 선택(account enumeration)이라는 점은 인지된 트레이드오프
+  — 지난번 링크 로그인(`shouldCreateUser: false`)과 동일한 사용자 판단(초대 전용 서비스라 리스크 낮음).
 
 **신규 라우트 `/reset-password`(`ResetPasswordPage`)**: `UserRouteGuard` 밖에 위치(`/master/accept`,
 `/privacy`, `/terms`와 동일). 단순히 세션 존재 여부만으로 폼을 열지 않는다 — 이미 로그인된 사용자가

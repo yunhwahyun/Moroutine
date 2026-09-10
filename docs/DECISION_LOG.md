@@ -6,6 +6,31 @@
 
 ## 2026-09-10
 
+### 비밀번호 찾기 — "계정 존재 비노출" 결정을 사용자가 재번복
+
+- **배경**: 몇 메시지 전 "resetPasswordForEmail은 계정 존재 여부를 노출하지 않는 Supabase 기본
+  보안 정책을 그대로 따른다... 더 이상 결정사항으로 두지 않습니다"로 확정했던 것을, 사용자가 다시
+  뒤집어 "가입된 이메일에만 메일 발송, 아니면 명확한 에러 표시"로 재요청.
+- **사실관계 확인**: `resetPasswordForEmail()`(POST `/auth/v1/recover`)은 계정 존재 여부와 무관하게
+  **항상 성공 응답**을 주도록 Supabase가 의도적으로 설계한 엔드포인트임을 공식 GitHub 이슈로
+  재확인(anti-enumeration 설계, 알려진 일부 버전의 사이드채널 버그는 별개) — 즉 이 API 자체만으로는
+  회원 여부를 구분할 방법이 없다. 지난번 내가 "노출 안 함"이라고 말씀드린 근거가 맞았던 셈.
+- **구현**: 별도 Edge Function을 만들지 않는다는 기존 제약(비밀번호 재설정 설계 확정 메시지의
+  "그 외 기존 설계는 유지" 목록)을 지키기 위해, `is_admin()`/`list_masters()`와 같은 SQL RPC 패턴으로
+  `email_exists(p_email)` 함수를 신설(마이그레이션 47, SECURITY DEFINER, `anon`도 실행 가능).
+  `LoginPage.tsx`의 비밀번호 찾기 폼이 이 RPC로 먼저 확인한 뒤에만 `resetPasswordForEmail()`을
+  호출하도록 변경. 미가입 이메일 → "가입되지 않은 이메일입니다. 메일 주소를 확인해주세요." 표시,
+  가입 이메일 → 발송 후 "입력하신 이메일로 비밀번호 재설정 안내를 보냈습니다."(기존의 "가입된
+  계정인 경우..." 단서 문구는 이제 불필요해져 삭제).
+- **트레이드오프 재확인**: `email_exists()`는 정의상 이메일 가입 여부를 외부에 노출한다(account
+  enumeration) — Supabase가 `resetPasswordForEmail()`을 굳이 저렇게 설계한 이유이기도 하다. 지난번
+  링크 로그인(`shouldCreateUser: false`)에서도 같은 트레이드오프를 사용자가 선택했으므로, 이번에도
+  동일한 판단(초대 전용 서비스라 리스크 낮음)으로 보고 그대로 진행.
+- **자동 검증**: `web`: `tsc -b && vite build` 통과. `email_exists()` RPC는 원격 DB에 즉시 적용 후
+  두 이메일(가입됨/미가입)로 직접 호출해 정상 동작 확인.
+
+---
+
 ### Dashboard 설정 3종 확인 완료 — Secure password change / Email OTP Expiration / Resend TLS
 
 - **Supabase Auth "Secure password change"**: 사용자가 켬 — `SettingsPage`의 `current_password` 검증이
