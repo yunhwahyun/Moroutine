@@ -116,7 +116,7 @@ export default function AdminMastersPage() {
         {/* Master 추가 — WordbookListPage.tsx의 추가 폼 카드와 동일한 톤(2026-09-02) */}
         <div>
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 pt-5 pb-2">
-            Master 추가 (이미 가입된 사용자)
+            Master 추가 (신규 사용자는 초대. 가입된 사용자는 추가.)
           </p>
           <div className="mx-4 bg-white border border-gray-200 rounded-2xl p-4 flex flex-col gap-3">
             <input
@@ -147,41 +147,55 @@ export default function AdminMastersPage() {
         </div>
 
         <Section title="초대 목록">
-          {invitationsQuery.data?.length === 0 && (
-            <div className="px-4 py-3.5">
-              <p className="text-xs text-gray-400">초대 내역이 없습니다.</p>
-            </div>
-          )}
-          {invitationsQuery.data?.map((inv) => (
-            <div key={inv.id} className="flex items-center justify-between px-4 py-3.5 min-h-[52px]">
-              <div className="flex flex-col">
-                <span className="text-sm text-gray-800">{inv.email}</span>
-                <span className="text-xs text-gray-400">
-                  {inv.status} · 만료 {new Date(inv.expires_at).toLocaleDateString()}
-                </span>
-              </div>
-              <div className="flex gap-2 shrink-0">
-                {(inv.status === 'sent' || inv.status === 'expired') && (
-                  <button
-                    onClick={() => handleResend(inv.id)}
-                    disabled={pendingAction === inv.id}
-                    className="text-xs text-gray-600 border border-gray-200 rounded-md px-3 py-1.5 disabled:opacity-50"
-                  >
-                    재발송
-                  </button>
-                )}
-                {(inv.status === 'pending' || inv.status === 'sent') && (
-                  <button
-                    onClick={() => handleDeleteInvite(inv.id)}
-                    disabled={pendingAction === inv.id}
-                    className="text-xs text-red-500 border border-red-200 rounded-md px-3 py-1.5 disabled:opacity-50"
-                  >
-                    삭제
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
+          {/* 2026-09-10 — accepted는 아래 "현재 Master" 섹션에 이미 나오므로 여기선 숨긴다(중복·혼란
+              방지, "accepted · 만료 YYYY.M.D."처럼 이미 가입 완료된 건에 만료일이 붙어 보이던 문제).
+              status는 'sent'에서 자동으로 'expired'로 바뀌지 않아(어떤 코드도 그렇게 갱신하지 않음)
+              실제 만료 여부는 expires_at을 현재 시각과 직접 비교해서 판단한다. */}
+          {(() => {
+            const visible = invitationsQuery.data?.filter((inv) => inv.status !== 'accepted') ?? []
+            if (visible.length === 0) {
+              return (
+                <div className="px-4 py-3.5">
+                  <p className="text-xs text-gray-400">초대 내역이 없습니다.</p>
+                </div>
+              )
+            }
+            return visible.map((inv) => {
+              const isExpired = new Date(inv.expires_at).getTime() < Date.now()
+              const canResend = inv.status === 'sent' || isExpired
+              const canDelete = inv.status === 'pending' || inv.status === 'sent' || isExpired
+              return (
+                <div key={inv.id} className="flex items-center justify-between px-4 py-3.5 min-h-[52px]">
+                  <div className="flex flex-col">
+                    <span className="text-sm text-gray-800">{inv.email}</span>
+                    <span className="text-xs text-gray-400">
+                      {isExpired ? '만료됨' : inv.status} · 만료 {new Date(inv.expires_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    {canResend && (
+                      <button
+                        onClick={() => handleResend(inv.id)}
+                        disabled={pendingAction === inv.id}
+                        className="text-xs text-gray-600 border border-gray-200 rounded-md px-3 py-1.5 disabled:opacity-50"
+                      >
+                        재발송
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        onClick={() => handleDeleteInvite(inv.id)}
+                        disabled={pendingAction === inv.id}
+                        className="text-xs text-red-500 border border-red-200 rounded-md px-3 py-1.5 disabled:opacity-50"
+                      >
+                        삭제
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })
+          })()}
         </Section>
 
         <Section title="현재 Master">
