@@ -90,7 +90,7 @@ export default function AdminWordbookListPage() {
       </div>
 
       {/* 필터 — 전체 너비, 좌측 정렬 */}
-      <div className="bg-white px-4 pt-3 pb-4 border-b border-gray-100">
+      <div className="bg-white px-4 py-3 border-b border-gray-100">
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-full justify-start">
           {FILTERS.map((f) => (
             <button
