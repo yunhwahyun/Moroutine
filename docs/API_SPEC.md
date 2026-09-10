@@ -201,8 +201,11 @@ Response: 200 (idempotent — 중복 event.id는 no-op 후에도 200)
 // master-invite-resend / master-invite-revoke (Authorization: 관리자 세션 JWT)
 { invitation_id: string } → { status: string }
 
-// master-accept (Authorization: 초대/매직 링크로 확립된 사용자 세션 JWT, body 없음)
-→ { success: true }
+// master-accept (Authorization: 초대/매직 링크로 확립된 사용자 세션 JWT)
+// P0(2026-09-10)부터 body 필수 — 이용약관 동의/만 14세 확인 서버 재검증(docs/launch/PHASE1_POLICY.md §4, §5)
+{ agreedTerms: true, agreedAge: true, policyVersion: string } → { success: true }
+// agreedTerms/agreedAge 중 하나라도 true가 아니면 400. 통과 시 user_policy_agreements에
+// agreement_type='terms'/'age_eligibility' 두 행을 policy_version과 함께 기록한다.
 
 // master-revoke (Authorization: 관리자 세션 JWT)
 { userId: string } → { success: true, resultingTier: 'guest' | 'pro' }
@@ -231,6 +234,24 @@ CORS 처리 필요(브라우저가 직접 호출) — `supabase/functions/_share
 `admin_audit_log`(`action: 'master_added_direct'`) 기록. `master_invitations`에는 아무 것도 남기지 않는다
 (이메일이 오간 적이 없으므로 "초대" 개념 자체가 없음) — `AdminMastersPage`의 "현재 Master" 목록(`list_masters()`
 RPC, `profiles.special_access` 기준)에는 정상적으로 나타난다.
+
+### POST /functions/v1/master-delete-account ✅ 구현 완료(`supabase/functions/master-delete-account/index.ts`, 2026-09-10, P0 §5)
+
+Master 본인 회원탈퇴 — 권한 강등(`master-revoke`)이 아니라 Auth 계정 자체를 삭제한다.
+`docs/launch/PHASE1_POLICY.md` §3.5, §7.
+
+```typescript
+// master-delete-account (Authorization: 본인 세션 JWT, body 없음)
+→ { success: true }
+```
+
+`getCallerUser`로 호출자를 식별한 뒤 `profiles.role/special_access`를 조회해 `role==='admin'`이면 403(Admin
+계정 보호), `special_access!=='master'`면 403(Master 전용). 통과하면 `admin_audit_log`에
+`action: 'master_self_delete'` 기록 후 `auth.admin.deleteUser(caller.id)` 한 번만 호출한다 — 개인 데이터
+테이블은 전부 `user_id`(또는 `profiles.id`)가 `auth.users(id)`를 `ON DELETE CASCADE`로 참조하므로 이 한
+호출로 연쇄 삭제되며, 애플리케이션 코드에서 테이블을 개별 삭제하지 않는다(§7 목록 전체 확인 완료).
+`admin_audit_log.actor_id`는 마이그레이션 45(`ON DELETE SET NULL`)가 없으면 이 삭제 자체가 FK 위반으로
+실패한다 — 반드시 45번 마이그레이션이 먼저 적용돼 있어야 한다.
 
 ### POST /functions/v1/retention-cleanup (Scheduled, service_role) ✅ 구현 완료(`supabase/functions/retention-cleanup/index.ts`, 2026-07-18)
 

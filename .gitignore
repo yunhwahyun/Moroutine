@@ -48,3 +48,8 @@ yarn-error.*
 
 # Supabase CLI 로컬 상태
 supabase/.temp/
+
+# 인증서/개인키 (절대 커밋 금지)
+*.p8
+*.p12
+*.pem

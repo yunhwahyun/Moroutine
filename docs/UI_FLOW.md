@@ -67,6 +67,10 @@ authenticated + admin
 > 아래 코드 블록은 `web/src/routes/index.tsx`의 실제 라우트 구조를 요약한 것이다(`/speaking*`,
 > `/wordbooks/:id/words/*`는 아직 구현되지 않은 별도 계획 문서상의 예시라 실제 코드에는 없음 — 이
 > 표/코드 블록의 오래된 부분은 이번 작업 범위 밖).
+>
+> **2026-09-10 P0 갱신**: 공용 단어장/책장 4개 라우트에 `PublicContentGuestGuard`를 추가해 Guest의
+> URL 직접 접근을 차단(`docs/launch/PHASE1_POLICY.md` §8, B안). `/privacy`, `/terms` 신설(로그인
+> 여부와 무관하게 열람 가능 — Master 가입 전에도 봐야 하므로 `UserRouteGuard` 밖에 둔다).
 
 ```tsx
 <Routes>
@@ -77,27 +81,37 @@ authenticated + admin
     <Route element={<AppLayout />}>
       <Route path="/"           element={<HomePage />} />
       <Route path="/wordbooks"  element={<WordbookListPage />} />
-      <Route path="/public-wordbooks" element={<PublicWordbookListPage />} />
       <Route path="/schedules"  element={<ScheduleListPage />} />
       <Route path="/books"      element={<BookshelfListPage />} />
-      <Route path="/public-books" element={<PublicBookListPage />} />
     </Route>
     <Route path="/learn"                 element={<LearnPage />} />
     <Route path="/quiz"                  element={<QuizPage />} />
     <Route path="/quiz/complete"         element={<QuizCompletePage />} />
     <Route path="/wordbooks/:id"         element={<WordbookDetailPage />} />
-    <Route path="/public-wordbooks/:id"  element={<PublicWordbookViewPage />} />
     <Route path="/books/:id"             element={<BookDetailPage />} />
-    <Route path="/public-books/:id"      element={<PublicBookViewPage />} />
     <Route path="/schedules/new"         element={<ScheduleFormPage />} />
     <Route path="/schedules/:id/edit"    element={<ScheduleFormPage />} />
     <Route path="/pricing"               element={<PricingPage />} />
+
+    {/* Guest는 메뉴 비노출 + URL 직접 접근도 차단(PublicContentGuestGuard) */}
+    <Route element={<PublicContentGuestGuard />}>
+      <Route element={<AppLayout />}>
+        <Route path="/public-wordbooks" element={<PublicWordbookListPage />} />
+        <Route path="/public-books"     element={<PublicBookListPage />} />
+      </Route>
+      <Route path="/public-wordbooks/:id" element={<PublicWordbookViewPage />} />
+      <Route path="/public-books/:id"     element={<PublicBookViewPage />} />
+    </Route>
   </Route>
 
   {/* /settings는 사용자/관리자 공유 — UserRouteGuard 밖 */}
   <Route element={<AppLayout />}>
     <Route path="/settings" element={<SettingsPage />} />
   </Route>
+
+  {/* 로그인 여부와 무관하게 열람 가능(가입 전에도 봐야 함) */}
+  <Route path="/privacy" element={<PrivacyPolicyPage />} />
+  <Route path="/terms"   element={<TermsPage />} />
 
   <Route path="/master/accept" element={<MasterAcceptPage />} />
 
@@ -311,8 +325,9 @@ authenticated + admin
 
 **편차**: "마지막 동기화 시간"은 이 앱이 오프라인 배치 동기화가 아니라 Pro/Master 모두 Supabase에
 직접 실시간으로 쓰기 때문에 추적 중인 타임스탬프 자체가 없다 — 가짜 시각을 표시하지 않고 "실시간
-동기화 중"이라는 정적 문구로 대체(`docs/DECISION_LOG.md` 2026-07-19). "회원탈퇴"는 실제 Edge
-Function 없이 로그아웃만 수행하는 기존 동작 그대로 유지(변경 없음). "구독 관리"는 실제 스토어 딥링크
+동기화 중"이라는 정적 문구로 대체(`docs/DECISION_LOG.md` 2026-07-19). **"회원탈퇴"는 2026-09-10(P0)부터
+`master-delete-account` Edge Function을 호출해 계정(Auth) 자체를 삭제한다** — 이전에는 로그아웃만
+수행하는 스텁이었다(`docs/launch/PHASE1_POLICY.md` §3.5). "구독 관리"는 실제 스토어 딥링크
 브리지 메시지가 없어 웹에서는 `window.open`으로 스토어 구독 관리 URL을 열고, 네이티브(WebView)
 안에서는 "앱스토어/플레이스토어 계정에서 관리할 수 있어요" 안내 문구만 표시.
 
@@ -344,6 +359,12 @@ Pro를 시작하면 데이터를 계정에 저장하고 다른 기기에서도 �
   로그인 먼저"). `PURCHASE_RESULT`/`RESTORE_RESULT` 브리지 메시지를 이 페이지에서도 구독해 성공/실패
   안내 표시(전역 `useBridgeListener`의 permissions 쿼리 무효화와 별개로, 페이지 자체 UI 피드백용).
 - 결제(RevenueCat) 완료 → §5 전환 모달로 진입(기존 Phase 15/16 구현 그대로).
+- **⚠️ 2026-09-10(P0)부터 이 아래 흐름 전체가 도달 불가 상태다.** `LoginPage.tsx`의 회원가입 탭 자체를
+  제거했고(`docs/launch/PHASE1_POLICY.md` §1, 1차엔 일반 회원가입이 없음), `resolveServiceTier()`/
+  `get_service_tier()`의 "로그인만 하면 Pro" 폴백도 영구 제거해 `authenticated + serviceTier==='guest'`
+  조합 자체가 정상적으로는 발생하지 않는다. `SignupPricingGate`/`DowngradeGate`/`markSignupPending` 등
+  아래 설명된 코드는 삭제하지 않고 그대로 남겨뒀다(`docs/launch/PHASE1_POLICY.md` §12 — 2차에 다시
+  연결). 아래는 2차 재개 시 참고할 기존 설계 그대로다.
 - **회원가입 완료 직후 강제 라우팅** ✅ 구현 완료(2026-07-19, `docs/TODO.md` Phase 16 후속): `LoginPage.tsx`에서
   `signUp()` 성공 시 `web/src/lib/signupFlow.ts`의 `markSignupPending()`으로 플래그를 남기고(localStorage —
   이메일 인증 링크가 새 브라우저 컨텍스트에서 열려도 같은 기기라면 유지됨), 이메일 인증 후 세션이 생기면
@@ -503,10 +524,29 @@ Pro/Master 전용(`permissions.canUsePublicWordbooks` 아니면 업그레이드 
 
 ---
 
-### Master 초대 수락 (`/master/accept`) ✅ 구현 완료(2026-07-18, 세션 기반으로 편차)
+### Master 초대 수락 (`/master/accept`) ✅ 구현 완료(2026-07-18, 세션 기반으로 편차 / 2026-09-10 동의 폼 추가)
 
 `docs/MASTER_INVITATION_DESIGN.md` §4-3, 편차는 §2 상단 참고. `?token=...` 쿼리 파라미터는 쓰지 않는다 —
-초대/매직 링크를 클릭하면 Supabase가 이미 세션을 확립한 채로 이 페이지에 도착하므로, 세션이 있으면
-`master-accept`를 바로 호출(빈 body)해 자동으로 처리한다. 비밀번호 생성 폼은 없음(`LoginPage`의 매직 링크
-로그인 탭으로 항상 재로그인 가능). 완료 시 "Master 권한이 부여되었습니다" 표시 후 홈으로 이동, 세션이
-없으면 "초대 링크가 유효하지 않습니다" 안내.
+초대/매직 링크를 클릭하면 Supabase가 이미 세션을 확립한 채로 이 페이지에 도착한다. 비밀번호 생성 폼은
+없음(`LoginPage`의 매직 링크 로그인 탭으로 항상 재로그인 가능).
+
+**2026-09-10(P0) 변경**: 세션이 확인되면 더 이상 `master-accept`를 곧바로 호출하지 않는다. 대신
+① `[필수] 이용약관에 동의합니다`(체크박스, `/terms`로 링크) ② `[필수] 만 14세 이상입니다`(체크박스)
+두 항목과, 체크박스가 아닌 개인정보처리방침 안내 문구 + `/privacy` 링크를 먼저 보여주고, 두 체크박스를
+모두 선택해야 "동의하고 계속하기" 버튼이 활성화된다(`docs/launch/PHASE1_POLICY.md` §5). 제출 시
+`master-accept`를 `{ agreedTerms: true, agreedAge: true, policyVersion }` body로 호출 — 서버가 다시
+검증 후 `user_policy_agreements`에 `terms`/`age_eligibility` 두 행을 기록한다. 실패하면 폼으로 돌아가
+인라인 에러만 보여준다(체크박스 상태 유지). 완료 시 "Master 권한이 부여되었습니다" 표시 후 홈으로 이동,
+세션이 없으면 "초대 링크가 유효하지 않습니다" 안내.
+
+---
+
+### 개인정보처리방침 / 이용약관 (`/privacy`, `/terms`) ✅ 구현 완료(2026-09-10, P0 §6)
+
+`SettingsPage`의 "정보" 섹션과 `MasterAcceptPage`의 동의 폼에서 링크로 진입. 로그인 여부와 무관하게
+열람 가능(`UserRouteGuard` 밖 라우트). 마크다운 렌더러를 새로 들이지 않고, `docs/legal/PRIVACY_POLICY_
+PHASE1.md`/`TERMS_PHASE1.md` 원문(내부 검토용 상태 배너·체크리스트·수정이력은 제외, 본문과
+`[확인 필요]` 표시는 그대로 보존)을 `web/public/legal/privacy-policy.md`/`terms.md`로 복사해 두고
+`fetch()`로 읽어 `<pre>`로 그대로 보여주는 최소 구현(`LegalDocumentPage` 공용 컴포넌트). **docs/legal
+원문이 갱신되면 `web/public/legal/*.md` 사본도 함께 수동으로 갱신해야 한다**(빌드 산출물이 `docs/`
+디렉토리 밖 파일을 직접 참조할 수 없어 자동 동기화가 아님 — 2차에서 빌드 스텝으로 자동화 검토 여지).

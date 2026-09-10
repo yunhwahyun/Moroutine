@@ -208,11 +208,24 @@ export default function SettingsPage() {
     navigate('/login', { replace: true })
   }
 
+  // docs/launch/PHASE1_POLICY.md §3.5 — Master 자진 탈퇴는 master-delete-account Edge Function이
+  // 계정(Auth) 자체를 삭제한다(권한 강등이 아님). 1차엔 Pro가 존재하지 않아 이 버튼은 사실상 항상
+  // Master 전용으로 동작한다.
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false)
   const handleDeleteAccount = async () => {
-    if (!window.confirm('계정을 탈퇴하면 모든 데이터가 삭제됩니다. 계속하시겠습니까?')) return
-    // 실제 탈퇴는 Edge Function 필요. 현재는 로그아웃만 처리
-    await supabase.auth.signOut()
-    navigate('/login', { replace: true })
+    if (!window.confirm('계정을 탈퇴하면 계정과 서버에 저장된 데이터가 삭제되며 복구할 수 없습니다. 계속하시겠습니까?')) return
+    setIsDeletingAccount(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('master-delete-account')
+      if (error || !data?.success) {
+        window.alert(error?.message ?? '회원탈퇴에 실패했습니다. 잠시 후 다시 시도해주세요.')
+        return
+      }
+      await supabase.auth.signOut()
+      navigate('/login', { replace: true })
+    } finally {
+      setIsDeletingAccount(false)
+    }
   }
 
   const handleManageSubscription = () => {
@@ -280,7 +293,7 @@ export default function SettingsPage() {
   }
 
   const handleResetLocalData = async () => {
-    if (!window.confirm('기기에 저장된 모든 데이터(단어장/단어/일정/학습기록/설정)를 삭제합니다. 계속하시겠습니까?')) return
+    if (!window.confirm('기기에 저장된 모든 데이터(단어장/단어/책장/일정/학습기록/설정)와 예약된 알림을 삭제합니다. 계속하시겠습니까?')) return
     await clearAllLocalData()
     window.location.reload()
   }
@@ -377,14 +390,13 @@ export default function SettingsPage() {
                   )}
                 </>
               )}
-              {tier !== 'master' && (
-                <button
-                  onClick={handleDeleteAccount}
-                  className="w-full flex items-center px-4 py-3.5 min-h-[52px]"
-                >
-                  <span className="text-sm text-red-500">회원탈퇴</span>
-                </button>
-              )}
+              <button
+                onClick={handleDeleteAccount}
+                disabled={isDeletingAccount}
+                className="w-full flex items-center px-4 py-3.5 min-h-[52px] disabled:opacity-50"
+              >
+                <span className="text-sm text-red-500">{isDeletingAccount ? '탈퇴 처리 중...' : '회원탈퇴'}</span>
+              </button>
             </>
           )}
 
@@ -578,8 +590,20 @@ export default function SettingsPage() {
           <Row label="버전">
             <span className="text-sm text-gray-400">{APP_VERSION}</span>
           </Row>
-          <button className="w-full flex items-center justify-between px-4 py-3.5 min-h-[52px]">
+          <button
+            onClick={() => navigate('/privacy')}
+            className="w-full flex items-center justify-between px-4 py-3.5 min-h-[52px]"
+          >
             <span className="text-sm text-gray-800">개인정보처리방침</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+          <button
+            onClick={() => navigate('/terms')}
+            className="w-full flex items-center justify-between px-4 py-3.5 min-h-[52px]"
+          >
+            <span className="text-sm text-gray-800">이용약관</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="9 18 15 12 9 6" />
             </svg>

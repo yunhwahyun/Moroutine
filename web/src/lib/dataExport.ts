@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase'
+import { bridge } from '@/bridge'
 import { localDB, type LocalStudySession, type LocalStudyResult } from '@/repositories/local/schema'
 import { readLocalSnapshot } from '@/lib/migration/localSnapshot'
+import { cancelReviewNotification } from '@/lib/reviewNotificationScheduler'
 import type { DataRepository } from '@/repositories/types'
 import type { ServiceTier, Schedule, ScheduleException, UserSettings, Word, Wordbook } from '@/types'
 
@@ -178,14 +180,24 @@ export async function importBackupToLocal(bundle: BackupBundle): Promise<void> {
   )
 }
 
-// 위험 동작 — Guest 로컬 데이터 전체 삭제(단어장/단어/일정/학습기록/설정). 알림(notifications)
-// 스토어는 그대로 둔다 — 이미 예약된 OS 레벨 알림이 이 초기화로 갑자기 끊기지 않도록.
+// 위험 동작 — Guest 로컬 데이터 전체 삭제. 설정 화면 확인 문구가 "모든 데이터"를 삭제한다고
+// 안내하므로(SettingsPage.tsx), 실제 삭제 범위도 그와 일치시킨다 — books/bookChapters/meta
+// 누락(버그성) 수정 + 예약된 OS 알림까지 함께 취소·삭제한다(docs/DECISION_LOG.md 2026-09-10,
+// docs/launch/PHASE1_POLICY.md §3.7 갱신 — 기존에는 "OS 알림 유지 목적"으로 notifications를
+// 의도적으로 남겼으나, "모든 데이터 삭제"라는 표현과 범위를 맞추는 쪽으로 방침을 변경했다).
 export async function clearAllLocalData(): Promise<void> {
+  const notifications = await localDB.notifications.toArray()
+  for (const n of notifications) {
+    if (n.native_id) bridge.cancelNotification({ id: n.native_id })
+  }
+  cancelReviewNotification()
+
   await localDB.transaction(
     'rw',
     [
       localDB.wordbooks, localDB.words, localDB.schedules, localDB.scheduleExceptions,
-      localDB.studySessions, localDB.studyResults, localDB.settings,
+      localDB.notifications, localDB.studySessions, localDB.studyResults, localDB.settings,
+      localDB.books, localDB.bookChapters, localDB.meta,
     ],
     async () => {
       await Promise.all([
@@ -193,9 +205,13 @@ export async function clearAllLocalData(): Promise<void> {
         localDB.words.clear(),
         localDB.schedules.clear(),
         localDB.scheduleExceptions.clear(),
+        localDB.notifications.clear(),
         localDB.studySessions.clear(),
         localDB.studyResults.clear(),
         localDB.settings.clear(),
+        localDB.books.clear(),
+        localDB.bookChapters.clear(),
+        localDB.meta.clear(),
       ])
     },
   )

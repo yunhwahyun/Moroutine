@@ -1,6 +1,12 @@
 // Master 초대 수락 — docs/MASTER_INVITATION_DESIGN.md §4-3, §2~§4 편차(2026-07-18) 참고.
 // 자체 토큰 대신 호출자의 세션(Authorization 헤더)에서 이메일을 뽑아 master_invitations와 대조한다.
-// body는 없음 — 세션 JWT만으로 충분(supabase.functions.invoke가 자동으로 Authorization을 첨부).
+//
+// docs/launch/PHASE1_POLICY.md §4, §5 — 이용약관 동의 / 만 14세 이상 자격확인은 클라이언트
+// 체크박스만으로 끝내지 않고 서버에서 다시 검증한다. body: { agreedTerms: true, agreedAge: true,
+// policyVersion: string } 세 값이 전부 갖춰져야 진행하며, 통과하면 user_policy_agreements에
+// terms/age_eligibility 두 행을 기록한다.
+const POLICY_VERSION_FALLBACK = 'phase1-v1' // TODO: docs/legal/*_PHASE1.md 시행일 확정되면 버전 문자열 갱신
+
 import { corsHeaders, handleCorsPreflight } from '../_shared/cors.ts'
 import { createServiceClient, getCallerUser } from '../_shared/auth.ts'
 
@@ -20,6 +26,23 @@ async function handle(req: Request): Promise<Response> {
   if (req.method !== 'POST') {
     return new Response('method not allowed', { status: 405, headers: corsHeaders })
   }
+
+  let body: { agreedTerms?: boolean; agreedAge?: boolean; policyVersion?: string }
+  try {
+    body = await req.json()
+  } catch {
+    return new Response('invalid json', { status: 400, headers: corsHeaders })
+  }
+  if (body.agreedTerms !== true || body.agreedAge !== true) {
+    return new Response('이용약관 동의와 만 14세 이상 확인이 모두 필요합니다.', {
+      status: 400,
+      headers: corsHeaders,
+    })
+  }
+  const policyVersion =
+    typeof body.policyVersion === 'string' && body.policyVersion.trim() !== ''
+      ? body.policyVersion
+      : POLICY_VERSION_FALLBACK
 
   const serviceClient = createServiceClient()
   const caller = await getCallerUser(req)
@@ -60,6 +83,14 @@ async function handle(req: Request): Promise<Response> {
     .from('master_invitations')
     .update({ status: 'accepted', accepted_at: new Date().toISOString(), accepted_user_id: caller.id })
     .eq('id', invitation.id)
+
+  const { error: agreementError } = await serviceClient.from('user_policy_agreements').insert([
+    { user_id: caller.id, agreement_type: 'terms', policy_version: policyVersion },
+    { user_id: caller.id, agreement_type: 'age_eligibility', policy_version: policyVersion },
+  ])
+  if (agreementError) {
+    return new Response(agreementError.message, { status: 500, headers: corsHeaders })
+  }
 
   // docs/DATA_RETENTION_DESIGN.md §2 — 3개월 이내 Master 재지정 시 대기 중인 삭제 스케줄을 취소한다.
   await serviceClient

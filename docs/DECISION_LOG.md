@@ -4,7 +4,81 @@
 
 ---
 
+## 2026-09-10
+
+### Supabase 리전 확인 → 개인정보처리방침 국외이전 항목 확정, 법인명 오류 발견·수정
+
+- **배경**: 사용자가 Supabase 프로젝트 Region을 Dashboard에서 직접 확인해 `ap-southeast-1`(싱가포르)이라고 알려줌. `docs/legal/PRIVACY_POLICY_PHASE1.md` §8의 `[확인 필요]` 항목을 이 값으로 채우는 김에, "이전 근거" 칸을 임의로 채우지 않기 위해 Supabase 공식 DPA(`supabase.com/legal/dpa`)를 WebSearch/WebFetch로 직접 확인했다.
+- **발견 — 법인명 오류**: 기존 문서(§7 위탁 표, §6 판단표 등)에 전부 "Supabase, Inc."(미국 델라웨어 법인)로 기재돼 있었으나, 실제 DPA 원문을 두 차례 별도 프롬프트로 교차 확인한 결과 계약 당사자(data importer)로 정의된 법인은 **"Supabase Pte. Ltd."(싱가포르)** 였고, 문서 전체에 "Supabase, Inc."는 단 한 번도 등장하지 않았다. Supabase는 실제로 두 법인(Delaware의 Supabase, Inc.와 Singapore의 Supabase Pte. Ltd.)을 함께 운영 중인 것으로 확인됨(Dun & Bradstreet/ACRA 등록 정보 교차 검색) — 고객 계약(DPA)상의 당사자는 후자였다. `docs/legal/PRIVACY_POLICY_PHASE1.md`/`docs/launch/PHASE1_POLICY.md`/`web/public/legal/privacy-policy.md`의 관련 표기를 전부 "Supabase Pte. Ltd."로 수정.
+- **국외이전 근거**: Supabase DPA는 EU SCC(Module Two Controller-to-Processor, Module Three Processor-to-Processor) + UK ICO 승인 Addendum을 명시(Version 1, 2026-08-01). 국내법(개인정보 보호법 제28조의8제1항제1호) 상 근거는 본 방침에 국외이전 사항을 공개하는 것 — Resend 행과 동일한 서술 패턴으로 §8 표에 반영.
+- **한계 인정**: 이 판단은 Supabase가 공개한 DPA 페이지 하나(WebFetch로 두 차례 교차 확인)에 근거한 것이라, 실제 이 프로젝트가 가입 시 동의한 약관·청구 화면에 표기된 법인명과 다를 가능성은 남아있다 — 문서에 "최종 게시 전 Dashboard 청구/계약 정보에서 재확인 권장"이라는 각주를 남겨 법무 확인이 필요한 판단이라는 점을 명확히 했다(이 프로젝트의 다른 사업자 판단과 동일한 신중함 원칙 적용).
+- **체크리스트 갱신**: `docs/legal/PRIVACY_POLICY_PHASE1.md`의 "게시 전 필수 확인 체크리스트"에서 Supabase 법인명/Region/국외이전 국가/국외이전 항목·방법 4개 항목을 확인 완료로 표시. Vercel 법인명/리전은 여전히 미확인 상태로 남음.
+
+---
+
+### 1차 출시 P0 코드 구현(사용자 지정 9개 항목) — `docs/launch/PHASE1_POLICY.md` §10 1~4단계
+
+- **배경**: 전날(2026-09-09) 확정한 `docs/launch/PHASE1_POLICY.md` 정책을 실제 코드로 구현하는 세션. 사용자가 P0 범위를 9개 항목으로 명시적으로 재지정했고(§10 계획에 있던 `master_invitations.token_hash` 삭제, `master-revoke` 트랜잭션화, `retention-cleanup` CLEANUP_TABLES 갱신 3개는 이번 라운드에서 의도적으로 제외), "정책과 코드가 충돌하면 임의 판단하지 말고 보고"를 원칙으로 진행했다.
+- **구현 완료**: 일반 회원가입 완전 차단(`LoginPage.tsx` signup 모드 제거), "로그인=Pro" 폴백 영구 제거, `MasterAcceptPage` 동의 폼, `user_policy_agreements` 신설(마이그레이션 43), `master-delete-account` 신설, 개인정보처리방침/이용약관 페이지, 공용 콘텐츠 Guest 라우트 가드, `clearAllLocalData` 범위 보정, RevenueCat SDK 제거. 상세 파일 목록은 세션 종료 보고 참고.
+- **발견 1 — "로그인=Pro" 폴백이 SQL 레벨에도 있었음**: 사용자 지시는 "현재 tier 판정"(클라이언트 `web/src/lib/permissions.ts`)의 폴백만 언급했지만, 조사 결과 `get_service_tier()` SQL 함수(마이그레이션 38)에도 동일한 `WHEN NOT payments_enabled THEN 'pro'` 분기가 있었다. 클라이언트만 고치면 RLS(공용 단어장 열람, `create_words_checked` 한도)는 여전히 인증된 사용자를 서버에서 pro로 판정해, "1차엔 실제 Pro가 존재하지 않는다"는 정책이 실질적으로 지켜지지 않는다. 이미 확정된 정책의 당연한 귀결로 보고 클라이언트와 SQL(마이그레이션 44)을 함께 수정했다 — 새로운 정책 결정이 아니라 기존 결정의 완전한 이행으로 판단.
+- **발견 2 — `admin_audit_log.actor_id` FK가 계정 삭제를 막는 문제**: `master-delete-account`가 마지막에 `auth.admin.deleteUser()`를 호출해야 하는데(§3.5), `admin_audit_log.actor_id`는 `auth.users(id)`를 참조하되 `ON DELETE` 지정이 없다(기본 NO ACTION). `master-accept`가 Master 본인을 actor로 하는 `'master_accepted'` 로그를 남기므로, 사실상 모든 Master 계정은 자신을 actor로 하는 로그 행을 최소 1건 갖는다 — 이 상태에서 계정을 삭제하면 FK 위반으로 실패한다. 기존 `retention-cleanup`은 애초에 `auth.admin.deleteUser()`를 호출하지 않아(개인 데이터 테이블만 삭제) 이 문제를 겪은 적이 없었다 — `master-delete-account`가 이 경로를 처음 타는 코드였다. 마이그레이션 20의 기존 TODO 주석("actor_id NOT NULL 완화 필요, 결정 필요")과는 다른, 별개로 새로 발견한 ON DELETE 동작 문제다. `retention-cleanup`이 시스템 작업에 이미 `actor_id: null`을 쓰는 것(마이그레이션 29)과 동일한 패턴으로 `ON DELETE SET NULL`(마이그레이션 45)로 해결 — 각 로그 행의 `detail` jsonb에 이메일 등 식별정보가 이미 남아있어 감사 추적력이 완전히 사라지지는 않는다는 점을 근거로, 정책적 재확인 없이 이 방향으로 진행했다(대안: actor_id를 지우지 않고 audit log 행 자체를 삭제하거나 시스템 sentinel 계정으로 재귀속하는 방법도 있었으나, 기존 코드의 null 패턴과 일관성을 우선했다).
+- **결정 — Guest "모든 데이터 삭제" 시 알림 처리 방침 변경**: `docs/launch/PHASE1_POLICY.md` §3.7은 "notifications는 의도적 제외(OS 예약 알림 유지 목적)"이라고 명시하고 있었으나, 이번 세션에서 사용자가 "UI가 '모든 데이터 삭제'라고 표현한다면 예약된 알림까지 함께 취소·삭제하는 방향을 우선 적용"하라고 명시적으로 재지시했다. 실제 확인 문구가 "모든 데이터(...)를 삭제합니다"로 되어 있어 조건이 성립한다고 판단, `clearAllLocalData()`가 `notifications` 테이블의 `native_id`와 복습 알림 전용 `native_id`를 전부 취소한 뒤 테이블도 clear하도록 변경했다. §3.7 문서도 이 방향으로 갱신(기존 결론을 뒤집는 것이므로 "왜 바뀌었는지" 그대로 남김).
+- **`SettingsPage.tsx` 회원탈퇴 버튼 노출 조건 반전**: 기존 코드는 `tier !== 'master'`일 때만 회원탈퇴 버튼을 보여줘 정작 Master는 버튼 자체가 없었다(1차엔 pro가 존재하지 않으므로 사실상 아무도 못 누르는 버튼이었던 셈). §5(Master 자진 탈퇴 구현)를 실제로 쓸 수 있게 이 조건을 제거해 Master도 버튼을 보게 했다 — `tier==='pro'`(2차에나 존재)로 눌렀을 때는 `master-delete-account`가 403으로 안전하게 거부한다(2차 Pro 탈퇴 플로우는 §13에 따라 별도 설계 필요, 이번엔 손대지 않음).
+- **공용 단어장/책장 Guest 접근 재확인**: 메뉴 비노출(`canUsePublicWordbooks`)은 이미 구현돼 있었으나, 라우트 자체엔 가드가 없어 Guest가 `/public-wordbooks` 등 URL을 직접 입력하면 "Pro/Master 전용 기능입니다 · 요금제 보기" CTA가 그대로 보였다 — 사용자가 이번에 명시적으로 금지한 "요금제 업그레이드류 CTA를 Guest에게 보여주지 않는다"와 충돌하는 기존 동작이었다. `PublicContentGuestGuard`를 신설해 Guest는 해당 라우트에 진입하기 전에 조용히 홈으로 리다이렉트하도록 수정(Master/Admin/Pro 쪽 기존 페이지 내부 CTA 로직은 그대로 유지).
+- **`/privacy`/`/terms` 콘텐츠 소스**: `docs/legal/*_PHASE1.md`는 내부 검토용 상태 배너·게시 전 체크리스트·수정이력을 포함하고 있어(문서 스스로 "게시 문서에는 포함하지 않음"이라고 표시한 절 포함) 그대로 fetch해 보여줄 수 없었다. 그 내부용 절만 제외하고 본문(`[확인 필요]` 포함, 실값 임의 기재 없음)을 `web/public/legal/*.md`로 복사해 `fetch()`로 렌더링하는 방식을 택했다 — docs/ 밖에서 빌드되는 웹 정적 자산이 docs/ 파일을 직접 참조할 수 없기 때문이며, 원문이 바뀌면 이 사본도 수동으로 함께 갱신해야 한다(자동 동기화 아님, 2차에서 빌드 스텝 자동화 검토 여지로 남김).
+- **이번 라운드에서 의도적으로 제외한 것**(다음 P0 라운드로 이월): `master_invitations.token_hash` DROP COLUMN, `master-revoke` 즉시반영 트랜잭션화(§3.6), `retention-cleanup`의 `CLEANUP_TABLES`에 books/book_chapters 추가 — 전부 사용자가 이번 프롬프트의 "이번 P0에서 하지 않을 것"/9개 항목 범위에 포함하지 않았다.
+- **자동 검증**: `web`: `tsc -b && vite build` 통과, `eslint .`는 이번 변경분에서 신규 에러 0건(기존 `Quiz.tsx`/`quizProgress.ts`/`QuizPage.tsx`의 사전 존재 에러 6건+경고 1건은 이번 변경과 무관, 미수정). `mobile`: `npm install --package-lock-only`로 `react-native-purchases` 제거를 lockfile에 반영 확인(diff 49줄 삭제, 버전 변경 없음) — RN 빌드/시뮬레이터 실행은 이번 세션에서 실행하지 않음(§10 5단계 스테이징 QA와 함께 사용자가 직접 확인 필요).
+
+---
+
 ## 2026-09-09
+
+### 1차 출시(Guest/Master/Admin, 결제 없음) 정책 확정 — `docs/launch/PHASE1_POLICY.md` 신설
+
+- **배경**: 기존 Phase 11~24는 전부 "언젠가 결제(Pro/RevenueCat)가 붙는 서비스"를 전제로 설계돼 있었다. 그런데 실제 출시 전략은 2단계로 분리하기로 확정 — **1차는 Guest/Master/Admin만 존재하고 일반 회원가입·Pro·RevenueCat·결제가 전혀 없는 상태**로 먼저 출시하고, 2차에서 일반 회원가입+Pro+실결제를 공개한다. 이번 세션(들)에서 이 1차 정책을 코드는 건드리지 않고 정책·법무 문서로만 확정했다.
+- **가장 중요한 발견**: `web/src/pages/auth/LoginPage.tsx`에 일반 회원가입 UI(`signup` 모드)가 실제로 살아있어 `supabase.auth.signUp()`을 직접 호출한다 — 1차 정책과 정면 충돌하는 최우선 수정 대상. 또한 `app_config.payments_enabled=false`(마이그레이션 38)일 때 "로그인만 하면 Pro"로 승격되는 폴백 규칙이 있어, 회원가입을 막는 것과 별개로 이 폴백 자체도 제거해야 한다(정확한 근거는 아래 "왜 정책 변경이 필요했는지"와 `docs/launch/PHASE1_POLICY.md` §10 1단계 참고).
+- **결정 1 — 가입 동의 구조**: Master 초대 가입 시 필요한 건 ① 이용약관 동의 ② 만 14세 이상 확인(자격요건 확인, "동의"가 아님) ③ 개인정보처리방침 **안내+열람 링크**(체크박스 아님) 세 가지뿐. "[필수] 개인정보 수집·이용 동의" 체크박스는 넣지 않는다 — 근거는 개인정보 보호법 제15조제1항제4호(계약 이행). 법적 성격 판단이라 최종 게시 전 법무 확인 권장(법적으로 절대 불필요하다는 단정은 아님). 만 14세 확인도 법정 의무(제22조의2는 "실제 아동을 처리할 때"만 발동)가 아니라 회사 자체 정책(법정대리인 동의 절차를 피하기 위한 스크리닝)이라는 점을 명확히 구분했다.
+- **결정 2 — `user_policy_agreements` 테이블(명칭 변경)**: 원래 `user_consents`/`consent_type`/`age_14_confirmed`로 설계했으나, "이용약관 동의"와 "만 14세 자격확인"을 둘 다 "동의(consent)"라 부르는 게 부정확하다는 지적으로 `user_policy_agreements`/`agreement_type`('terms'|'age_eligibility')로 개명. `withdrawn_at` 컬럼은 두지 않음(이용약관 철회=회원탈퇴로 이미 반영되고, 연령확인은 철회 개념이 성립하지 않음). 보존정책도 "감사 목적 영구 보존"에서 "회원 유지 중 불변 → Master 탈퇴 시 다른 개인정보와 함께 삭제(기본), 법령상 예외만 별도 보존"으로 수정.
+- **결정 3 — Master 권한 해제 방식 변경**: 기존엔 로컬 이전(migration)이 끝날 때까지 `special_access='master'`를 유지하는 설계였는데, 사용자가 앱을 안 열면 Master 권한이 기한 없이 유지되는 문제가 있어 **권한은 즉시 `none`으로 중단하고, `downgrade_pending` 상태에서 서버 데이터에 대한 read/export/migration만 제한 허용**하는 구조로 변경(§3.6). 서버 데이터는 3개월 보관, 다음 앱 실행 시 `remoteToLocalMigration.ts`(기존 엔진 재사용)로 이전 후 Guest 전환.
+- **결정 4 — `/signup` 라우트는 1차에 만들지 않음**: 처음엔 "`LoginPage`에서 회원가입 UI만 빼고 `/signup` 라우트/`SignupPage.tsx`는 미리 만들어 링크만 숨겨두자"는 방향이었으나, 1차엔 일반 회원가입 개념 자체가 없으니 미리 만들 이유가 없다는 지적으로 **`/signup` 자체를 만들지 않는 것**으로 변경 — 2차 착수 시점에 그때의 최신 법령/스토어 정책으로 새로 만든다.
+- **결정 5 — self-signup 차단 방식**: UI 제거(P0) + Supabase Auth "Allow new users to sign up" OFF(P0) + 스테이징 A~F 실환경 검증(배포 게이트, 아래 표) 세 단으로 확정. 처음엔 `auth.users` AFTER INSERT 트리거 + `invited_at` 판정까지 P0에 포함시켰으나, Supabase Auth 내부 구현에 강하게 결합되고 유지보수 위험이 있다는 지적으로 **P2 조건부 대안(스테이징 검증에서 문제가 발견될 때만 재검토)으로 강등**했다.
+
+  | | 시나리오 | 기대 결과 |
+  |---|---|---|
+  | A | `supabase.auth.signUp()` 직접 호출 | self-signup 실패 |
+  | B | 기존 Master 로그인 | 성공 |
+  | C | 기존 Admin 로그인 | 성공 |
+  | D | Admin의 `inviteUserByEmail()` 초대 | 성공 |
+  | E | 초대 링크 클릭 | 정상 세션 생성 |
+  | F | `MasterAcceptPage` 가입 | 정상 완료 |
+
+- **결정 6 — 공용 단어장/책장 Guest 정책**: A(Guest도 이용 허용)/B(메뉴 비노출)/C(잠금 화면, Master 로그인 유도) 비교 결과 **B안(메뉴 비노출) 확정**. C안은 "Master가 될 방법이 없는데 로그인을 유도"하는 게 논리적으로 성립하지 않고, A안은 2차에 Pro 전용으로 바꾸면 "무료 기능 유료화"로 인식될 위험이 있어서다. 메뉴 숨김만으로 끝내지 않고 직접 URL 접근도 라우트 가드로 막아야 한다.
+- **결정 7 — RevenueCat SDK는 1차 빌드에서 완전 제거**: 처음엔 "API 키를 비워 no-op 상태로 코드는 유지"를 절충안으로 제안했으나, 심사 안정성을 최우선하는 사용자 판단으로 `mobile/package.json`의 `react-native-purchases` 의존성과 `mobile/App.tsx`의 초기화/브리지 코드를 실제로 제거하는 것으로 확정(git 커밋 이력으로만 보존, 2차 착수 시 해당 커밋을 되돌려 재설치).
+- **왜 정책 변경이 필요했는지(로그인=Pro 문제)**: `get_service_tier()`/`resolveServiceTier()`의 판정 순서는 `role=admin→Admin` > `special_access=master→Master` > `subscriptions` 실구독 있음`→Pro` > `payments_enabled=false→Pro`(실구독 없어도 통과) > 그 외 Guest. 네 번째 규칙 때문에 회원가입이 막혀있지 않은 상태에서는 실구독 없이 가입만 해도 Pro가 된다. 2차엔 `payments_enabled=true`+RevenueCat 연동만으로 세 번째 규칙이 정상 작동해 자동 해결되지만(로직 재작성 불필요), 1차엔 회원가입 차단이 1차 방어, 이 폴백 제거가 2차 방어다. `payments_enabled`는 사용자별 값이 아니라 앱 전체 전역 스위치라서, 이 값을 `true`로 뒤집어 문제를 해결하려 하면 안 된다 — 같은 값이 결제 UI 노출도 같이 제어하기 때문(RevenueCat SDK가 없는 1차 빌드에서 눌러도 반응 없는 구매 버튼이 되살아남).
+- **위탁/국외이전 재검증(추측 없이 코드·공식문서 확인)**: Supabase(DB/Auth/Edge Function, 위탁 해당 명확) / Resend(법인명 Plus Five Five, Inc., Master 초대메일 발송용 SMTP, 위탁 해당 명확, 미국 처리·SCC+DPF·보유기간 30일/90일 — resend.com/legal/dpa, /legal/subprocessors, /security/gdpr 공식 확인) / Vercel(정적 SPA 호스팅만, 서버리스 없음 — `web/vercel.json` 코드로 확인, 위탁 해당 여부는 법무 확인 필요로 남기고 1차엔 보수적으로 포함). Guest 세션에서 Supabase 요청이 실제로 발생하는지도 코드로 확인: `usePermissions()`는 `enabled: !!user`로 게이팅되어 Guest는 일반 학습 기능 이용 중 Supabase 요청이 전혀 없음(`web/src/hooks/usePermissions.ts:74`), 다만 설정/요금제 화면에 들어가면 `useAppConfig()`가 인증 여부와 무관하게 항상 실행되어 `app_config` 조회가 나간다(`web/src/hooks/useAppConfig.ts`). Resend로 가는 실제 발송 경로도 "Edge Function → Resend API 직접 호출"이 아니라 "Edge Function → Supabase Auth Admin API(`inviteUserByEmail`) → Supabase Auth의 커스텀 SMTP(Resend)"임을 `supabase/functions/_shared/masterInvite.ts:24`로 확인해 정정.
+- **적용**: 이번 세션 범위에서 실제 코드/DB/Edge Function은 전혀 수정하지 않음. `docs/launch/PHASE1_POLICY.md`(신규, 정책+P0 구현계획 전체), `docs/legal/PRIVACY_POLICY_PHASE1.md`/`docs/legal/TERMS_PHASE1.md`(신규, 전문), 루트 `DESIGN.md`(인덱스 3행 추가), `docs/PROJECT_STATUS.md`(요약 단락 + Completed 행 + Next 표에 최우선 행 추가), `docs/TODO.md`(Phase 11보다 앞에 "1차 출시 P0" 섹션 추가)까지 문서만 갱신.
+- **다음 세션이 할 일**: `docs/launch/PHASE1_POLICY.md` §10 "P0 구현 계획"을 0→5단계 순서대로 진행. 마이그레이션 번호는 문서에 적힌 예시(43/44 등)를 그대로 쓰지 말고 `ls supabase/migrations/`로 그 시점의 실제 마지막 번호를 확인해서 정할 것(문서 작성 시점 마지막 번호는 42).
+
+### Self-signup Pro 계정 삭제 실행 — Supabase Dashboard "Delete user" 버튼의 알려진 실패와 우회법
+
+- **배경**: 위 정책 확정 과정에서 발견된 self-signup 계정(§9 확인 쿼리로 존재 가능성 인지) 중 실제로 1건(`id=d3800164-3c8e-43d5-bb50-437344c810f9`)을 사용자가 정리하고자 함.
+- **1차 시도 실패**: Supabase Dashboard의 Authentication > Users > Delete user 버튼이 `Failed to delete selected users: Database error deleting user`라는 뭉뚱그린 에러로 실패. Dashboard는 실제 Postgres 에러를 숨기고 이 일반 메시지만 보여준다.
+- **진단 방법**: `auth.users`를 참조하는 모든 FK와 `delete_rule`(cascade 여부)을 조회하는 쿼리로 후보를 좁혔다:
+  ```sql
+  select con.conname as constraint_name, con.confdeltype as delete_rule,
+         rel.relname as referencing_table, att.attname as referencing_column
+  from pg_constraint con
+  join pg_class rel on rel.oid = con.conrelid
+  join pg_class frel on frel.oid = con.confrelid
+  join pg_namespace fns on fns.oid = frel.relnamespace
+  join pg_attribute att on att.attrelid = con.conrelid and att.attnum = con.conkey[1]
+  where con.contype = 'f' and fns.nspname = 'auth' and frel.relname = 'users'
+  order by delete_rule, referencing_table;
+  ```
+  결과 `delete_rule='a'`(no action, cascade 아님) 7건: `admin_audit_log.actor_id`, `master_invitations.revoked_by`/`accepted_user_id`/`invited_by`, `profiles.special_access_granted_by`, `public_books.created_by`, `public_wordbooks.created_by`. 이 7개 컬럼에 대상 유저의 id가 실제로 걸려있는지 `count(*)` 쿼리로 전부 확인한 결과 **전부 0** — 이 7개는 원인이 아니었다.
+- **실제 해결**: SQL Editor에서 `delete from auth.users where id = '...';`를 직접 실행 — **성공**("Success. No rows returned"). Dashboard 버튼 자체의 버그였던 것으로 결론. 재확인 쿼리(`profiles`/`wordbooks`/`schedules`/`study_sessions`/`subscriptions`/`auth.users` 전부 count)로 완전 삭제 확인.
+- **왜 SQL은 됐는데 Dashboard는 안 됐는지**: Dashboard의 "Delete user"는 Supabase Auth Admin API(GoTrue)를 거치는데 이 경로가 이번 케이스에서 더 보수적인 사전 체크를 하다 걸린 것으로 추정. 직접 `DELETE FROM auth.users`는 Postgres에게 곧바로 CASCADE 삭제를 시키는 것과 동일해, FK가 실제로 막고 있지 않다면(이번처럼 7개 후보가 전부 0) 문제없이 성공한다. `auth.identities`/`auth.sessions`/`auth.refresh_tokens` 등 Auth 내부 스키마도 `auth.users`에 CASCADE로 걸려있어 함께 정리된다.
+- **재사용 가치**: 이후 다른 self-signup 계정을 정리할 때도 Dashboard 버튼이 같은 에러를 내면, 이 항목의 진단 쿼리 → `delete from auth.users where id = '...'` 직접 실행 순서를 그대로 반복하면 된다.
 
 ### 자동재생 백그라운드 잠금화면 아트워크 — symbol.svg를 PNG로 변환해 원격 URL로 참조
 

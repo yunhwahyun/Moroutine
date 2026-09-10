@@ -454,6 +454,11 @@ ALTER TABLE profiles
 | 38 | launch_free_access | `app_config` 싱글턴 테이블(`payments_enabled boolean DEFAULT false`) 신설(anon도 SELECT 가능, Admin만 쓰기) + `get_service_tier()` 재정의 — `payments_enabled=false`면 실제 pro 구독이 없어도 인증된 사용자를 `'pro'`로 판정(사업자 등록 전 무료 출시 기간) | `docs/SUBSCRIPTION_DESIGN.md` §11, `docs/DECISION_LOG.md` 2026-09-02 |
 | 41 | public_books_bookshelf | `public_books`, `public_book_chapters` + `sync_public_book_chapter_count`/`log_public_book_action`/`log_public_book_chapter_action` 트리거("공용 책장", 공용 단어장 17/30과 동일 구조, 학습/퀴즈/진행률/개인 복사·anon 열람 없음) | `docs/ADMIN_DESIGN.md` §8, `docs/DECISION_LOG.md` 2026-09-08 |
 | 42 | books_personal | `books`, `book_chapters`(개인 책장, `wordbooks`/`words`와 동일한 `user_id` 소유 구조 + `sync_book_chapter_count` 트리거) — 41의 `public_books`와는 완전히 별개 테이블 | `docs/ADMIN_DESIGN.md` §8, `docs/DECISION_LOG.md` 2026-09-08 |
+| 43 | user_policy_agreements | `user_policy_agreements`(Master 가입 시 이용약관 동의 / 만 14세 이상 자격확인 기록, `agreement_type IN ('terms','age_eligibility')`, SELECT/INSERT는 본인만, UPDATE/DELETE 정책 없음 — 불변 기록, `auth.users` 삭제 시 CASCADE) | `docs/launch/PHASE1_POLICY.md` §4, §5 |
+| 44 | remove_login_pro_fallback | `get_service_tier()` 재정의 — 38번에서 추가한 "`payments_enabled=false`면 인증된 사용자를 `'pro'`로 판정" 분기를 영구 제거(37번 버전으로 회귀: admin > master > 실제 pro 구독 > guest). 1차 출시 P0, 2차에서도 복원하지 않음 | `docs/launch/PHASE1_POLICY.md` §1, §12 |
+| 45 | admin_audit_log_actor_delete_set_null | `admin_audit_log.actor_id` FK를 `ON DELETE SET NULL`로 변경(기존 FK는 ON DELETE 미지정=NO ACTION이라, Master 본인이 actor인 감사 로그가 남아있으면 `auth.admin.deleteUser()` 자체가 FK 위반으로 실패하는 문제를 P0 `master-delete-account` 구현 중 발견해 수정) | `docs/launch/PHASE1_POLICY.md` §3.5, §7 |
+
+> **참고(2026-09-10)**: 38번 마이그레이션의 `get_service_tier()` 정의는 44번이 즉시 대체했다 — 38번 파일 자체(과거 마이그레이션)는 수정하지 않고 `CREATE OR REPLACE FUNCTION`으로 다음 마이그레이션이 덮어쓰는 기존 관례를 그대로 따랐다.
 
 > **중요(2026-07-19 발견)**: 01~31번 마이그레이션 중 어디에도 `service_role`에 대한 GRANT가 없었다(`GRANT ... TO authenticated`만 존재). RLS의 `BYPASSRLS` 속성은 행 단위 필터만 우회할 뿐 테이블 단위 GRANT를 대신하지 않으므로, 위 표의 "쓰기는 service_role" / "service_role만"이라고 적힌 모든 정책이 마이그레이션 32 적용 전까지는 **service_role조차 해당 테이블에 접근할 수 없는 상태**였다(`subscriptions`, `master_invitations`, `admin_audit_log`, `retention_schedules` 등). 즉 Edge Function 기반 로직(구독 Webhook, Master 초대/해제, 보관 정리)은 배포 이후 한 번도 실제로 동작한 적이 없었을 가능성이 높다. 상세 경위는 `docs/DECISION_LOG.md` 2026-07-19 참고.
 
@@ -489,5 +494,6 @@ ALTER TABLE profiles
 | retention_schedules | 조회만 `uid = user_id`, 쓰기는 service_role | — |
 | speaking_sentences | `uid = user_id` | — |
 | speaking_recordings | `uid = user_id` | — |
+| user_policy_agreements | `uid = user_id` | UPDATE 정책 없음(불변 기록) |
 
 상세 RLS 문구는 각 테이블이 정의된 설계 문서(위 표) 원문을 그대로 적용한다.

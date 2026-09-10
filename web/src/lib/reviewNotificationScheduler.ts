@@ -45,6 +45,14 @@ function nextReminderDate(time: string): Date {
   return candidate
 }
 
+// 스케줄에 묶이지 않는 복습 알림 하나를 명시적으로 취소한다(예: Guest 로컬 데이터 전체 삭제).
+export function cancelReviewNotification(): void {
+  const existingNativeId = getStoredNativeId()
+  if (!existingNativeId) return
+  bridge.cancelNotification({ id: existingNativeId })
+  setStoredNativeId(null)
+}
+
 export async function refreshReviewNotification(
   repository: DataRepository,
   settings: Pick<UserSettings, 'reviewNotification' | 'reviewNotificationTime'>,

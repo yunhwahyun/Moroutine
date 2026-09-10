@@ -2,9 +2,8 @@ import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
-import { markSignupPending } from '@/lib/signupFlow'
 
-type Mode = 'login' | 'signup' | 'magic'
+type Mode = 'login' | 'magic'
 
 // Supabase Auth(GoTrue)가 돌려주는 영문 에러 메시지를 한국어로 옮긴다. 여기 없는 메시지는 원문을
 // 그대로 보여준다(완전히 새로운 문구를 오역해서 보여주는 것보다, 못 알아보는 원문이 낫다는 판단).
@@ -52,22 +51,6 @@ export default function LoginPage() {
         })
         if (error) throw error
         setMessage('이메일을 확인하세요. 로그인 링크를 보냈습니다.')
-      } else if (mode === 'signup') {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: window.location.origin },
-        })
-        if (error) throw error
-        // 이미 가입(인증 완료)된 이메일로 회원가입을 시도하면 Supabase는 계정 존재 여부를 노출하지
-        // 않기 위해 에러 없이 "가짜 성공" 응답을 준다 — 이때 identities가 빈 배열로 온다. 이 경우
-        // 실제로는 메일이 발송되지 않으므로, "인증 링크를 보냈습니다"라고 잘못 안내하지 않는다.
-        if (data.user && data.user.identities?.length === 0) {
-          setError('이미 가입된 이메일입니다. 로그인해주세요.')
-          return
-        }
-        markSignupPending()
-        setMessage('이메일을 확인하세요. 인증 링크를 보냈습니다.')
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
@@ -88,9 +71,9 @@ export default function LoginPage() {
           {/* <p className="text-gray-400 text-sm mt-3">루틴으로 만드는 어휘 학습</p> */}
         </div>
 
-        {/* Mode tabs */}
+        {/* Mode tabs — docs/launch/PHASE1_POLICY.md §1 P0: 일반 회원가입 차단, 회원가입 탭 제거 */}
         <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
-          {([['login', '로그인'], ['signup', '회원가입'], ['magic', '링크 로그인']] as [Mode, string][]).map(
+          {([['login', '로그인'], ['magic', '링크 로그인']] as [Mode, string][]).map(
             ([m, label]) => (
               <button
                 key={m}
@@ -137,7 +120,7 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full py-4 rounded-lg bg-gray-900 text-white text-sm font-medium mt-1 disabled:opacity-50"
           >
-            {loading ? '처리 중...' : ({ login: '로그인', signup: '회원가입', magic: '링크 보내기' } as const)[mode]}
+            {loading ? '처리 중...' : ({ login: '로그인', magic: '링크 보내기' } as const)[mode]}
           </button>
         </form>
       </div>

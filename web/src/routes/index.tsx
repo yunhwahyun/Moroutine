@@ -3,6 +3,7 @@ import AppLayout from '@/components/layout/AppLayout'
 import AdminLayout from '@/components/layout/AdminLayout'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 import UserRouteGuard from '@/components/layout/UserRouteGuard'
+import PublicContentGuestGuard from '@/components/layout/PublicContentGuestGuard'
 import LoginPage from '@/pages/auth/LoginPage'
 import HomePage from '@/pages/home/HomePage'
 import LearnPage from '@/pages/learn/LearnPage'
@@ -29,6 +30,8 @@ import PublicBookViewPage from '@/pages/public-book/PublicBookViewPage'
 import AdminBookListPage from '@/pages/admin/AdminBookListPage'
 import AdminBookFormPage from '@/pages/admin/AdminBookFormPage'
 import AdminBookDetailPage from '@/pages/admin/AdminBookDetailPage'
+import PrivacyPolicyPage from '@/pages/legal/PrivacyPolicyPage'
+import TermsPage from '@/pages/legal/TermsPage'
 
 export default function AppRoutes() {
   return (
@@ -44,27 +47,40 @@ export default function AppRoutes() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/wordbooks" element={<WordbookListPage />} />
-          <Route path="/public-wordbooks" element={<PublicWordbookListPage />} />
           <Route path="/schedules" element={<ScheduleListPage />} />
           <Route path="/books" element={<BookshelfListPage />} />
-          <Route path="/public-books" element={<PublicBookListPage />} />
         </Route>
         <Route path="/learn" element={<LearnPage />} />
         <Route path="/quiz" element={<QuizPage />} />
         <Route path="/quiz/complete" element={<QuizCompletePage />} />
         <Route path="/wordbooks/:id" element={<WordbookDetailPage />} />
-        <Route path="/public-wordbooks/:id" element={<PublicWordbookViewPage />} />
         <Route path="/books/:id" element={<BookDetailPage />} />
-        <Route path="/public-books/:id" element={<PublicBookViewPage />} />
         <Route path="/schedules/new" element={<ScheduleFormPage />} />
         <Route path="/schedules/:id/edit" element={<ScheduleFormPage />} />
         <Route path="/pricing" element={<PricingPage />} />
+
+        {/*
+          docs/launch/PHASE1_POLICY.md §8(B안) — 공용 단어장/책장은 메뉴 비노출뿐 아니라 Guest의
+          URL 직접 접근도 라우트 레벨에서 차단한다(PublicContentGuestGuard).
+        */}
+        <Route element={<PublicContentGuestGuard />}>
+          <Route element={<AppLayout />}>
+            <Route path="/public-wordbooks" element={<PublicWordbookListPage />} />
+            <Route path="/public-books" element={<PublicBookListPage />} />
+          </Route>
+          <Route path="/public-wordbooks/:id" element={<PublicWordbookViewPage />} />
+          <Route path="/public-books/:id" element={<PublicBookViewPage />} />
+        </Route>
       </Route>
 
       {/* /settings는 사용자/관리자 공유 라우트 — UserRouteGuard 밖에 둔다. */}
       <Route element={<AppLayout />}>
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
+
+      {/* 개인정보처리방침/이용약관 — 비로그인 포함 누구나 열람 가능(가입 전 열람 필요, docs/launch/PHASE1_POLICY.md §5). */}
+      <Route path="/privacy" element={<PrivacyPolicyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
 
       <Route path="/master/accept" element={<MasterAcceptPage />} />
 

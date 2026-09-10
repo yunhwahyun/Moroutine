@@ -25,13 +25,16 @@ export type BuildPermissionsInput = {
   subscription: Pick<Subscription, 'plan_code' | 'status'> | null
   plans: Record<PlanCode, PlanLimits>
   isAuthenticated: boolean
-  // docs/SUBSCRIPTION_DESIGN.md §11 — 앱 전체 결제 스위치(app_config.payments_enabled). false인 동안은
-  // 로그인한 사용자 전원을 Pro로 취급한다(사업자 등록 전 무료 출시 기간, 2026-09-02).
+  // docs/launch/PHASE1_POLICY.md §1, §12 — 1차 출시(P0)부터 tier 판정에는 더 이상 쓰이지 않는다.
+  // "결제 미활성 시 로그인 사용자는 Pro" fallback을 영구 제거했다(2차에서도 복원하지 않음). 이 값
+  // 자체는 app_config.payments_enabled 그대로이며, Pro 가격/구독 UI 노출 여부 등 tier 판정과 무관한
+  // 화면 분기(예: SettingsPage의 "구독 관리" 노출 조건)에서는 계속 쓰인다.
   paymentsEnabled: boolean
 }
 
-// docs/PERMISSION_DESIGN.md §3 — role=admin > special_access=master > 활성 Pro > (결제 미활성 시
-// 로그인 사용자는 Pro) > Guest (2026-09-02: Premium 티어 폐지, Pro만 유지 — docs/DECISION_LOG.md 2026-09-02)
+// docs/PERMISSION_DESIGN.md §3, docs/launch/PHASE1_POLICY.md §2 — role=admin > special_access=master
+// > 활성 Pro 구독 > Guest. (2026-09-02: Premium 티어 폐지, Pro만 유지. 2026-09-10: "결제 미활성 시
+// 로그인 사용자는 Pro" fallback 영구 제거 — 1차에는 실제 Pro 사용자가 존재하지 않는다.)
 function resolveServiceTier(input: BuildPermissionsInput): ServiceTier {
   if (input.role === 'admin') return 'admin'
   if (input.specialAccess === 'master') return 'master'
@@ -41,9 +44,6 @@ function resolveServiceTier(input: BuildPermissionsInput): ServiceTier {
     ACTIVE_SUBSCRIPTION_STATUSES.includes(input.subscription.status)
 
   if (hasActiveSub('pro')) return 'pro'
-  // 결제가 아직 없는 무료 출시 기간 — 반드시 isAuthenticated를 함께 봐야 한다(비로그인 Guest까지
-  // Pro로 승격되면 안 됨).
-  if (input.isAuthenticated && !input.paymentsEnabled) return 'pro'
   return 'guest'
 }
 
@@ -111,7 +111,7 @@ export const GUEST_PERMISSIONS: Permissions = buildPermissions({
   specialAccess: 'none',
   subscription: null,
   isAuthenticated: false,
-  paymentsEnabled: true, // isAuthenticated=false라 무료 출시 기간 여부와 무관하게 항상 guest로 귀결됨
+  paymentsEnabled: true, // tier 판정에는 쓰이지 않음(위 주석 참고) — 타입 요구사항 충족용 값
   plans: {
     pro: { personal_word_limit: null, sync_enabled: false, bulk_import_enabled: false, public_wordbook_enabled: false },
   },

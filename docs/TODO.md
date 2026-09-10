@@ -12,6 +12,21 @@ _현재 진행 중인 작업 없음_
 
 > **2026-07-18 정책 개편**: 구 "Phase 10 — Speaking MVP"(Beta/Free/Premium + Azure 평가)는 전량 폐기. 아래 Phase 11부터가 신규 계획이다. 배경은 `docs/DECISION_LOG.md` 2026-07-18 항목, 각 Phase의 상세 설계는 괄호 안 문서 참고. 구현 순서는 의존관계(권한→저장→DB/RLS→한도/이전→Master/보관→공용단어장→화면→부가기능)를 반드시 지킨다.
 
+> **2026-09-09 최우선 추가**: Phase 11~24는 모두 "결제 있는 서비스"를 전제로 설계됐던 것들인데, **1차 출시는 Guest/Master/Admin만 존재하고 결제가 전혀 없다**는 정책이 확정됐다(`docs/launch/PHASE1_POLICY.md`). 아래 "1차 출시 P0"를 Phase 11보다 먼저 진행한다.
+
+### 1차 출시 P0 (`docs/launch/PHASE1_POLICY.md` §10) — 2026-09-10 코드 구현 완료(사용자 지정 9개 항목)
+
+- [ ] **0단계**: self-signup 계정 확인 SQL 실행(§9) → 처리 방침 확정. Supabase Region 확인 — **사용자 직접 진행 필요**
+- [x] **1단계 DB**: `user_policy_agreements` 테이블 신설(43번, §4) + RLS, `get_service_tier()`에서 `payments_enabled=false→pro` 폴백 분기 제거(44번). `admin_audit_log.actor_id` FK를 `ON DELETE SET NULL`로 수정(45번, 구현 중 신규 발견 — 상세는 `docs/DECISION_LOG.md` 2026-09-10)
+  - [ ] `master_invitations.token_hash` DROP COLUMN — 이번 라운드 범위 제외(사용자 지정)
+- [x] **2단계 Edge Function**: 신규 `master-delete-account`(Admin 보호 + master 검증 + `auth.admin.deleteUser()`, §7 CASCADE로 개별 테이블 삭제 불필요 확인), `mobile/package.json`에서 `react-native-purchases` 제거 + `mobile/App.tsx` RevenueCat 코드 제거
+  - [ ] `master-revoke` 트랜잭션화(§3.6) — 이번 라운드 범위 제외(사용자 지정)
+  - [ ] `retention-cleanup`(`CLEANUP_TABLES`에 books/book_chapters 추가) — 이번 라운드 범위 제외(사용자 지정)
+- [x] **3단계 프런트엔드**: `permissions.ts`/`resolveServiceTier()` 폴백 제거, `LoginPage.tsx` 회원가입 탭 완전 제거, `MasterAcceptPage.tsx` 동의 폼(이용약관+만14세 체크박스+개인정보처리방침 링크) 추가, `SettingsPage.tsx` 회원탈퇴를 `master-delete-account` 연결로 교체 + 방침/약관 링크 연결, 공용 단어장/책장 Guest 라우트 가드(`PublicContentGuestGuard`) 신설, `dataExport.ts`의 `clearAllLocalData()`에 books/bookChapters/meta + 알림 취소 추가(방침 변경, `docs/launch/PHASE1_POLICY.md` §3.7 참고)
+- [x] **4단계**: `/privacy`, `/terms` 페이지 신설(`docs/legal/*_PHASE1.md` 원문을 `web/public/legal/*.md`로 복사해 표시 — 원문 갱신 시 수동 동기화 필요)
+- [ ] **5단계(배포 게이트)**: Supabase Auth "Allow new users to sign up" OFF 후 스테이징에서 A~F 전부 확인(§10 표) — 실패 시에만 §11의 `auth.users` 트리거 P2 대안 재검토. **사용자 직접 진행 필요**
+- [ ] 위 전부 완료 + QA 통과 후에도 **개인정보처리방침 미확정값**(운영자 정보, Supabase/Vercel 실제 리전 등, `docs/legal/PRIVACY_POLICY_PHASE1.md` 체크리스트) 확정까지 마쳐야 최종 빌드/스토어 제출 가능(P0 완료 ≠ 제출 가능)
+
 ### Phase 11 — 권한 모델 (`docs/PERMISSION_DESIGN.md`) ✅ 완료 2026-07-18
 - [x] Migration 13: profiles_role_access (`role`, `special_access` 컬럼 + `is_admin()` + `prevent_self_privilege_escalation` 트리거)
 - [x] Migration 14: subscription_plans (+ 시드 데이터, `personal_word_limit`은 NULL 임시값 — 배포 전 확정 필요)

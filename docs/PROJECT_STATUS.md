@@ -1,6 +1,15 @@
 # Project Status
 
-> 최종 업데이트: 2026-09-09
+> 최종 업데이트: 2026-09-10
+
+**1차 출시(Guest/Master/Admin, 결제 없음) P0 코드 구현 완료(2026-09-10) — `docs/launch/PHASE1_POLICY.md` §10
+1~4단계(DB/Edge Function/프런트엔드/콘텐츠) 중 사용자가 이번 세션에서 지정한 9개 항목 구현 완료.
+`master_invitations.token_hash` 삭제 / `master-revoke` 트랜잭션화 / `retention-cleanup` CLEANUP_TABLES
+갱신 3개는 이번 세션 범위에서 명시적으로 제외되어 다음 P0 라운드로 남는다. §10 5단계(스테이징 A~F
+실환경 QA)와 Supabase Dashboard 설정(0단계)은 사용자가 직접 해야 하는 남은 작업 — 상세는
+`docs/DECISION_LOG.md` 2026-09-10 참고. P0 코드 구현 완료 ≠ 스토어 제출 가능.**
+
+**1차 출시(Guest/Master/Admin, 결제 없음) 정책 확정 완료(2026-09-09).** 여러 세션에 걸친 정책 분석·법무 근거 검증(개인정보보호법 실제 조문, Supabase/Vercel/Resend 공식 문서 기준)을 거쳐 최종 확정. 핵심 결론: 일반 회원가입/Pro/RevenueCat/결제는 1차에 전혀 없음(`LoginPage.tsx`의 self-signup UI를 제거해야 함 — 현재 살아있는 상태), Master 초대 가입 시 이용약관 동의+만14세 확인 체크박스와 개인정보처리방침 안내/링크만 필요(개인정보 수집·이용 별도 동의는 제15조1항4호 근거로 불필요), `user_policy_agreements` 신설 테이블로 동의·자격확인 기록, Admin의 Master 권한 해제 시 권한은 즉시 정지하고 데이터 이전은 나중에 처리, RevenueCat SDK는 1차 빌드에서 완전 제거(git 이력으로만 보존). 개인정보처리방침·이용약관 전문은 `docs/legal/PRIVACY_POLICY_PHASE1.md`/`docs/legal/TERMS_PHASE1.md`에 확정. 이 작업 중 실제 프로덕션에서 self-signup Pro 계정 1건을 발견해 삭제 완료(상세는 `docs/DECISION_LOG.md` 2026-09-09 참고). **코드는 이 작업 범위에서 전혀 수정하지 않음.**
 
 관리자 화면 잔여 UI 정리(2026-09-09): (1) `/settings`가 사용자/관리자 공유 라우트라 `AppLayout`의 `RetentionBanner`(구독 만료 데이터 삭제 경고)가 tier 확인 없이 Admin에게도 노출되던 버그 수정(`serviceTier==='admin'`이면 렌더링 자체를 생략). (2) BottomNav 사용자/관리자 탭 완전 분리(2026-09-01) 이후 죽은 도입부가 된 설정 화면의 "관리자 화면으로 이동" 버튼 제거(권한/이메일 정보 행은 유지). `tsc -b`/`eslint`/`vite build` 통과, 웹 전용이라 EAS 재빌드 불필요.
 
@@ -16,6 +25,8 @@
 
 | Phase | 내용 |
 |-------|------|
+| **1차 출시 P0 구현(2026-09-10, 사용자 지정 9개 항목)** | 일반 회원가입 UI 완전 제거(`LoginPage.tsx`), "로그인=Pro" 폴백 영구 제거(클라이언트 `permissions.ts` + SQL `get_service_tier()` 마이그레이션 44), `MasterAcceptPage` 동의 폼(이용약관+만14세 체크박스, 개인정보처리방침 링크), `user_policy_agreements` 테이블 신설(마이그레이션 43) + `master-accept` 서버 재검증·기록, `master-delete-account` 신설(실제 Auth 계정 삭제) + `admin_audit_log` FK 수정(마이그레이션 45), `/privacy`/`/terms` 페이지, 공용 단어장/책장 Guest 라우트 가드(`PublicContentGuestGuard`), `clearAllLocalData` books/bookChapters/meta+알림 취소 포함, `mobile`에서 RevenueCat SDK 제거. 상세는 `docs/DECISION_LOG.md` 2026-09-10 참고 |
+| **1차 출시 정책 확정(정책·문서만, 코드 미수정)** | `docs/launch/PHASE1_POLICY.md`(신규) — Guest/Master/Admin 권한 매트릭스, 6종 Flow(Guest/Master 초대·로그인/Admin/Master 탈퇴/권한해제→Guest 전환/데이터삭제), `user_policy_agreements` 스키마, 위탁·국외이전 사업자별 판단(Supabase/Resend/Vercel), P0~P2 구현계획, 2차 보존/재검토 항목 전부 확정. `docs/legal/PRIVACY_POLICY_PHASE1.md`/`docs/legal/TERMS_PHASE1.md`(신규) 전문 작성 완료. 상세 근거는 `docs/DECISION_LOG.md` 2026-09-09 참고 |
 | Phase 0 | 프로젝트 셋업 전체 완료 (웹: Vite+React+TS+Tailwind, RN: Expo+react-native-webview+expo-notifications+expo-speech) |
 | Phase 1 | Supabase DB / RLS / Auth (마이그레이션 전체, authStore, ProtectedRoute, LoginPage) |
 | Phase 2 | 하단 탭 + AppLayout + BottomNav + 라우팅 |
@@ -124,8 +135,15 @@
 
 > 상세 작업 목록은 `docs/TODO.md` 참고. 순서는 `docs/DESIGN.md` 하위 문서들의 의존관계를 따른다(권한 모델 → 저장 계층 → DB/RLS → 한도/이전 → Master/보관 → 공용 단어장 → 화면 → 부가기능).
 
+> **다음 세션 시작점(최우선, 2026-09-10 갱신)**: `docs/launch/PHASE1_POLICY.md` §10의 1~4단계(DB/Edge
+> Function/프런트엔드/콘텐츠)는 사용자가 이번 세션에서 지정한 9개 항목 기준으로 구현 완료했다. 다음
+> 세션은 (a) 이번에 명시적으로 제외된 3개 항목(`master_invitations.token_hash` DROP COLUMN,
+> `master-revoke` 트랜잭션화, `retention-cleanup` CLEANUP_TABLES 갱신) 처리 여부 결정, (b) §10 0단계
+> 사용자 액션(Supabase Dashboard 설정), (c) §10 5단계 스테이징 A~F 실환경 QA 순으로 진행한다.
+
 | 순서 | Phase | 작업 |
 |------|-------|------|
+| **1(최우선)** | **1차 출시 P0** | ✅ 코드 구현 완료(2026-09-10, 9개 항목). 남은 것: `master_invitations.token_hash` 삭제/`master-revoke` 트랜잭션화/`retention-cleanup` 갱신(제외됨, 다음 라운드) + §10 0단계 사용자 설정 + §10 5단계 스테이징 QA(A~F) — 통과 전까지 배포하지 않음 |
 | — | Phase 11 | ✅ 완료 (마이그레이션 13~15 Supabase 적용 완료 + client 구현) |
 | — | Phase 12 | ✅ 완료 (Repository 계층) |
 | — | Phase 12.5 | ✅ 완료 (Guest 라우팅 공개 전환 + 학습/복습 상태 저장 + 설정 영구 저장 + 일정 지원, 전부 실브라우저 검증) |
