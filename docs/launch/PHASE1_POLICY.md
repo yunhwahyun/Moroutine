@@ -225,8 +225,8 @@ where role = 'user' and special_access = 'none';
 **순서를 지켜야 하는 이유**: DB 스키마 → 서버(Edge Function/SQL 함수) → 프런트엔드 → 스테이징 검증 순으로, 뒤 단계가 앞 단계에 의존한다. 스테이징 검증(5단계)을 통과하기 전엔 배포하지 않는다.
 
 ### 0단계 — 코드 작업 전 사용자 액션(병행 가능)
-- [ ] §9 self-signup 계정 확인 쿼리 실행 → 결과에 따라 1단계 착수 전 계정 처리 방침 확정
-- [ ] Supabase 프로젝트 Region 확인(대시보드), 실제 SMTP 발신 사업자 확인(Resend로 이미 확인됨, §6)
+- [x] §9 self-signup 계정 확인 쿼리 실행 → 확인 완료(2026-09-11, 재확인 포함)
+- [x] Supabase 프로젝트 Region 확인(대시보드) — 싱가포르(ap-southeast-1), 실제 SMTP 발신 사업자 확인(Resend, §6)
 
 ### 1단계 — DB 마이그레이션 ✅ 이번 세션 구현 완료(2026-09-10)
 > **마이그레이션 번호를 문서에 고정하지 않는다.** 구현 시작 시 반드시 `ls supabase/migrations/`로 현재 저장소의 마지막 번호를 확인한 뒤 그 다음 번호를 사용한다 — 실제 착수 시점 마지막 번호는 42였고, 43/44/45를 사용했다(아래).
@@ -252,8 +252,9 @@ where role = 'user' and special_access = 'none';
 ### 4단계 — 콘텐츠 ✅ 이번 세션 구현 완료
 - [x] `/privacy`, `/terms` 라우트 신설(`PrivacyPolicyPage`/`TermsPage` + 공용 `LegalDocumentPage`). `docs/legal/PRIVACY_POLICY_PHASE1.md`/`TERMS_PHASE1.md` 원문(내부용 상태 배너·체크리스트·수정이력 제외, `[확인 필요]`는 그대로 보존)을 `web/public/legal/*.md`로 복사해 `fetch()`로 표시 — **docs/legal 원문 갱신 시 이 사본도 수동으로 함께 갱신해야 함**(자동 동기화 아님)
 
-### 5단계 — 스테이징 필수 검증(배포 게이트)
+### 5단계 — 스테이징 필수 검증(배포 게이트) ✅ iOS 실기기 확인 완료(2026-09-11)
 Supabase Auth "Allow new users to sign up" OFF 후 아래 A~F 전부 확인해야 배포 가능. 실패 시에만 P2 대안(아래 §11) 재검토.
+**Android는 EAS 빌드를 별도 방식으로 진행 예정이라 그 빌드가 나온 뒤 동일하게 재확인 필요.**
 
 | | 시나리오 | 기대 결과 |
 |---|---|---|
@@ -264,7 +265,7 @@ Supabase Auth "Allow new users to sign up" OFF 후 아래 A~F 전부 확인해�
 | E | 초대 링크 클릭 | 정상 세션 생성 |
 | F | `MasterAcceptPage`에서 가입 | 정상 완료 |
 
-### 5-1단계 — 비밀번호 변경/재설정 보안 QA(2026-09-10 기능 추가분, 배포 전 필수)
+### 5-1단계 — 비밀번호 변경/재설정 보안 QA(2026-09-10 기능 추가분, 배포 전 필수) ✅ iOS 실기기 확인 완료(2026-09-11)
 
 `docs/DECISION_LOG.md` 2026-09-10(비밀번호 재설정/변경 구현) 참고. 스테이징 A~F와 마찬가지로
 실환경에서 직접 확인해야 하는 항목 — 추측으로 완료 처리하지 않는다.
