@@ -128,6 +128,14 @@ function toWordPayload(w: LocalSnapshot['words'][number]) {
   }
 }
 
+function toBookPayload(b: LocalSnapshot['books'][number]) {
+  return { local_id: b.id, name: b.name, language: b.language }
+}
+
+function toBookChapterPayload(c: LocalSnapshot['bookChapters'][number]) {
+  return { local_id: c.id, book_local_id: c.book_id, title: c.title, content: c.content, sort_order: c.sort_order }
+}
+
 function toSchedulePayload(s: LocalSnapshot['schedules'][number]) {
   return {
     local_id: s.id,
@@ -201,6 +209,8 @@ export async function runGuestToRemoteMigration(
   const totalRecords =
     snapshot.wordbooks.length +
     snapshot.words.length +
+    snapshot.books.length +
+    snapshot.bookChapters.length +
     snapshot.schedules.length +
     snapshot.scheduleExceptions.length +
     snapshot.studySessions.length +
@@ -226,6 +236,14 @@ export async function runGuestToRemoteMigration(
     await migrateEntityChunked(
       'migrate_words', migrationId, 'word',
       snapshot.words.map(toWordPayload), 'p_words', onProgress, progressBase,
+    )
+    const bookMap = await migrateEntityChunked(
+      'migrate_books', migrationId, 'book',
+      snapshot.books.map(toBookPayload), 'p_books', onProgress, progressBase,
+    )
+    await migrateEntityChunked(
+      'migrate_book_chapters', migrationId, 'book_chapter',
+      snapshot.bookChapters.map(toBookChapterPayload), 'p_chapters', onProgress, progressBase,
     )
     const scheduleMap = await migrateEntityChunked(
       'migrate_schedules', migrationId, 'schedule',
@@ -260,6 +278,9 @@ export async function runGuestToRemoteMigration(
     // docs/MIGRATION_DESIGN.md §5 — 로컬 레코드 수 vs 매핑 성공 수 비교(부모 누락으로 인한 스킵은 경고만).
     if (wordbookMap.size < snapshot.wordbooks.length) {
       console.warn('[migration] 일부 단어장이 이전되지 않았습니다.')
+    }
+    if (bookMap.size < snapshot.books.length) {
+      console.warn('[migration] 일부 책장이 이전되지 않았습니다.')
     }
 
     // 알림 재등록 — 로컬 notifications 원본은 이전하지 않고, alarm_minutes가 설정된 이전된 일정에

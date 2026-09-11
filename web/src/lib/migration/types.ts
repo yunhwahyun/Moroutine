@@ -1,4 +1,4 @@
-import type { Schedule, ScheduleException, Wordbook, Word } from '@/types'
+import type { Schedule, ScheduleException, Wordbook, Word, Book, BookChapter } from '@/types'
 import type { LocalStudyResult, LocalStudySession } from '@/repositories/local/schema'
 
 // docs/MIGRATION_DESIGN.md §2, §3 — Guest(로컬) → Pro/Master(원격) 데이터 이전.
@@ -6,6 +6,8 @@ import type { LocalStudyResult, LocalStudySession } from '@/repositories/local/s
 export type LocalSnapshot = {
   wordbooks: Wordbook[]
   words: Word[]
+  books: Book[]
+  bookChapters: BookChapter[]
   schedules: Schedule[]
   scheduleExceptions: ScheduleException[]
   studySessions: LocalStudySession[]
@@ -17,6 +19,8 @@ export type LocalSnapshot = {
 export type LocalDataSummary = {
   wordbookCount: number
   wordCount: number
+  bookCount: number
+  chapterCount: number
   studyHistoryCount: number   // study_results 총 건수
   reviewDueCount: number      // status='reviewing'이고 next_review_at이 현재 이하인 단어 수
   scheduleCount: number
@@ -26,6 +30,8 @@ export type LocalDataSummary = {
 export type MigrationEntityType =
   | 'wordbook'
   | 'word'
+  | 'book'
+  | 'book_chapter'
   | 'schedule'
   | 'schedule_exception'
   | 'study_session'

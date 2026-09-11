@@ -1,6 +1,36 @@
 # Project Status
 
-> 최종 업데이트: 2026-09-10
+> 최종 업데이트: 2026-09-11
+
+**Master 초대/비밀번호 재설정 메일 링크 딥링크(Universal Links/App Links) 구현(2026-09-11, 새 EAS 빌드
+필요, 아직 미배포):** 메일 링크가 앱과 분리된 채 기기 기본 브라우저로만 열리던 문제 수정 —
+`web/public/.well-known/{apple-app-site-association,assetlinks.json}` 신설,
+`mobile/app.json`에 `associatedDomains`/`intentFilters` 추가, `mobile/App.tsx`에 `Linking`
+기반 딥링크 처리 추가(WebView `source`를 상태로 전환, `/master/accept`·`/reset-password`만 허용).
+Android 서명 인증서 SHA-256과 iOS Team ID는 실제 빌드 산출물(APK/IPA)에서 직접 추출해 확보(대화형
+`eas credentials` 없이). **네이티브 설정 변경이라 지금까지의 preview 빌드엔 반영 안 됨 — 새 EAS
+빌드 + Apple/Google 검증 도구로 AASA/assetlinks.json 재확인 필요.** 상세는 `docs/DECISION_LOG.md`
+2026-09-11 참고.
+
+**Guest 책장(books/book_chapters) 계정 이전 지원 추가 + 계정 이전 모달 흐름 단순화(2026-09-11):**
+이전 엔진(2026-07-18)이 책장 기능(2026-09-08)보다 먼저 만들어져 books/book_chapters가 이전 대상에서
+빠져 있던 공백을 발견해 수정(`supabase/migrations/49_migration_books.sql`, `migrate_books`/
+`migrate_book_chapters` RPC, Supabase 프로젝트 적용 완료). "계정으로 이전" 성공 시 자동으로 로컬
+데이터를 삭제하도록 변경(예전엔 "그대로 둘지" 다시 물어봐서, 그대로 두면 앱을 열 때마다 모달이
+재발생하는 버그가 있었음), "새로 시작" 버튼을 실제 동작과 일치하도록 "저장 데이터 지우기"로 개명 +
+실제 삭제 동작 연결. 상세는 `docs/MIGRATION_DESIGN.md` "Phase 15 후속(2026-09-11)",
+`docs/DECISION_LOG.md` 2026-09-11 참고.
+
+오픈소스 라이선스 고지 `/licenses` 신규 추가(2026-09-11): `SettingsPage` "정보" 섹션(이용약관 →
+개인정보처리방침 → 오픈소스 라이선스 → 앱 버전 순)에서 진입, Guest/Master/Admin 전부 접근 가능한
+공개 라우트(`UserRouteGuard`/`DowngradeGate` 예외 처리 확인 완료). 라이선스 목록은 임의 추측이
+아니라 `scripts/generate-oss-licenses.mjs`가 web(Vite)/mobile(Expo, iOS+Android 둘 다) 각각의
+실제 production 빌드 소스맵을 분석해 생성(`web/public/licenses/oss-licenses.json`) — mobile의
+경우 전체 npm production dependency 트리(454개)의 대부분이 metro/jest/hermes-compiler 등 Expo
+내부 빌드 도구였고 실제 번들에 포함되는 것은 iOS/Android 각각 35개뿐임을 확인(두 플랫폼 구성은
+동일). GPL/MPL 라이선스 패키지(`lightningcss`, `node-forge`)가 그래프에 있었으나 둘 다 빌드 도구
+전용이라 실제 배포물에는 포함되지 않음을 확인, 동의 대상 아님(체크박스/`user_policy_agreements`
+없음). 상세는 `docs/DECISION_LOG.md` 2026-09-11 참고.
 
 **1차 출시(Guest/Master/Admin, 결제 없음) P0 코드 구현 완료(2026-09-10) — `docs/launch/PHASE1_POLICY.md` §10
 1~4단계(DB/Edge Function/프런트엔드/콘텐츠) 중 사용자가 이번 세션에서 지정한 9개 항목 구현 완료.
@@ -91,6 +121,8 @@
 | **책장(Book) 기능 신규 추가 → 개인+공용 이중 구조로 재구성 ✅ 완료 2026-09-08** | 단어장과 별개인 순수 읽기/듣기 콘텐츠 기능. 최초엔 공용 단어장(§3)만 본떠 관리자 전용으로 만들었으나, 실제 요구사항은 단어장처럼 **개인 책장(Guest 포함 전체가 직접 생성) + 공용 책장(Admin 큐레이션, Pro/Master 열람)** 이중 구조였음을 사용자 지적으로 발견해 같은 날 재구성. 개인 `books`/`book_chapters`(마이그레이션 42, `wordbooks`/`words`와 동일한 `user_id` 소유 구조, `DataRepository`에 9개 메서드 추가, Guest는 Dexie v2 신규 스토어) + 공용 `public_books`/`public_book_chapters`(마이그레이션 41, 기존 관리자 전용 테이블을 rename)로 분리. 화면도 개인용(`web/src/pages/bookshelf/{BookshelfListPage,BookDetailPage}.tsx`, `/books`, BottomNav 탭 — 단어장 바로 다음 순서)과 공용용(`web/src/pages/public-book/{PublicBookListPage,PublicBookViewPage}.tsx`, `/public-books`, 개인 책장 헤더의 "공용 책장" 링크로만 진입)으로 분리. 둘 다 학습/퀴즈/진행률 없음, 기존 자동재생 인프라(`useAutoplayStore`, 무수정) 재사용해 다중 선택 → 순차 재생. `.txt` 일괄등록은 단어장과 달리 여러 파일=목차 여러 개(파일 하나=목차 1개, 제목은 파일명), 개인/공용 상세 화면 양쪽에 동일 규칙 적용. 메뉴 아이콘(`menu-05.svg`/`-on.svg`)은 사용자가 직접 제작해 최종본으로 적용. `tsc -b`/`eslint`/`vite build` 통과, `mobile/App.tsx` 무변경(EAS 재빌드 불필요). **한계**: 실브라우저 검증 미수행, 마이그레이션 41/42 모두 아직 Supabase 프로젝트에 미적용(Dashboard에서 사용자가 직접 실행 필요, 41은 rename됐으므로 기존에 실행했다면 재확인 필요) — `docs/DECISION_LOG.md`/`docs/ADMIN_DESIGN.md` §8 참고 |
 
 | **퀴즈 주관식 음성 입력 — 탭 토글 원복 + 무반응/미인식 버그 수정 ✅ 완료 2026-09-09** | 눌러서 녹음(walkie-talkie) 방식이 불편하다는 피드백으로 탭 토글(한 번 탭=시작, 다시 탭=종료)로 되돌리되, 무음 감지 자동 종료 방지(`continuous:true`)는 유지. 진짜 원인은 `interimResults:false`였음 — `expo-speech-recognition` 문서에 "iOS는 인식이 완전히 끝나야만 final 결과가 온다"고 명시돼 있어 화면 무반응·응답 미채움의 근본 원인이었음. 웹/네이티브 양쪽 `interimResults:true`로 변경, 말하는 도중 실시간으로 입력창이 채워지도록 함(기존 로직 재사용, 별도 UI 불필요). `web`: `tsc -b`/`eslint`/`vite build` 통과, `mobile`: `tsc --noEmit` 통과. **한계**: `mobile/App.tsx` 변경이라 실기기 검증은 새 EAS 빌드 필요 |
+
+| **오픈소스 라이선스 고지 `/licenses` ✅ 완료 2026-09-11** | `LicensesPage.tsx`(신규, `<details>` 아코디언) + 라우트/`DowngradeGate` `EXEMPT_PATHS`/`SettingsPage` "정보" 섹션(순서: 이용약관→개인정보처리방침→오픈소스 라이선스→앱 버전) 연결. 라이선스 데이터는 하드코딩하지 않고 `scripts/generate-oss-licenses.mjs`가 생성하는 `web/public/licenses/oss-licenses.json`을 fetch — 이 스크립트는 `npm ls`/lockfile 트리 전체가 아니라 web(`vite build --sourcemap`)/mobile(`expo export --source-maps external`, iOS+Android 둘 다) **실제 production 빌드 소스맵**에 등장하는 패키지만 대상으로 삼는다(mobile 실측: 트리 454개 vs 실번들 iOS/Android 각각 35개, 두 플랫폼 구성 동일 — 나머지는 metro/jest/hermes-compiler 등 Expo 내부 빌드 도구). 재-export만 하는 패키지가 번들러에 인라인되어 소스맵에서 누락되는 경우(`react-router-dom`)에 한해 프로젝트 직접 의존성 목록으로 안전망 보강. 최종 54개 패키지(web 19 + mobile 35, 이름 기준 중복 제외 시 mobile 32) 전부 MIT/Apache-2.0/ISC/0BSD — GPL/AGPL/LGPL/MPL/UNKNOWN 없음(그래프에는 `lightningcss`(MPL-2.0)/`node-forge`(GPL-2.0 dual)가 있었으나 빌드 도구 전용이라 실제 번들에서 제외됨을 확인). 동의 대상 아님(체크박스/`user_policy_agreements` 없음). `tsc -b`/`eslint`/`vite build` 통과. 상세 근거는 `docs/DECISION_LOG.md` 2026-09-11 참고 |
 
 > 구 "Speaking 설계 완료(Azure 평가 포함)" 항목은 위 재설계로 대체되어 제거함. 두 설계 모두 실제 코드/마이그레이션 파일로 구현된 적은 없었음(`docs/DECISION_LOG.md` 참고).
 

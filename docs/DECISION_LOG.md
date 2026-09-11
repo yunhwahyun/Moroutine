@@ -6,6 +6,116 @@
 
 ## 2026-09-11
 
+### Master 초대/비밀번호 재설정 메일 링크 딥링크(Universal Links/App Links) 구현
+
+- **발견 경위**: Android 실기기 EAS 빌드를 계기로 "메일 링크로 로그인하면 앱과 연결되나?"라는
+  사용자 질문을 받고 확인한 결과, `mobile/App.tsx`에 `Linking` 처리 코드가 전혀 없고 WebView가
+  항상 고정된 `WEB_APP_URL`만 로드한다는 것, `mobile/app.json`에 iOS `associatedDomains`/Android
+  `intentFilters`가 전혀 없다는 것을 확인함. 즉 Master 초대·비밀번호 재설정 메일 링크를 탭하면
+  OS가 무조건 기기 기본 브라우저(Safari/Chrome)로 열고, 거기서 완료된 세션은 앱의 WebView 저장소와
+  분리돼 있어 사용자가 실제 앱을 열면 다시 로그인해야 하는 상태였다 — 이 화면들 어디에도 "앱으로
+  돌아가라"는 안내조차 없었음. 사용자가 "앱 중심 제품인데 이건 문제"라고 판단해 딥링크 구현을 요청.
+- **리다이렉트 체인이 실제로 동작하는지 검증**: 초대/재설정 메일의 실제 클릭 링크는 우리 도메인이
+  아니라 Supabase의 `/auth/v1/verify` 엔드포인트이고, 거기서 302로 `www.moroutine.kr/...`로
+  리다이렉트된다. "탭한 도메인이 우리 도메인이 아닌데 Universal Links가 동작하는가"를 WebSearch/
+  WebFetch로 확인 — Apple Developer Forum 사례 및 Supabase 공식 문서
+  (supabase.com/docs/guides/auth/native-mobile-deep-linking, "Universal Links are recommended...
+  you must host the AASA file yourself")를 근거로, **AASA 파일을 최종 도착 도메인(우리 도메인)에
+  직접 호스팅하면 리다이렉트 체인의 최종 URL에서 Universal Link가 정상적으로 트리거된다**는 것을
+  확인 후 착수(AASA 파일 자체의 fetch는 리다이렉트 없이 직접 서빙돼야 한다는 제약은 별개로 충족).
+- **인증서/Team ID를 대화형 명령 없이 확보**: `eas credentials`는 TTY가 있어야 하는 대화형 전용
+  명령이라 이 환경에서 직접 조회할 수 없었다. 대신 이미 만든 실제 빌드 산출물에서 직접 추출:
+  - Android: 방금 만든 preview APK(`eas build:view ... --json`의 `artifacts.buildUrl`)를 다운로드해
+    APK Signing Block(v2 스킴)을 직접 파싱하는 스크립트를 작성, X.509 인증서(DER)를 뽑아
+    `openssl x509 -fingerprint -sha256`로 SHA-256 지문 확보 (`C5:8E:...:8A:0D`). APK가 서명 파일을
+    `META-INF/*.RSA`로 갖지 않는(v2/v3 전용 서명) 최신 빌드라 `keytool -printcert -jarfile`은
+    실패했음 — 그래서 바이너리 포맷을 직접 파싱함.
+  - iOS: 기존 iOS preview IPA를 다운로드해 `embedded.mobileprovision`을 `security cms -D`로 열어
+    `TeamIdentifier`(`J7J2XR4LZ2`)를 확인.
+  - 두 값 다 실제 서명에 쓰인 진짜 값이므로 추측이 아니다. Android는 EAS가 원격으로 관리하는
+    keystore(`eas credentials`로 아직 한 번도 사용자 정보를 채운 적 없어 subject/issuer가 `C=US`
+    외엔 비어있음)를 그대로 쓰고 있어 재발급 전까지는 이 지문이 유지된다.
+- **구현**:
+  - `web/public/.well-known/apple-app-site-association`, `assetlinks.json` 신설(대상 경로:
+    `/master/accept`, `/reset-password`). `web/vercel.json`에 두 파일 `Content-Type:
+    application/json` 헤더 규칙 추가(Android의 Digital Asset Links 검증은 이를 요구, iOS는 관대하지만
+    명시하는 게 안전). 기존 `/(.*) → /index.html` rewrite와 충돌하지 않음 — `/legal/*.md`,
+    `/licenses/oss-licenses.json` 등 기존 `public/` 정적 파일이 이미 이 rewrite에 안 걸리고
+    정상 서빙되는 걸 이번 세션에서 실측 확인했으므로 동일 패턴으로 안전하다고 판단.
+  - `mobile/app.json`: `ios.associatedDomains: ["applinks:www.moroutine.kr"]`,
+    `android.intentFilters`(autoVerify, `/master/accept`·`/reset-password` pathPrefix 2건) 추가.
+  - `mobile/App.tsx`: WebView `source`를 고정 `WEB_APP_URL`에서 `useState`로 전환,
+    `Linking.getInitialURL()`(콜드 스타트)/`Linking.addEventListener('url', ...)`(웜 스타트) 둘 다
+    처리하는 `resolveDeepLinkUrl()` 추가 — OS가 이미 도메인을 검증했어도 경로를 우리가 등록한
+    두 개(`/master/accept`, `/reset-password`)로 한 번 더 방어적으로 제한하고, origin은 항상
+    `WEB_APP_URL`(운영/개발 호스트)로 고정해 경로+쿼리+해시(재설정 토큰이 해시로 옴)만 반영한다.
+    `expo-linking` 등 새 패키지는 설치하지 않고 React Native 내장 `Linking`만 사용(RN 0.85가
+    `global.URL`을 이미 폴리필하는 것도 `setUpXHR.js` 경로를 직접 확인).
+  - 네이티브 설정(`app.json`) 변경이라 **새 EAS 빌드가 있어야 반영됨** — 지금까지의 iOS/Android
+    preview 빌드에는 이 변경이 없다.
+- **한계**: AASA/assetlinks.json은 로컬 dev 서버로만 서빙 여부를 확인했고, 실제 Vercel 배포 후
+  Apple/Google의 검증 도구(Universal Links Validator, Google의 Digital Asset Links API)로 재확인
+  필요. Android Keystore가 재발급되면 `assetlinks.json`의 SHA-256도 다시 추출해 갱신해야 한다.
+
+### 책장(books/book_chapters) 계정 이전 지원 추가 + Guest 계정 이전 모달 흐름 단순화
+
+- **발견 경위**: 위 딥링크 작업 중 사용자가 "계정으로 이전 시 성공하면 자동으로 로컬 데이터를
+  삭제해달라"고 요청. 구현 전 실제 이전 대상 범위를 확인하던 중 `guestToRemoteMigration.ts`와
+  이전 RPC 6종(마이그레이션 26/35) 어디에도 `books`/`book_chapters`가 없다는 걸 발견함 — 이전
+  엔진(2026-07-18)이 책장 기능(2026-09-08)보다 먼저 만들어져서 반영이 누락된 상태였다. 자동삭제를
+  이 공백 위에 그대로 얹으면 책장 데이터가 서버로 이전되지 않은 채 로컬에서마저 삭제돼 실제
+  데이터 유실이 발생할 뻔했다 — 사용자에게 먼저 보고하고, 책장도 이전 대상에 포함하기로 결정
+  (대안: 단어장만 자동삭제 적용하고 책장은 보류 — 사용자가 "책장도 포함해서 같이 구현" 선택).
+- 구현/DB 변경 상세는 `docs/MIGRATION_DESIGN.md` "Phase 15 후속(2026-09-11)" 절 참고
+  (마이그레이션 49, `migrate_books`/`migrate_book_chapters` RPC 신설).
+- **모달 흐름 재설계**: 기존엔 "계정으로 이전" 성공 후 "기기에 그대로 둘지/삭제할지"를 다시
+  물었는데, "그대로 두기"를 고르면 로컬 데이터가 안 지워져 `hasAnyData`가 계속 true로 남고,
+  거기에 dismiss 플래그가 `sessionStorage`라 앱을 재시작(WebView 세션 갱신)할 때마다 이 플래그도
+  초기화돼 **모달이 앱을 열 때마다 다시 뜨는 버그**로 이어졌다. "계정으로 이전"을 자동삭제로
+  바꾸고, "새로 시작"(라벨과 달리 실제로는 아무것도 안 지우던 버튼)을 "저장 데이터 지우기"로
+  개명하면서 실제로 삭제하도록 고쳐 이 재발 경로 자체를 없앴다.
+
+### 오픈소스 라이선스 고지(`/licenses`) 추가 — "실제 배포 번들 기준"으로 범위 결정
+
+- 배경: 스토어 심사·법적 고지 목적으로 오픈소스 라이선스 목록 페이지가 필요. 임의로 라이선스를
+  추측하지 않고, 실제 설치된 패키지의 package.json/LICENSE 파일을 기준으로 작성하기로 함.
+- **`npm ls --omit=dev --all`(전체 production dependency 트리) 기준으로 하지 않기로 결정.**
+  실측 결과 web은 26개(트리) vs 19개(실제 번들), mobile은 454개(트리) vs 34~35개(실제 번들)로
+  차이가 매우 컸다. mobile 쪽 차이의 원인은 `expo`가 npm 그래프상 "dependencies"(devDependencies가
+  아님)로 끌고 오는 metro, jest, hermes-compiler, xcode, @react-native/community-cli-plugin 등
+  약 400여 개의 **CLI/빌드 전용 도구**였다 — 이들은 개발 머신에서 번들링·네이티브 빌드에만 쓰이고
+  최종 앱에는 포함되지 않는데, npm 의존성 그래프만으로는 devDependencies로 분류되지 않아 걸러낼
+  방법이 없다.
+- 이 문제를 해결하기 위해 `scripts/generate-oss-licenses.mjs`는 web(`vite build --sourcemap`)과
+  mobile(`expo export --source-maps external`) 각각 실제 production 빌드를 수행하고, 그 결과물의
+  소스맵에 실제로 등장하는 `node_modules` 파일만 라이선스 수집 대상으로 삼는다. 번들러가 재-export
+  전용 패키지(예: `react-router-dom`)를 완전히 인라인해 소스맵에 자기 파일을 하나도 안 남기는 경우가
+  있어, 프로젝트의 직접 의존성(`package.json` dependencies, 전이 의존성 제외)에 한해 안전망으로
+  보강하는 로직을 추가했다.
+- **GPL/AGPL/LGPL/MPL 등 copyleft 라이선스 발견 여부**: 원본 npm 의존성 그래프에는
+  `lightningcss`(MPL-2.0, `@expo/metro-config`가 CSS 지원을 위해 물고 오는 빌드 도구)와
+  `node-forge`(BSD-3-Clause OR GPL-2.0 dual, EAS/서명 관련 빌드 도구 경로에서만 사용)가 존재했으나,
+  위 방식으로 실제 배포 번들을 확인한 결과 **둘 다 실제 웹/모바일 번들에는 포함되지 않음**을 확인함
+  (개발 머신 전용 빌드 도구). 최종 웹 19개·모바일 35개(중복 제외 시 32개 패키지명, 버전이 서로
+  다른 nested 사본 2건 포함 — `expo-asset`, `expo-constants`)에는 copyleft 라이선스가 없으며,
+  UNKNOWN도 없음(전부 MIT/Apache-2.0/ISC/0BSD로 식별). Apache-2.0인 `dexie`는 자체 NOTICE 파일이
+  있어 라이선스 전문과 함께 표시한다.
+- **iOS만 검증하고 끝낸 게 아닌지 사용자가 재확인 요청** — 최초 스크립트는 mobile을
+  `expo export --platform ios`로만 검증했는데, RN/Expo는 `.ios.js`/`.android.js` 같은 플랫폼별
+  분기 파일이 있어 이론적으로 Android 번들 구성이 다를 수 있다는 지적을 받고 즉시
+  `--platform android` export도 추가해 재실행함. **`expo export`는 실제 EAS/네이티브 빌드와
+  무관하게 Android SDK 없이도 동작하는 순수 Metro JS 번들링 단계**라 Android 네이티브 빌드
+  환경 유무와 무관하게 검증 가능했다. 실측 결과 iOS/Android 번들에 포함되는 패키지 구성은
+  완전히 동일(35개 항목)했고, 스크립트가 매번 두 플랫폼을 diff해 차이가 생기면 콘솔에 출력하도록
+  `buildMobile()`을 개선함(`exportMobilePlatform()` 신설). 총 개수(54개)는 변동 없음.
+- 이 논의 중 사용자가 EAS Android(`preview` 프로필) 실빌드를 직접 요청해 별도로 트리거함(라이선스
+  스크립트와는 무관한 실제 앱 배포용 빌드) — 결과는 완료 시 별도 보고.
+- 사용자가 사전에 "GPL/MPL 등 발견 시 페이지 만들기 전 별도 보고" 요청 → 위 내용을 보고했고,
+  실제로는 어느 것도 배포되지 않음을 확인했으므로 사용자의 "문제 없으면 진행" 지침에 따라 페이지
+  구현까지 계속 진행함.
+- `/licenses`는 동의 대상이 아님 — 체크박스/`user_policy_agreements` 기록 없음, 가입 절차에도
+  미포함. `docs/UI_FLOW.md` "오픈소스 라이선스" 절, `DowngradeGate.tsx`의 `EXEMPT_PATHS` 참고.
+
 ### 1차 출시 — iOS QA/빌드 완료, self-signup 계정 재확인 완료
 
 - 사용자가 스테이징 A~F + 비밀번호 재설정 5-1단계(G~T) QA를 iOS 실기기로 확인 완료.

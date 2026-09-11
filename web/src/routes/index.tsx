@@ -33,6 +33,7 @@ import AdminBookFormPage from '@/pages/admin/AdminBookFormPage'
 import AdminBookDetailPage from '@/pages/admin/AdminBookDetailPage'
 import PrivacyPolicyPage from '@/pages/legal/PrivacyPolicyPage'
 import TermsPage from '@/pages/legal/TermsPage'
+import LicensesPage from '@/pages/legal/LicensesPage'
 
 export default function AppRoutes() {
   return (
@@ -79,9 +80,10 @@ export default function AppRoutes() {
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
 
-      {/* 개인정보처리방침/이용약관 — 비로그인 포함 누구나 열람 가능(가입 전 열람 필요, docs/launch/PHASE1_POLICY.md §5). */}
+      {/* 개인정보처리방침/이용약관/오픈소스 라이선스 — 비로그인 포함 누구나 열람 가능(가입 전 열람 필요, docs/launch/PHASE1_POLICY.md §5). */}
       <Route path="/privacy" element={<PrivacyPolicyPage />} />
       <Route path="/terms" element={<TermsPage />} />
+      <Route path="/licenses" element={<LicensesPage />} />
 
       <Route path="/master/accept" element={<MasterAcceptPage />} />
       {/* 비밀번호 재설정 메일 링크 도착 지점 — UserRouteGuard 밖(로그인 여부와 무관하게 도달해야 함). */}

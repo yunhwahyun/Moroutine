@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "J7J2XR4LZ2.com.moroutine.app",
+        "paths": ["/master/accept", "/master/accept/*", "/reset-password", "/reset-password/*"]
+      }
+    ]
+  }
+}

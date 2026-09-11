@@ -6,15 +6,18 @@ import type { LocalDataSummary, LocalSnapshot } from './types'
 // 이전에는 "로컬 ID를 보존한 전체 스냅샷"이 필요한데(개별 CRUD 인터페이스로는 로컬 ID를 노출하지 않음),
 // 화면 표시용 도메인 타입(Word/Wordbook 등)은 애초에 로컬 ID를 그대로 id 필드에 담고 있어 문제없다.
 export async function readLocalSnapshot(): Promise<LocalSnapshot> {
-  const [wordbooks, words, schedules, scheduleExceptions, studySessions, studyResults] = await Promise.all([
-    localDB.wordbooks.toArray(),
-    localDB.words.toArray(),
-    localDB.schedules.toArray(),
-    localDB.scheduleExceptions.toArray(),
-    localDB.studySessions.toArray(),
-    localDB.studyResults.toArray(),
-  ])
-  return { wordbooks, words, schedules, scheduleExceptions, studySessions, studyResults }
+  const [wordbooks, words, books, bookChapters, schedules, scheduleExceptions, studySessions, studyResults] =
+    await Promise.all([
+      localDB.wordbooks.toArray(),
+      localDB.words.toArray(),
+      localDB.books.toArray(),
+      localDB.bookChapters.toArray(),
+      localDB.schedules.toArray(),
+      localDB.scheduleExceptions.toArray(),
+      localDB.studySessions.toArray(),
+      localDB.studyResults.toArray(),
+    ])
+  return { wordbooks, words, books, bookChapters, schedules, scheduleExceptions, studySessions, studyResults }
 }
 
 export async function readLocalDataSummary(): Promise<LocalDataSummary> {
@@ -26,15 +29,21 @@ export async function readLocalDataSummary(): Promise<LocalDataSummary> {
 
   const wordbookCount = snapshot.wordbooks.length
   const wordCount = snapshot.words.length
+  const bookCount = snapshot.books.length
+  const chapterCount = snapshot.bookChapters.length
   const studyHistoryCount = snapshot.studyResults.length
   const scheduleCount = snapshot.schedules.length
 
   return {
     wordbookCount,
     wordCount,
+    bookCount,
+    chapterCount,
     studyHistoryCount,
     reviewDueCount,
     scheduleCount,
-    hasAnyData: wordbookCount > 0 || wordCount > 0 || studyHistoryCount > 0 || scheduleCount > 0,
+    hasAnyData:
+      wordbookCount > 0 || wordCount > 0 || bookCount > 0 || chapterCount > 0 ||
+      studyHistoryCount > 0 || scheduleCount > 0,
   }
 }

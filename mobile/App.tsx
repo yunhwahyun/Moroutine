@@ -1,5 +1,5 @@
-import { useRef, useEffect } from 'react'
-import { StyleSheet, View, Platform, AppState } from 'react-native'
+import { useRef, useEffect, useState } from 'react'
+import { StyleSheet, View, Platform, AppState, Linking } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaView } from 'react-native'
 import WebView, { WebViewMessageEvent } from 'react-native-webview'
@@ -42,6 +42,26 @@ function getWebAppUrl(): string {
 
 const WEB_APP_URL = getWebAppUrl()
 
+// Universal Links(iOS)/App Links(Android)로 들어오는 딥링크 중 실제로 처리할 경로만 허용한다
+// (docs/DECISION_LOG.md 2026-09-11 — Master 초대/비밀번호 재설정 메일 링크가 앱과 분리돼 있던 문제
+// 해결). apple-app-site-association/assetlinks.json에도 이 두 경로만 등록돼 있다
+// (web/public/.well-known/). 그 외 경로는 무시하고 기본 WEB_APP_URL을 그대로 쓴다 — OS가 검증한
+// 도메인이라도 방어적으로 한 번 더 걸러낸다.
+const DEEPLINK_PATHS = ['/master/accept', '/reset-password']
+
+function resolveDeepLinkUrl(url: string | null): string | null {
+  if (!url) return null
+  try {
+    const parsed = new URL(url)
+    if (!DEEPLINK_PATHS.some((p) => parsed.pathname.startsWith(p))) return null
+    // WebView는 항상 WEB_APP_URL(운영/개발 호스트)로 접속해야 하므로, 실제 이동은 origin은
+    // WEB_APP_URL로 고정하고 경로+쿼리+해시(재설정 토큰이 해시로 옴)만 가져온다.
+    return `${WEB_APP_URL}${parsed.pathname}${parsed.search}${parsed.hash}`
+  } catch {
+    return null
+  }
+}
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -59,6 +79,22 @@ export default function App() {
   const sttSubs = useRef<{ remove: () => void }[]>([])
   const autoplayRef = useRef<AutoplaySession | null>(null)
   const autoplayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [webUri, setWebUri] = useState(WEB_APP_URL)
+
+  // Universal Links(iOS)/App Links(Android)로 Master 초대·비밀번호 재설정 메일 링크를 탭하면
+  // OS가 앱을 직접 열어주는데, 그 진입 URL을 WebView에 반영해야 실제로 해당 화면(recovery 세션
+  // 포함)으로 이동한다 — 안 하면 WebView는 항상 WEB_APP_URL(홈)만 로드해서 링크를 그냥 버리게 된다.
+  useEffect(() => {
+    Linking.getInitialURL().then((url) => {
+      const resolved = resolveDeepLinkUrl(url)
+      if (resolved) setWebUri(resolved)
+    })
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      const resolved = resolveDeepLinkUrl(url)
+      if (resolved) setWebUri(resolved)
+    })
+    return () => sub.remove()
+  }, [])
 
   // 무음 루프 — 실제 소리는 Speech.speak가 담당하고, 이 플레이어는 백그라운드 오디오
   // 세션/잠금화면 컨트롤을 유지시켜 화면이 꺼져도 자동재생이 계속되게 하는 용도다. 잠금화면/
@@ -409,7 +445,7 @@ export default function App() {
       <View style={styles.webviewContainer}>
         <WebView
           ref={webViewRef}
-          source={{ uri: WEB_APP_URL }}
+          source={{ uri: webUri }}
           style={styles.webview}
           onMessage={handleWebMessage}
           javaScriptEnabled

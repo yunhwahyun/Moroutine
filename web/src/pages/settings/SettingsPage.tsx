@@ -691,11 +691,18 @@ export default function SettingsPage() {
           </Section>
         )}
 
-        {/* 정보 */}
+        {/* 정보 — 이용약관 → 개인정보처리방침 → 오픈소스 라이선스 → 앱 버전 순.
+            셋 다 Guest/Master/Admin 모두 접근 가능한 공개 라우트(routes/index.tsx 참고). */}
         <Section title="정보">
-          <Row label="버전">
-            <span className="text-sm text-gray-400">{APP_VERSION}</span>
-          </Row>
+          <button
+            onClick={() => navigate('/terms')}
+            className="w-full flex items-center justify-between px-4 py-3.5 min-h-[52px]"
+          >
+            <span className="text-sm text-gray-800">이용약관</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
           <button
             onClick={() => navigate('/privacy')}
             className="w-full flex items-center justify-between px-4 py-3.5 min-h-[52px]"
@@ -706,20 +713,17 @@ export default function SettingsPage() {
             </svg>
           </button>
           <button
-            onClick={() => navigate('/terms')}
+            onClick={() => navigate('/licenses')}
             className="w-full flex items-center justify-between px-4 py-3.5 min-h-[52px]"
           >
-            <span className="text-sm text-gray-800">이용약관</span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
-          <button className="w-full flex items-center justify-between px-4 py-3.5 min-h-[52px]">
             <span className="text-sm text-gray-800">오픈소스 라이선스</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="9 18 15 12 9 6" />
             </svg>
           </button>
+          <Row label="버전">
+            <span className="text-sm text-gray-400">{APP_VERSION}</span>
+          </Row>
         </Section>
 
       </div>

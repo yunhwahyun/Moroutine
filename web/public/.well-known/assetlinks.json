@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.moroutine.app",
+      "sha256_cert_fingerprints": [
+        "C5:8E:97:E7:D7:E3:EC:01:C6:D1:24:47:60:04:0F:5A:31:87:C4:C0:7D:41:08:CB:B2:D9:2B:40:7B:A9:8A:0D"
+      ]
+    }
+  }
+]

@@ -12,7 +12,8 @@
 
 | 구성 요소 | 실제 파일 |
 |---|---|
-| 이전 RPC 6종(wordbook/word/schedule/schedule_exception/study_session/study_result) | `supabase/migrations/26_migration_engine_rpcs.sql` |
+| 이전 RPC 6종(wordbook/word/schedule/schedule_exception/study_session/study_result) | `supabase/migrations/26_migration_engine_rpcs.sql`(35에서 재구독 중복 방지로 교체) |
+| 이전 RPC 2종 추가(book/book_chapter, 2026-09-11) | `supabase/migrations/49_migration_books.sql` |
 | 로컬 스냅샷 읽기 | `web/src/lib/migration/localSnapshot.ts` |
 | 오케스트레이션 엔진(청크/재시도/Idempotency/알림 재등록) | `web/src/lib/migration/guestToRemoteMigration.ts` |
 | 상태 훅 | `web/src/hooks/useGuestMigration.ts` |
@@ -28,6 +29,22 @@
 **Playwright 실브라우저 검증(2026-07-18)**: `GuestMigrationGate`의 tier 조건을 임시로 우회(검증 후 즉시 원복)해 확인 — 로컬에 단어장 1개+단어 2개가 있는 상태에서 홈 진입 시 모달이 정확한 요약("단어장 1개", "단어 2개")과 함께 뜨고, "계정으로 이전" 클릭 시(미인증 상태라 RPC가 401로 실패) UI가 "이전에 실패했습니다 / 로컬 데이터는 안전하게 보존되어 있습니다"로 정확히 전환되며, 실패 후에도 로컬 데이터(1개 단어장, 2개 단어)가 그대로 남아있음을 확인. **이 과정에서 실제 버그 1건을 발견해 수정**: `getOrCreateMigrationJob()` 실패 시 `onProgress` 콜백이 호출되지 않아 UI가 무한정 "이전 중" 상태에 머무는 문제 — 원복 전 즉시 수정 완료.
 
 **한계**: RPC들이 실제로 wordbooks/words 등을 원격 DB에 정확히 써넣는지(성공 경로)는 실제 Pro/Master 계정이 없어 이 세션에서 검증하지 못했다. SQL 로직(Idempotency CTE, 부모-자식 remap JOIN)은 꼼꼼히 리뷰했으나, 실제 계정으로 "계정으로 이전" 전체 플로우(청크 업로드 → 원격 데이터 확인 → 로컬 삭제 선택)를 사후 검증하는 것을 강력히 권장한다.
+
+---
+
+## Phase 15 후속 (2026-09-11) — books/book_chapters 추가 + 모달 흐름 단순화
+
+**발견된 공백**: 책장(개인 `books`/`book_chapters`, 마이그레이션 42, 2026-09-08)이 이 이전 엔진(마이그레이션 26, 2026-07-18)보다 나중에 추가되면서 이전 대상에서 완전히 빠져 있었다 — Guest가 책장 콘텐츠를 만들고 로그인해 "계정으로 이전"을 눌러도 책/목차는 서버로 전혀 넘어가지 않았다. 딥링크 작업(§ Universal Links/App Links, 아래 참고) 중 사용자가 "계정으로 이전 후 로컬 데이터 자동 삭제"를 요청하면서 이 공백이 드러나 함께 수정했다 — 자동 삭제를 이전 없이 그냥 붙이면 책장 데이터가 이전되지도 않은 채 삭제돼 진짜 유실이 될 뻔했다.
+
+- **RPC 2종 추가**(`supabase/migrations/49_migration_books.sql`): `migrate_books`/`migrate_book_chapters`, 마이그레이션 35(existing/owned/new_items 3-way 판정, 재구독 시 중복 생성 방지)와 동일 패턴. 호출 순서는 `words` 다음, `schedules` 이전(`book_chapter`가 `book`을 필요로 하는 것은 `word`↔`wordbook`과 동일 구조).
+- `LocalSnapshot`/`LocalDataSummary`(`types.ts`)에 `books`/`bookChapters`, `bookCount`/`chapterCount` 추가, `localSnapshot.ts`/`guestToRemoteMigration.ts`/`useGuestMigration.ts`(`deleteLocalData`) 전부 반영.
+
+**모달 흐름 단순화(사용자 요청)**: 예전엔 "계정으로 이전" 완료 후 "기기에는 그대로 두기 / 기기 데이터 삭제"를 다시 물었는데, "그대로 두기"를 고르면 로컬 데이터가 남아 `hasAnyData`가 계속 true라 **앱을 다시 열 때마다 모달이 또 떴다**(게다가 dismiss 플래그가 `sessionStorage`라 WebView가 재시작되면 그마저 초기화됨). 이제:
+- "계정으로 이전" → 성공하면 **자동으로 로컬 데이터를 삭제**하고 닫는다(다시 묻지 않음, `GuestMigrationGate.handleStart`).
+- "새로 시작"(예전 라벨, 실제로는 아무것도 안 지우고 그냥 닫기만 했음) → **"저장 데이터 지우기"로 개명 + 실제로 로컬 데이터를 지우도록 동작 변경**. 이제 라벨과 동작이 일치하고, 지운 뒤에는 `hasAnyData`가 실제로 false가 되므로 재발하지 않는다.
+- "나중에 하기"만 데이터를 보존한 채 닫는다(세션당 1회, 기존과 동일).
+
+**한계**: books/book_chapters 이전 RPC도 실제 Pro/Master 계정으로 성공 경로를 검증하지 못했다(위 Phase 15 한계와 동일한 이유). Supabase 프로젝트에 마이그레이션 49 적용 완료(2026-09-11, `supabase db query --linked` 경유 — `db push`가 기존 마이그레이션 12번 이력 불일치로 깨져있어 이 프로젝트 전체가 이 경로를 쓴다).
 
 ---
 

@@ -26,6 +26,11 @@ _현재 진행 중인 작업 없음_
 - [x] **4단계**: `/privacy`, `/terms` 페이지 신설(`docs/legal/*_PHASE1.md` 원문을 `web/public/legal/*.md`로 복사해 표시 — 원문 갱신 시 수동 동기화 필요)
 - [ ] **5단계(배포 게이트)**: Supabase Auth "Allow new users to sign up" OFF 후 스테이징에서 A~F 전부 확인(§10 표) — 실패 시에만 §11의 `auth.users` 트리거 P2 대안 재검토. **사용자 직접 진행 필요**
 - [ ] 위 전부 완료 + QA 통과 후에도 **개인정보처리방침 미확정값**(운영자 정보, Supabase/Vercel 실제 리전 등, `docs/legal/PRIVACY_POLICY_PHASE1.md` 체크리스트) 확정까지 마쳐야 최종 빌드/스토어 제출 가능(P0 완료 ≠ 제출 가능)
+- [x] **오픈소스 라이선스 고지**(`/licenses`) ✅ 완료 2026-09-11 — `SettingsPage` "정보" 섹션에서 진입, `scripts/generate-oss-licenses.mjs`로 실제 배포 번들 기준 목록 생성. 상세는 `docs/DECISION_LOG.md`/`docs/PROJECT_STATUS.md` 2026-09-11 참고
+- [x] **책장(books/book_chapters) 계정 이전 지원 + Guest 이전 모달 흐름 단순화** ✅ 완료 2026-09-11 — 마이그레이션 49 적용 완료. 상세는 `docs/MIGRATION_DESIGN.md`/`docs/DECISION_LOG.md` 2026-09-11 참고
+- [x] **Master 초대/비밀번호 재설정 메일 링크 딥링크(Universal Links/App Links) 코드 구현** ✅ 완료 2026-09-11 — `web/public/.well-known/*`, `mobile/app.json`, `mobile/App.tsx`. 상세는 `docs/DECISION_LOG.md` 2026-09-11 참고
+  - [ ] **새 EAS 빌드(iOS+Android) 필요** — `app.json` 네이티브 설정 변경이라 지금까지의 preview 빌드엔 반영 안 됨. **사용자 직접 진행 필요**
+  - [ ] Vercel 배포 후 AASA/assetlinks.json을 Apple/Google 검증 도구로 재확인, 새 빌드로 메일 링크 실제 탭 테스트(iOS/Android 둘 다) **사용자 직접 진행 필요**
 
 ### Phase 11 — 권한 모델 (`docs/PERMISSION_DESIGN.md`) ✅ 완료 2026-07-18
 - [x] Migration 13: profiles_role_access (`role`, `special_access` 컬럼 + `is_admin()` + `prevent_self_privilege_escalation` 트리거)

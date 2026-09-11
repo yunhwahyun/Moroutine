@@ -22,7 +22,9 @@ import DowngradeModal from './DowngradeModal'
 // 그 페이지에 도달하므로 여기서도 떠서는 안 된다(2026-09-10 QA에서 추가 발견).
 // /reset-password도 동일한 이유로 추가 — 비밀번호 재설정 세션(PASSWORD_RECOVERY)도 tier가 guest일
 // 수 있는 authenticated 상태라 여기서도 막아야 한다.
-const EXEMPT_PATHS = ['/master/accept', '/terms', '/privacy', '/reset-password']
+// /licenses도 동일 카테고리(법적 고지 문서) — 동의 대상은 아니지만 계정 상태와 무관하게 항상
+// 열람 가능해야 하는 페이지라 같이 예외 처리한다(2026-09-11).
+const EXEMPT_PATHS = ['/master/accept', '/terms', '/privacy', '/licenses', '/reset-password']
 
 export default function DowngradeGate() {
   const { permissions } = usePermissions()

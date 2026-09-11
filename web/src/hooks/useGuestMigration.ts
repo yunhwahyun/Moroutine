@@ -26,17 +26,19 @@ export function useGuestMigration() {
     return result
   }, [])
 
-  // "계정으로 이전" 완료 후 사용자가 로컬 데이터 삭제를 선택했을 때만 호출한다.
-  // docs/MIGRATION_DESIGN.md §5 — 성공 검증(phase==='completed') 전에는 호출 금지.
+  // "계정으로 이전" 완료 후, 또는 이전 없이 로컬 데이터만 지우고 싶을 때 호출한다.
+  // docs/MIGRATION_DESIGN.md §5 — 계정으로 이전한 경우 성공 검증(phase==='completed') 전에는 호출 금지.
   const deleteLocalData = useCallback(async () => {
     await localDB.transaction(
       'rw',
-      [localDB.wordbooks, localDB.words, localDB.schedules, localDB.scheduleExceptions,
-        localDB.studySessions, localDB.studyResults],
+      [localDB.wordbooks, localDB.words, localDB.books, localDB.bookChapters, localDB.schedules,
+        localDB.scheduleExceptions, localDB.studySessions, localDB.studyResults],
       async () => {
         await Promise.all([
           localDB.wordbooks.clear(),
           localDB.words.clear(),
+          localDB.books.clear(),
+          localDB.bookChapters.clear(),
           localDB.schedules.clear(),
           localDB.scheduleExceptions.clear(),
           localDB.studySessions.clear(),

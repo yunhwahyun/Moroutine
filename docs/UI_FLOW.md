@@ -110,8 +110,9 @@ authenticated + admin
   </Route>
 
   {/* 로그인 여부와 무관하게 열람 가능(가입 전에도 봐야 함) */}
-  <Route path="/privacy" element={<PrivacyPolicyPage />} />
-  <Route path="/terms"   element={<TermsPage />} />
+  <Route path="/privacy"  element={<PrivacyPolicyPage />} />
+  <Route path="/terms"    element={<TermsPage />} />
+  <Route path="/licenses" element={<LicensesPage />} />
 
   <Route path="/master/accept" element={<MasterAcceptPage />} />
 
@@ -380,9 +381,10 @@ Pro를 시작하면 데이터를 계정에 저장하고 다른 기기에서도 �
 
 ---
 
-### Guest → Pro 전환 확인 모달
+### Guest → Pro 전환 확인 모달 (2026-09-11 흐름 단순화 — 책장 포함, 자동 삭제)
 
-결제 확정(`docs/SUBSCRIPTION_DESIGN.md` §5) 직후 노출. 전체 절차는 `docs/MIGRATION_DESIGN.md` §2.
+결제 확정(`docs/SUBSCRIPTION_DESIGN.md` §5) 직후 노출. 전체 절차는 `docs/MIGRATION_DESIGN.md` §2,
+2026-09-11 변경분은 같은 문서 "Phase 15 후속" 절.
 
 ```
 ┌──────────────────────────────────┐
@@ -390,15 +392,21 @@ Pro를 시작하면 데이터를 계정에 저장하고 다른 기기에서도 �
 │  계정으로 이전하시겠습니까?        │
 │                                    │
 │  개인 단어장 3개 · 단어 128개      │
+│  책장 2개 · 목차 15개              │
 │  학습 기록 340건 · 복습 대상 12개  │
-│  일정 5건 · 로컬 녹음 4개          │
+│  일정 5건                          │
 │                                    │
-│  [ 계정으로 이전 ]  [ 새로 시작 ]  │
+│ [ 계정으로 이전 ] [저장 데이터 지우기] │
 │           [ 나중에 하기 ]          │
 └──────────────────────────────────┘
 ```
 
-이전 중에는 진행률(청크 처리, `docs/MIGRATION_DESIGN.md` §3-3)을 프로그레스바로 표시. 실패 시 "로컬 데이터는 안전하게 보존되어 있습니다" 안내 후 재시도 버튼.
+이전 중에는 진행률(청크 처리, `docs/MIGRATION_DESIGN.md` §3-3)을 프로그레스바로 표시. 실패 시 "로컬
+데이터는 안전하게 보존되어 있습니다" 안내 후 재시도 버튼. **"계정으로 이전"이 성공하면 "기기에 그대로
+둘지" 다시 묻지 않고 자동으로 로컬 데이터를 삭제한 뒤 닫는다** — 예전엔 다시 물어봤는데, "그대로
+두기"를 고르면 로컬 데이터가 안 지워져 다음에 앱을 열 때마다 이 모달이 또 뜨는 버그가 있었다(2026-09-11
+수정). "저장 데이터 지우기"(예전 라벨 "새로 시작" — 실제로는 아무것도 안 지우고 닫기만 하던 버튼)는
+이제 라벨대로 로컬 데이터를 실제로 지운다.
 
 ### 만료/Master 해제/미결제 가입 → Guest 전환 안내 ✅ 구독 만료/해지 경로 구현 완료(2026-07-18, `docs/TODO.md` Phase 16), 문구 일반화(2026-07-19)
 
@@ -585,6 +593,17 @@ URL을 직접 입력해 들어온 경우와 실제 재설정 메일 링크로 �
 **`web/src/lib/authErrors.ts`** — `LoginPage`/`MasterAcceptPage`/`SettingsPage`/`ResetPasswordPage`가
 전부 공유하는 GoTrue 에러 한국어 번역 테이블(2026-09-10 통합).
 
+**모바일 앱에서 메일 링크 탭 시 딥링크(2026-09-11 추가, 새 EAS 빌드부터 적용)**: 초대/재설정 메일의
+실제 클릭 링크는 Supabase `/auth/v1/verify`(우리 도메인이 아님)이고 거기서 `www.moroutine.kr/...`로
+302 리다이렉트된다. Universal Links(iOS)/App Links(Android)를 붙이기 전에는 이게 항상 기기 기본
+브라우저(Safari/Chrome)에서 끝났고, 그 세션은 앱의 WebView 저장소와 분리돼 있어 사용자가 앱을 열면
+다시 로그인해야 했다(근거·검증 과정은 `docs/DECISION_LOG.md` 2026-09-11 참고). 이제
+`web/public/.well-known/{apple-app-site-association,assetlinks.json}` + `mobile/app.json`의
+`associatedDomains`/`intentFilters` + `mobile/App.tsx`의 `Linking` 처리로, 메일 링크를 탭하면
+OS가 앱을 직접 열고 WebView가 `/master/accept` 또는 `/reset-password`(해시의 재설정 토큰 포함)로
+바로 이동한다. 허용 경로는 이 두 개뿐 — 그 외 경로로 들어온 딥링크는 무시하고 기본 홈(`WEB_APP_URL`)을
+연다.
+
 ---
 
 ### 개인정보처리방침 / 이용약관 (`/privacy`, `/terms`) ✅ 구현 완료(2026-09-10, P0 §6)
@@ -596,3 +615,24 @@ PHASE1.md`/`TERMS_PHASE1.md` 원문(내부 검토용 상태 배너·체크리스
 `fetch()`로 읽어 `<pre>`로 그대로 보여주는 최소 구현(`LegalDocumentPage` 공용 컴포넌트). **docs/legal
 원문이 갱신되면 `web/public/legal/*.md` 사본도 함께 수동으로 갱신해야 한다**(빌드 산출물이 `docs/`
 디렉토리 밖 파일을 직접 참조할 수 없어 자동 동기화가 아님 — 2차에서 빌드 스텝으로 자동화 검토 여지).
+
+### 오픈소스 라이선스 (`/licenses`) ✅ 구현 완료(2026-09-11)
+
+`SettingsPage`의 "정보" 섹션(이용약관 → 개인정보처리방침 → 오픈소스 라이선스 → 앱 버전 순)에서
+진입. `/privacy`, `/terms`와 동일하게 로그인 여부와 무관하게 열람 가능(`UserRouteGuard` 밖 라우트,
+`DowngradeGate`의 `EXEMPT_PATHS`에도 포함). 동의 대상이 아니므로 체크박스나
+`user_policy_agreements` 기록은 없다.
+
+패키지별 이름/버전/저작권/라이선스 전문을 `<details>` 아코디언으로 보여준다(`LicensesPage`).
+데이터는 `scripts/generate-oss-licenses.mjs`가 생성하는 `web/public/licenses/oss-licenses.json`을
+그대로 fetch해서 렌더링하며, 이 페이지 자체는 어떤 라이선스 텍스트도 하드코딩하지 않는다.
+
+이 스크립트는 `web`(Vite) + `mobile`(Metro, iOS/Android 둘 다) 각각 실제 production 빌드를
+수행해 소스맵을 뽑고, 그 소스맵에 실제로 등장하는 `node_modules` 파일만을 대상으로 라이선스를
+수집한다 — `package.json`의 `dependencies` 트리를 그대로 쓰지 않는 이유는 `docs/DECISION_LOG.md`
+2026-09-11 항목 참고(요약: mobile의 경우 전체 production dependency 트리 454개 중 실제 번들에
+포함되는 것은 iOS/Android 각각 35개뿐이고, 나머지는 metro/jest/hermes-compiler 등 Expo가
+내부적으로 쓰는 빌드 도구였다). mobile을 iOS/Android 둘 다 export하는 이유는 플랫폼별 분기
+파일(`.ios.js`/`.android.js`)로 번들 구성이 갈릴 수 있어서다 — 실측으로는 두 플랫폼이 동일했다.
+`expo export`는 Android SDK 등 네이티브 빌드 환경 없이도 동작하는 순수 Metro 번들링 단계라 EAS
+빌드 가능 여부와 무관하게 항상 실행할 수 있다. 목록을 갱신하려면 `node scripts/generate-oss-licenses.mjs`를 다시 실행하면 된다(Node 22 필요, 상세는 스크립트 상단 주석 참고).
