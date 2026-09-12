@@ -338,7 +338,7 @@ export default function AdminBookDetailPage() {
           {chapters.map((chapter, i) => (
             <div key={chapter.id} className="bg-white rounded-2xl shadow-sm p-4">
               <div className="flex items-start justify-between gap-2">
-                <span className="text-sm font-semibold text-gray-900">
+                <span className="text-sm font-semibold text-gray-900 flex-1 min-w-0 truncate">
                   {i + 1}. {chapter.title}
                 </span>
                 <button

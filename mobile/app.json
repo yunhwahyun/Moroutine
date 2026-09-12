@@ -42,7 +42,8 @@
           "autoVerify": true,
           "data": [
             { "scheme": "https", "host": "www.moroutine.kr", "pathPrefix": "/master/accept" },
-            { "scheme": "https", "host": "www.moroutine.kr", "pathPrefix": "/reset-password" }
+            { "scheme": "https", "host": "www.moroutine.kr", "pathPrefix": "/reset-password" },
+            { "scheme": "https", "host": "www.moroutine.kr", "pathPrefix": "/login" }
           ],
           "category": ["BROWSABLE", "DEFAULT"]
         }

@@ -487,17 +487,22 @@ Pro/Master 전용(`permissions.canUsePublicWordbooks` 아니면 업그레이드 
 선택 순서 → 책 안에서는 목차 순서로 이어 붙여 순차 재생(랜덤 아님). `/books/:id`(`BookDetailPage`)는
 단어장 상세와 동일하게 목차 추가/수정/삭제 + **`.txt` 여러 파일 일괄등록**(파일 하나 = 목차 1개,
 `permissions.canBulkImport` 게이트)을 지원하고, 목차별 **"듣기"** 버튼을 누르면 그 책의 전체 목차를
-탭한 지점부터 재생목록으로 시작한다(미니 플레이어 이전/다음으로 같은 책의 다른 목차 이동). 제목/내용은
-책의 언어 설정과 무관하게 항상 **영어 원음**으로 읽는다. 학습하기·퀴즈·복습 진행률 추적은 전혀
-없다 — 순수 읽기·듣기 콘텐츠.
+탭한 지점부터 재생목록으로 시작한다(미니 플레이어 이전/다음으로 같은 책의 다른 목차 이동). 헤더에도
+**"전체 듣기"**(0번 목차부터 시작) 버튼을 별도로 둔다(2026-09-12 추가 — 목차별 듣기 버튼이 사실상
+"그 책 전체를 이어 재생"하는 기능이었는데 진입점이 눈에 안 띈다는 QA 리포트로 명시적인 버튼을
+헤더에 노출). 제목/내용은 책의 언어 설정과 무관하게 항상 **영어 원음**으로 읽는다. 학습하기·퀴즈·복습
+진행률 추적은 전혀 없다 — 순수 읽기·듣기 콘텐츠.
 
 ### 공용 책장 (`/public-books`) ✅ 구현 완료(2026-09-08, `docs/ADMIN_DESIGN.md` §8)
 
 공용 단어장과 동일한 게이트(Pro/Master, `permissions.canUsePublicWordbooks`) + 동일한 열람 전용
 패턴 — `BookshelfListPage` 헤더의 "공용 책장" 링크로 진입, 게시된 책 목록을 하나씩 탭해 상세로
 이동(다중 선택/자동재생/개인 책장으로 복사 없음 — 공용 단어장의 "담기"에 해당하는 기능은 책장에는
-없다). `/public-books/:id`(`PublicBookViewPage`)는 목차 목록을 읽기 전용으로 보여주고(제목 탭하면
-내용 펼침/접힘), 목차별 "듣기"는 개인 책장과 동일하게 동작한다.
+없다. **2026-09-12 QA에서 재확인**: 공용 단어장과 다르게 책은 개인 학습 진행 상태를 추적하지
+않는 순수 참조 콘텐츠라 "담기"의 의미 자체가 다르다는 게 기존 설계 의도 — 사용자도 현재 동작이
+낫다는 의견이라 유지, 확정 요청 시 재검토). `/public-books/:id`(`PublicBookViewPage`)는 목차
+목록을 읽기 전용으로 보여주고(제목 탭하면 내용 펼침/접힘), 목차별 "듣기"는 개인 책장과 동일하게
+동작하고 헤더에도 동일한 "전체 듣기" 버튼이 있다.
 
 ---
 
@@ -593,16 +598,18 @@ URL을 직접 입력해 들어온 경우와 실제 재설정 메일 링크로 �
 **`web/src/lib/authErrors.ts`** — `LoginPage`/`MasterAcceptPage`/`SettingsPage`/`ResetPasswordPage`가
 전부 공유하는 GoTrue 에러 한국어 번역 테이블(2026-09-10 통합).
 
-**모바일 앱에서 메일 링크 탭 시 딥링크(2026-09-11 추가, 새 EAS 빌드부터 적용)**: 초대/재설정 메일의
-실제 클릭 링크는 Supabase `/auth/v1/verify`(우리 도메인이 아님)이고 거기서 `www.moroutine.kr/...`로
-302 리다이렉트된다. Universal Links(iOS)/App Links(Android)를 붙이기 전에는 이게 항상 기기 기본
-브라우저(Safari/Chrome)에서 끝났고, 그 세션은 앱의 WebView 저장소와 분리돼 있어 사용자가 앱을 열면
-다시 로그인해야 했다(근거·검증 과정은 `docs/DECISION_LOG.md` 2026-09-11 참고). 이제
-`web/public/.well-known/{apple-app-site-association,assetlinks.json}` + `mobile/app.json`의
-`associatedDomains`/`intentFilters` + `mobile/App.tsx`의 `Linking` 처리로, 메일 링크를 탭하면
-OS가 앱을 직접 열고 WebView가 `/master/accept` 또는 `/reset-password`(해시의 재설정 토큰 포함)로
-바로 이동한다. 허용 경로는 이 두 개뿐 — 그 외 경로로 들어온 딥링크는 무시하고 기본 홈(`WEB_APP_URL`)을
-연다.
+**모바일 앱에서 메일 링크 탭 시 딥링크(2026-09-11 추가, 2026-09-12 `/login` 보강, 새 EAS 빌드부터
+적용)**: 초대/재설정 메일의 실제 클릭 링크는 Supabase `/auth/v1/verify`(우리 도메인이 아님)이고
+거기서 `www.moroutine.kr/...`로 302 리다이렉트된다. Universal Links(iOS)/App Links(Android)를
+붙이기 전에는 이게 항상 기기 기본 브라우저(Safari/Chrome)에서 끝났고, 그 세션은 앱의 WebView
+저장소와 분리돼 있어 사용자가 앱을 열면 다시 로그인해야 했다(근거·검증 과정은
+`docs/DECISION_LOG.md` 2026-09-11 참고). `web/public/.well-known/{apple-app-site-association,
+assetlinks.json}` + `mobile/app.json`의 `associatedDomains`/`intentFilters` + `mobile/App.tsx`의
+`Linking` 처리로, 메일 링크를 탭하면 OS가 앱을 직접 열고 WebView가 해당 경로(해시의 토큰 포함)로
+바로 이동한다. 허용 경로는 `/master/accept`, `/reset-password`, `/login` 세 개뿐 — 그 외 경로로
+들어온 딥링크는 무시하고 기본 홈(`WEB_APP_URL`)을 연다. `/login`은 2026-09-12 QA에서 추가로
+발견된 버그(`LoginPage`의 "링크 로그인" 탭이 경로 없는 루트로 리다이렉트해 딥링크 등록 경로에
+아예 없었음)를 고치며 추가했다 — `docs/DECISION_LOG.md` 2026-09-12 참고.
 
 ---
 

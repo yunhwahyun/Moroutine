@@ -72,7 +72,14 @@ export default function PublicBookViewPage() {
         <h1 className="text-base font-semibold text-gray-900 truncate max-w-[200px]">
           {book?.title ?? '책'}
         </h1>
-        <div className="w-6" />
+        <button
+          onClick={() => handleListen(0)}
+          disabled={!autoSupported || chapters.length === 0}
+          className="p-1 -mr-1 text-gray-600 disabled:opacity-40"
+          aria-label="전체 듣기"
+        >
+          <PlayIcon size={20} />
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 pb-6">
@@ -95,7 +102,7 @@ export default function PublicBookViewPage() {
                 onClick={() => setExpandedId(expanded ? null : chapter.id)}
               >
                 <span className="text-xs text-gray-300 mt-0.5 shrink-0">{i + 1}</span>
-                <span className="text-base font-bold text-gray-900 flex-1">{chapter.title}</span>
+                <span className="text-base font-bold text-gray-900 flex-1 min-w-0 truncate">{chapter.title}</span>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleListen(i) }}
                   disabled={!autoSupported}

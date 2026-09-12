@@ -79,13 +79,19 @@ export default function LoginPage() {
         // Authentication → URL Configuration → Redirect URLs 허용 목록에 이 주소가 등록돼 있어야
         // Supabase가 실제로 받아준다(안 그러면 여전히 Site URL로 폴백됨).
         //
+        // 2026-09-12 — `origin`(경로 없는 루트)으로 보내던 걸 `origin + '/login'`으로 수정. 루트는
+        // Universal Links/App Links 등록 경로(/master/accept, /reset-password)에 없어서 앱으로 전혀
+        // 연결되지 않고 항상 브라우저로 열리던 버그였다(모바일 QA에서 발견). `/login`은 이미 이
+        // 라우트라 세션이 잡히면 위 `if (user) return <Navigate to="/" replace />`가 그대로 홈으로
+        // 보내주므로 별도 처리가 필요 없다.
+        //
         // shouldCreateUser: false — docs/launch/PHASE1_POLICY.md §1 P0(2026-09-10 QA 발견): 이 옵션 없이
         // signInWithOtp를 호출하면 미가입 이메일이어도 Supabase가 자동으로 새 계정을 만들어버려
         // "회원가입 탭 제거"만으로는 막히지 않는 self-signup 우회 경로가 된다. 기존 계정(Master/Admin)
         // 로그인만 허용하고, 미가입 이메일은 에러로 거부한다.
         const { error } = await supabase.auth.signInWithOtp({
           email,
-          options: { emailRedirectTo: window.location.origin, shouldCreateUser: false },
+          options: { emailRedirectTo: `${window.location.origin}/login`, shouldCreateUser: false },
         })
         if (error) throw error
         setMessage('이메일을 확인하세요. 로그인 링크를 보냈습니다.')

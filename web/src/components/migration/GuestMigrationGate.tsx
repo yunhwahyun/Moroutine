@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useGuestMigration } from '@/hooks/useGuestMigration'
+import { isAuthGateExemptPath } from '@/lib/authGateExemptPaths'
 import GuestMigrationModal from './GuestMigrationModal'
 
 const DISMISS_KEY = 'moroutine_migration_prompt_dismissed'
@@ -8,10 +10,13 @@ const DISMISS_KEY = 'moroutine_migration_prompt_dismissed'
 // docs/MIGRATION_DESIGN.md §2 — 로그인 사용자의 serviceTier가 pro/master로 확인되고
 // 이 기기에 로컬(Guest) 데이터가 남아있으면 전환 확인 모달을 띄운다.
 // App.tsx의 AuthProvider 안에서 한 번만 마운트한다.
+// /reset-password 등에서는 뜨면 안 된다(2026-09-12 QA 발견) — DowngradeGate와 동일한 이유로
+// web/src/lib/authGateExemptPaths.ts를 공유한다.
 export default function GuestMigrationGate() {
   const { permissions } = usePermissions()
   const { summary, progress, checkLocalData, start, deleteLocalData, reset } = useGuestMigration()
   const [dismissed, setDismissed] = useState(false)
+  const { pathname } = useLocation()
 
   useEffect(() => {
     const tier = permissions?.serviceTier
@@ -20,7 +25,7 @@ export default function GuestMigrationGate() {
     checkLocalData().catch((err) => console.error('[guest migration] summary check failed', err))
   }, [permissions?.serviceTier, checkLocalData])
 
-  if (!summary || !summary.hasAnyData || dismissed) return null
+  if (!summary || !summary.hasAnyData || dismissed || isAuthGateExemptPath(pathname)) return null
 
   const handleClose = () => {
     sessionStorage.setItem(DISMISS_KEY, '1')

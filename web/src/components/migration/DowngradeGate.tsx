@@ -3,6 +3,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { useAuthStore } from '@/stores/authStore'
 import { useSubscriptionDowngrade } from '@/hooks/useSubscriptionDowngrade'
 import { isSignupPending } from '@/lib/signupFlow'
+import { isAuthGateExemptPath } from '@/lib/authGateExemptPaths'
 import DowngradeModal from './DowngradeModal'
 
 // docs/SUBSCRIPTION_DESIGN.md §6, docs/UI_FLOW.md "만료/Master 해제/미결제 가입 → Guest 전환 안내" —
@@ -24,7 +25,9 @@ import DowngradeModal from './DowngradeModal'
 // 수 있는 authenticated 상태라 여기서도 막아야 한다.
 // /licenses도 동일 카테고리(법적 고지 문서) — 동의 대상은 아니지만 계정 상태와 무관하게 항상
 // 열람 가능해야 하는 페이지라 같이 예외 처리한다(2026-09-11).
-const EXEMPT_PATHS = ['/master/accept', '/terms', '/privacy', '/licenses', '/reset-password']
+// 목록 자체는 GuestMigrationGate와 공유(web/src/lib/authGateExemptPaths.ts) — 같은 부류의
+// 전역 모달이라 같은 예외를 적용해야 한다(2026-09-12, GuestMigrationGate도 /reset-password에서
+// 뜨는 버그가 있어 같이 발견).
 
 export default function DowngradeGate() {
   const { permissions } = usePermissions()
@@ -38,7 +41,7 @@ export default function DowngradeGate() {
     permissions.serviceTier === 'guest' &&
     permissions.isAuthenticated &&
     !isSignupPending() &&
-    !EXEMPT_PATHS.includes(pathname)
+    !isAuthGateExemptPath(pathname)
 
   if (!shouldDowngrade) return null
 

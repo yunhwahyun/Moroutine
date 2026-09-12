@@ -212,6 +212,14 @@ export default function BookDetailPage() {
           {book?.name ?? '책'}
         </h1>
         <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={() => handleListen(0)}
+            disabled={!autoSupported || chapters.length === 0}
+            className="p-1.5 text-gray-500 disabled:opacity-40"
+            aria-label="전체 듣기"
+          >
+            <PlayIcon size={16} />
+          </button>
           {permissions?.canBulkImport && (
             <button
               onClick={handleBulkImportClick}
@@ -325,9 +333,9 @@ export default function BookDetailPage() {
           ) : (
             <div key={chapter.id} className="bg-white rounded-2xl p-4 shadow-sm">
               <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <span className="text-xs text-gray-300 mr-1.5">{i + 1}</span>
-                  <span className="text-base font-bold text-gray-900">{chapter.title}</span>
+                <div className="flex items-baseline gap-1.5 flex-1 min-w-0">
+                  <span className="text-xs text-gray-300 shrink-0">{i + 1}</span>
+                  <span className="text-base font-bold text-gray-900 truncate min-w-0">{chapter.title}</span>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button

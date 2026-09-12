@@ -47,7 +47,7 @@ const WEB_APP_URL = getWebAppUrl()
 // 해결). apple-app-site-association/assetlinks.json에도 이 두 경로만 등록돼 있다
 // (web/public/.well-known/). 그 외 경로는 무시하고 기본 WEB_APP_URL을 그대로 쓴다 — OS가 검증한
 // 도메인이라도 방어적으로 한 번 더 걸러낸다.
-const DEEPLINK_PATHS = ['/master/accept', '/reset-password']
+const DEEPLINK_PATHS = ['/master/accept', '/reset-password', '/login']
 
 function resolveDeepLinkUrl(url: string | null): string | null {
   if (!url) return null
@@ -406,10 +406,21 @@ export default function App() {
         setKeepAlivePlaying(true)
         break
 
-      case 'AUTOPLAY_SET_RATE':
-        // 지금 말하는 중인 세그먼트는 그대로 두고, 다음 세그먼트부터 새 배속을 적용한다.
-        if (autoplayRef.current) autoplayRef.current.rate = msg.payload.rate
+      case 'AUTOPLAY_SET_RATE': {
+        // 다음 세그먼트부터만 적용하면 "바로 안 바뀌고 다음 단어부터에서야 바뀐다"로 체감돼(실기기
+        // QA에서 "정지했다 다시 재생해야 적용된다"로 리포트됨) — 재생 중이면 지금 읽고 있는 단어를
+        // 새 배속으로 즉시 다시 시작한다(세그먼트 처음부터 살짝 반복되는 정도는 배속 슬라이더의
+        // 일반적인 트레이드오프로 허용, 2026-09-12).
+        const session = autoplayRef.current
+        if (!session) break
+        session.rate = msg.payload.rate
+        if (session.paused) break
+        clearAutoplayTimeout()
+        Speech.stop()
+        session.gen += 1
+        speakAutoplayWord(session.gen)
         break
+      }
 
       case 'AUTOPLAY_STEP': {
         // 다음/이전은 순환한다 — 마지막에서 다음은 첫 단어로, 첫 단어에서 이전은 마지막으로
