@@ -80,18 +80,35 @@ export default function App() {
   const autoplayRef = useRef<AutoplaySession | null>(null)
   const autoplayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [webUri, setWebUri] = useState(WEB_APP_URL)
+  // 콜드 스타트(앱이 꺼진 상태에서 딥링크로 실행)일 때, WebView를 WEB_APP_URL(홈)로 먼저 그려버리면
+  // 홈 페이지의 JS가 이미 부팅(=supabase-js가 URL 해시를 확인하는 최초 1회 체크가 끝남)된 뒤에야
+  // 뒤늦게 실제 딥링크 URL로 다시 옮기게 된다. 그런데 경로/해시만 다르고 origin은 같은 재탐색은
+  // WebView 엔진에 따라 "같은 페이지 안에서의 해시 이동"으로 취급돼 JS가 아예 새로 실행되지 않을
+  // 수 있다 — 그러면 supabase-js가 access_token 해시를 영영 못 보고, 로그인 화면만 뜨고 로그인은
+  // 안 되는 상태가 된다(2026-09-12 QA에서 발견: gmail 웹 로그인은 되는데 폰 앱에서는 로그인
+  // 페이지로만 이동하고 세션이 안 잡힘). 그래서 최초 URL을 확정하기 전까지는 WebView 자체를
+  // 그리지 않는다(로딩 화면만 잠깐 보임).
+  const [initialUrlResolved, setInitialUrlResolved] = useState(false)
 
-  // Universal Links(iOS)/App Links(Android)로 Master 초대·비밀번호 재설정 메일 링크를 탭하면
-  // OS가 앱을 직접 열어주는데, 그 진입 URL을 WebView에 반영해야 실제로 해당 화면(recovery 세션
-  // 포함)으로 이동한다 — 안 하면 WebView는 항상 WEB_APP_URL(홈)만 로드해서 링크를 그냥 버리게 된다.
+  // Universal Links(iOS)/App Links(Android)로 Master 초대·비밀번호 재설정·로그인 메일 링크를
+  // 탭하면 OS가 앱을 직접 열어주는데, 그 진입 URL을 WebView에 반영해야 실제로 해당 화면(recovery
+  // 세션 포함)으로 이동한다 — 안 하면 WebView는 항상 WEB_APP_URL(홈)만 로드해서 링크를 그냥
+  // 버리게 된다.
   useEffect(() => {
     Linking.getInitialURL().then((url) => {
       const resolved = resolveDeepLinkUrl(url)
       if (resolved) setWebUri(resolved)
+      setInitialUrlResolved(true)
     })
+    // 앱이 이미 켜져 있는 상태(웜 스타트)에서 딥링크가 오면 WebView는 이미 이전 페이지를 그려둔
+    // 상태다 — `source` prop만 바꾸면 origin이 같아서(경로/해시만 다름) 리액트 네이티브 웹뷰가
+    // 실제 새로고침 대신 얕은 히스토리 이동으로 처리해버릴 수 있다. `window.location.href`를
+    // 페이지 자신의 JS로 직접 바꾸게 시켜서 확실한 풀 네비게이션(=supabase-js 재부팅)을 강제한다.
     const sub = Linking.addEventListener('url', ({ url }) => {
       const resolved = resolveDeepLinkUrl(url)
-      if (resolved) setWebUri(resolved)
+      if (!resolved) return
+      setWebUri(resolved)
+      webViewRef.current?.injectJavaScript(`window.location.href = ${JSON.stringify(resolved)}; true;`)
     })
     return () => sub.remove()
   }, [])
@@ -454,17 +471,19 @@ export default function App() {
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
       <View style={styles.webviewContainer}>
-        <WebView
-          ref={webViewRef}
-          source={{ uri: webUri }}
-          style={styles.webview}
-          onMessage={handleWebMessage}
-          javaScriptEnabled
-          domStorageEnabled
-          allowsInlineMediaPlayback
-          mediaPlaybackRequiresUserAction={false}
-          allowsBackForwardNavigationGestures={false}
-        />
+        {initialUrlResolved && (
+          <WebView
+            ref={webViewRef}
+            source={{ uri: webUri }}
+            style={styles.webview}
+            onMessage={handleWebMessage}
+            javaScriptEnabled
+            domStorageEnabled
+            allowsInlineMediaPlayback
+            mediaPlaybackRequiresUserAction={false}
+            allowsBackForwardNavigationGestures={false}
+          />
+        )}
       </View>
     </SafeAreaView>
   )

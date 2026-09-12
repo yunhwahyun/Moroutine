@@ -4,7 +4,45 @@
 
 ---
 
-## 2026-09-12
+## 2026-09-12 (2)
+
+### 딥링크로 앱은 열리는데 로그인은 안 되는 버그 — WebView 풀 네비게이션 강제
+
+- **증상**: 새 빌드 이후 딥링크 자체는 동작해 메일 링크를 탭하면 앱의 `/login`이 열리지만,
+  세션이 안 잡혀 로그인이 안 됨(웹 브라우저로는 같은 매직 링크가 정상 로그인됨 — 즉 서버/토큰
+  문제가 아니라 앱 WebView 쪽 문제로 특정됨).
+- **원인**: `mobile/App.tsx`가 앱 실행 시 먼저 `WEB_APP_URL`(홈, 해시 없음)로 WebView를 그리고,
+  그 다음에야 `Linking.getInitialURL()`이 resolve되면서 실제 딥링크 URL(해시에 `access_token`
+  포함)로 `source.uri`를 바꾸는 구조였다. origin·경로가 같고 해시만 다른 재탐색은 WebView 엔진에
+  따라 "같은 페이지 안 해시 이동"으로 처리될 수 있어, 이미 한 번 부팅된 supabase-js가 새 해시를
+  다시 확인하지 않는 경우가 있었다(supabase-js는 클라이언트 생성 시점에 `detectSessionInUrl`을
+  한 번 확인하는 방식이라, 최초 로드 이후의 해시 변경은 자동으로 재확인하지 않음). 웜 스타트(앱이
+  이미 켜진 상태에서 딥링크 수신)도 `source` prop만 바꾸는 동일한 취약점이 있었다.
+- **수정**: (1) 콜드 스타트 — `Linking.getInitialURL()`이 resolve되기 전에는 WebView 자체를
+  그리지 않고, 확정된 최초 URL로 처음부터 렌더링(`initialUrlResolved` 게이트). (2) 웜 스타트 —
+  `source` prop 변경 대신 `webViewRef.current.injectJavaScript("window.location.href = ...")`로
+  페이지 자신의 JS가 진짜 풀 네비게이션을 하도록 강제(이러면 supabase-js가 확실히 재부팅되며 새
+  해시를 확인함).
+- **한계**: 실기기 재확인 필요(이 세션엔 실기기가 없어 코드 리뷰로만 원인 특정). `/master/accept`·
+  `/reset-password`도 동일한 구조를 쓰므로 같은 버그의 영향을 받았을 가능성이 있음 — 새 빌드로
+  셋 다 재확인 권장.
+
+### OTP 레이트리밋 에러 메시지가 영어로 노출되는 버그
+
+- GoTrue의 `"For security purposes, you can only request this after N seconds."`(N은 매번
+  다른 숫자)는 `authErrors.ts`의 고정 문자열 테이블로 매핑할 수 없어 원문 그대로 노출되고 있었다.
+  정규식 패턴 매칭 레이어(`AUTH_ERROR_PATTERNS`)를 추가해 숫자를 그대로 살린 한국어 메시지로
+  변환하도록 수정.
+
+### "링크 로그인" 메일이 회사(사내) 메일 주소로는 안 가는 문제 — 코드 밖 원인으로 판단
+
+- Gmail 주소로는 정상 수신되는데 특정 회사 도메인 메일로는 수신되지 않는다는 리포트. 코드
+  경로(Supabase `signInWithOtp` → Resend 커스텀 SMTP)는 수신자 도메인과 무관하게 완전히 동일해
+  분기 로직이 없음을 확인 — 즉 애플리케이션 코드가 원인일 가능성은 낮고, 수신 측 메일 서버의
+  스팸 필터/SPF·DKIM·DMARC 정책, 또는 Resend 발신 도메인의 평판 문제로 추정됨(개인 Gmail보다
+  기업용 메일 서버가 더 엄격한 경우가 흔함). **코드로 재현/확진할 수 없어 사용자에게 Resend
+  대시보드의 해당 발송 로그(수신 거부/스팸 처리 여부) 확인을 요청** — 원인이 확인되면 이 항목을
+  갱신.
 
 ### 실기기 QA 리포트 5건 수정
 

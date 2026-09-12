@@ -18,6 +18,22 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   'New password should be different from the old password.': '새 비밀번호는 기존 비밀번호와 달라야 합니다.',
 }
 
+// 초 단위 숫자가 매번 달라져서 고정 문자열 테이블(AUTH_ERROR_MESSAGES)로는 매핑할 수 없는 에러들.
+// 2026-09-12 QA 발견 — "링크 로그인"으로 짧은 간격에 재요청하면 GoTrue의 OTP 레이트리밋 메시지
+// ("For security purposes, you can only request this after 38 seconds.")가 번역 없이 그대로
+// 노출됐다.
+const AUTH_ERROR_PATTERNS: [RegExp, (match: RegExpMatchArray) => string][] = [
+  [
+    /^For security purposes, you can only request this after (\d+) seconds?\.$/,
+    (m) => `보안을 위해 ${m[1]}초 후에 다시 시도해주세요.`,
+  ],
+]
+
 export function translateAuthError(message: string): string {
-  return AUTH_ERROR_MESSAGES[message] ?? message
+  if (AUTH_ERROR_MESSAGES[message]) return AUTH_ERROR_MESSAGES[message]
+  for (const [pattern, toKorean] of AUTH_ERROR_PATTERNS) {
+    const match = message.match(pattern)
+    if (match) return toKorean(match)
+  }
+  return message
 }
