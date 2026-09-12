@@ -2,6 +2,18 @@
 
 > 최종 업데이트: 2026-09-12
 
+**탈퇴 계정 미삭제 버그 발견/정리 + Master 초대 자체 토큰 방식 복귀(2026-09-12):**
+`master-delete-account`가 성공 응답을 줘도 실제로는 `auth.users` 행이 안 지워지는 경우가 있음을
+발견(Supabase 대시보드의 "Delete user"도 `Database error deleting user`로 동일하게 실패 — GoTrue
+쪽 이슈로 추정, 우리 스키마/FK/트리거는 원인이 아님을 안전한 dry-run으로 확인). 재발 방지로
+`master-delete-account`에 삭제 후 재확인 로직 추가·재배포. 발견 계기로 Master 초대 구조도 재검토 —
+`inviteUserByEmail()`이 초대 발송 즉시 계정을 만들어버리는 문제(권한은 안 새지만 Dashboard에
+수락 전 계정이 뜸)를 사용자가 지적해, 원래 설계(자체 crypto 토큰, 계정은 accept 시점에만 생성)로
+복귀. 이메일 발송도 Resend API 직접 호출로 전환(`RESEND_API_KEY` 신규 시크릿). `master-invite`/
+`master-invite-resend`/`master-accept` 전면 재작성, `check_master_invitation` RPC 신설(마이그레이션
+50). 상세는 `docs/DECISION_LOG.md`/`docs/MASTER_INVITATION_DESIGN.md` 2026-09-12 참고. **한계**:
+실제 초대 메일 발송→수락 전체 플로우를 실계정으로 아직 검증 못함(사용자 확인 필요).
+
 **실기기 QA 리포트 5건 수정(2026-09-12):** (1) `GuestMigrationGate`가 `/reset-password`에서도
 뜨던 버그 — `DowngradeGate`와 예외 경로 공유(`web/src/lib/authGateExemptPaths.ts`). (2) 자동재생
 배속 슬라이더가 다음 단어부터에서야 적용되던 걸 즉시 재시작 적용으로 수정. (3) 책 상세(개인/공용/

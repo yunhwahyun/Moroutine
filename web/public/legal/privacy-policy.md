@@ -65,7 +65,7 @@ Master: 회원탈퇴 시까지 보유 후 지체없이 파기. 관계 법령에 
 | 수탁자 | 이전 국가/리전 | 이전 항목 | 이전 목적 | 이전 방법 | 이전 근거 |
 |---|---|---|---|---|---|
 | Supabase Pte. Ltd. | 싱가포르(ap-southeast-1) | 이메일, 회원 식별정보, 서비스 이용정보(§2②) | 데이터베이스·인증 서비스 제공 | 네트워크를 통한 전송·서버 저장 | EU 표준계약조항(SCC, Module Two/Three) + UK ICO 승인 Addendum — Supabase 공식 DPA(supabase.com/legal/dpa) 기준. 국내법상 근거는 개인정보 보호법 제28조의8제1항제1호(본 방침에 공개) |
-| Plus Five Five, Inc.(Resend) | 미국 | Master 초대·비밀번호 재설정 대상 이메일 주소, 발송 로그(발송시각·전송상태 등) | Master 초대, 인증 및 계정(비밀번호 재설정 등) 관련 이메일 발송 | Edge Function → Supabase Auth Admin API → Supabase Auth의 커스텀 SMTP(Resend)를 통한 실제 발송(비밀번호 재설정은 Supabase Auth가 동일한 커스텀 SMTP 경로로 직접 발송) | EU 표준계약조항(SCC, Module 2 Controller-Processor) + EU-U.S. Data Privacy Framework(및 UK Extension) |
+| Plus Five Five, Inc.(Resend) | 미국 | Master 초대·비밀번호 재설정 대상 이메일 주소, 발송 로그(발송시각·전송상태 등) | Master 초대, 인증 및 계정(비밀번호 재설정 등) 관련 이메일 발송 | Master 초대는 Edge Function이 Resend API를 직접 호출해 발송, 비밀번호 재설정은 Supabase Auth가 커스텀 SMTP(Resend)로 직접 발송 | EU 표준계약조항(SCC, Module 2 Controller-Processor) + EU-U.S. Data Privacy Framework(및 UK Extension) |
 | Vercel Inc. | 싱가포르(ap-southeast-1, Southeast Asia) | 접속기록(IP, User-Agent, 요청 경로·시각)만 — 애플리케이션 개인정보는 Vercel을 경유하지 않음 | 웹 애플리케이션 정적 호스팅 | 웹 접속(정적 파일 요청) 시 자동 발생 | 위탁 해당 여부 자체가 아직 확정되지 않아 국외이전 법적 근거도 함께 확인 필요 |
 
 ## 9. 개인정보 파기 절차 및 방법

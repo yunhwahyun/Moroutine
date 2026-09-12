@@ -1,7 +1,14 @@
 // Master 신규 초대 생성 + 발송. 스펙: docs/MASTER_INVITATION_DESIGN.md §4-1, §4-2
+// 2026-09-12 — 자체 토큰 방식으로 복귀(계정은 accept 시점에만 생성, docs/DECISION_LOG.md 참고).
 import { corsHeaders, handleCorsPreflight } from '../_shared/cors.ts'
 import { createServiceClient, requireAdmin } from '../_shared/auth.ts'
-import { INVITE_TTL_DAYS, addDays, sendInviteEmail, inviteRedirectTo } from '../_shared/masterInvite.ts'
+import {
+  INVITE_TTL_DAYS,
+  addDays,
+  generateInviteToken,
+  hashInviteToken,
+  sendInviteEmailViaResend,
+} from '../_shared/masterInvite.ts'
 
 // 최상위 캐치 — 예상치 못한 예외가 플랫폼의 불투명한 EDGE_FUNCTION_ERROR(빈 본문)로 가려지지 않고
 // 관리자가 원인을 알 수 있는 메시지로 응답되게 한다(2026-07-19, 실사용 중 500 원인 조사 과정에서 추가).
@@ -54,14 +61,38 @@ async function handle(req: Request): Promise<Response> {
     return new Response('이미 진행 중인 초대가 있습니다.', { status: 409, headers: corsHeaders })
   }
 
-  const sendResult = await sendInviteEmail(serviceClient, email, inviteRedirectTo())
+  // 자체 토큰 방식에서는 accept 시점에만 계정을 만드므로, 이미 가입된 이메일에 초대를 보내는 건
+  // 잘못된 요청이다(권한만 다시 주려면 master-add-existing을 쓴다).
+  const { data: alreadyRegistered, error: existsError } = await serviceClient.rpc('email_exists', {
+    p_email: email,
+  })
+  if (existsError) {
+    return new Response(existsError.message, { status: 500, headers: corsHeaders })
+  }
+  if (alreadyRegistered) {
+    return new Response(
+      '이미 가입된 이메일입니다. 권한만 다시 부여하려면 관리자의 "기존 회원 추가" 기능을 사용하세요.',
+      { status: 409, headers: corsHeaders },
+    )
+  }
+
+  const token = generateInviteToken()
+  const tokenHash = await hashInviteToken(token)
+
+  const sendResult = await sendInviteEmailViaResend(email, token)
   if (sendResult.ok === false) {
     return new Response(sendResult.error, { status: 500, headers: corsHeaders })
   }
 
   const { data: invitation, error: insertError } = await serviceClient
     .from('master_invitations')
-    .insert({ email, status: 'sent', invited_by: admin.id, expires_at: addDays(INVITE_TTL_DAYS) })
+    .insert({
+      email,
+      token_hash: tokenHash,
+      status: 'sent',
+      invited_by: admin.id,
+      expires_at: addDays(INVITE_TTL_DAYS),
+    })
     .select('id')
     .single()
   if (insertError) {

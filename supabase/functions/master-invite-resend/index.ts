@@ -1,7 +1,14 @@
 // Master 초대 토큰 재발급 + 재발송. 스펙: docs/MASTER_INVITATION_DESIGN.md §4-4
+// 2026-09-12 — 자체 토큰 방식으로 복귀. 재발송 시 토큰도 새로 발급한다(기존 토큰은 폐기).
 import { corsHeaders, handleCorsPreflight } from '../_shared/cors.ts'
 import { createServiceClient, requireAdmin } from '../_shared/auth.ts'
-import { INVITE_TTL_DAYS, addDays, sendInviteEmail, inviteRedirectTo } from '../_shared/masterInvite.ts'
+import {
+  INVITE_TTL_DAYS,
+  addDays,
+  generateInviteToken,
+  hashInviteToken,
+  sendInviteEmailViaResend,
+} from '../_shared/masterInvite.ts'
 
 Deno.serve(async (req: Request) => {
   try {
@@ -54,14 +61,17 @@ async function handle(req: Request): Promise<Response> {
     return new Response('재발송할 수 없는 상태입니다.', { status: 400, headers: corsHeaders })
   }
 
-  const sendResult = await sendInviteEmail(serviceClient, invitation.email, inviteRedirectTo())
+  const token = generateInviteToken()
+  const tokenHash = await hashInviteToken(token)
+
+  const sendResult = await sendInviteEmailViaResend(invitation.email, token)
   if (sendResult.ok === false) {
     return new Response(sendResult.error, { status: 500, headers: corsHeaders })
   }
 
   const { error: updateError } = await serviceClient
     .from('master_invitations')
-    .update({ status: 'sent', expires_at: addDays(INVITE_TTL_DAYS) })
+    .update({ status: 'sent', token_hash: tokenHash, expires_at: addDays(INVITE_TTL_DAYS) })
     .eq('id', invitationId)
   if (updateError) {
     return new Response(updateError.message, { status: 500, headers: corsHeaders })

@@ -65,6 +65,24 @@ async function handle(req: Request): Promise<Response> {
     return new Response(deleteError.message, { status: 500, headers: corsHeaders })
   }
 
+  // 방어적 사후 검증 — 2026-09-12 QA에서 deleteUser()가 에러 없이 반환했는데도 계정이 실제로는
+  // 그대로 남아있는 사례가 발견됐다(원인 미특정, GoTrue 쪽 이슈로 추정). 클라이언트에 거짓
+  // 성공을 돌려주지 않도록, 삭제 직후 같은 id로 다시 조회해 실제로 없어졌는지 한 번 더 확인한다.
+  const { data: stillExists } = await serviceClient.auth.admin.getUserById(caller.id)
+  if (stillExists?.user) {
+    await serviceClient.from('admin_audit_log').insert({
+      actor_id: null,
+      action: 'master_self_delete_verify_failed',
+      target_type: 'profile',
+      target_id: caller.id,
+      detail: { email: caller.email },
+    })
+    return new Response(
+      '계정 삭제가 완료되지 않았습니다. 화면을 새로고침하지 말고 다시 시도해주세요.',
+      { status: 500, headers: corsHeaders },
+    )
+  }
+
   return new Response(JSON.stringify({ success: true }), {
     status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },

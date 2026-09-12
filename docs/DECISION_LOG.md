@@ -4,6 +4,93 @@
 
 ---
 
+## 2026-09-12 (3)
+
+### 탈퇴한 auth.users 계정이 실제로는 삭제되지 않는 버그 발견 + Master 초대를 자체 토큰 방식으로 복귀
+
+- **발견 경위**: 사용자가 Master 계정을 탈퇴한 뒤 관리자가 같은 이메일로 재초대했는데, 새 계정처럼
+  비밀번호/동의 폼을 채우기도 전에 "이미 가입되어 있다"는 반응(비밀번호 재설정 시 "새 비밀번호는
+  기존 비밀번호와 달라야 합니다" 에러)을 보임.
+- **1차 원인 규명**: DB를 직접 조회해 `auth.users`/`master_invitations`/`admin_audit_log` 타임라인을
+  재구성 — `master-delete-account`가 감사 로그까지 남기고 성공 응답을 반환했는데도, 해당
+  `auth.users` 행이 **실제로는 삭제되지 않고 그대로 남아있었음**을 확인(`created_at`이 이틀 전
+  그대로임). FK(`profiles.special_access_granted_by`/`public_books.created_by`/
+  `public_wordbooks.created_by`, 전부 `NO ACTION`)와 트리거(`auth.users`엔 `AFTER INSERT`인
+  `handle_new_user`만 존재, DELETE 트리거 없음)를 전부 확인했지만 어느 것도 이 계정 삭제를 막을
+  이유가 없었다.
+- **재현 및 진단**: 사용자가 Supabase 대시보드에서 직접 "Delete user"를 시도해도
+  `Database error deleting user`로 동일하게 실패함을 확인 — 이는 우리 Edge Function 코드 문제가
+  아니라 GoTrue(Supabase Auth) 또는 이 특정 계정의 auth 스키마 내부 상태 문제라는 근거가 됨. 안전한
+  진단을 위해 `DO $$ BEGIN DELETE ...; RAISE EXCEPTION '...'; EXCEPTION WHEN OTHERS THEN ... END $$;`
+  패턴(PL/pgSQL의 예외 처리 블록은 그 안에서 발생한 변경을 자동으로 롤백함)으로 **실제로는 절대
+  커밋되지 않는 DELETE 시도**를 실행 — 결과, **순수 SQL `DELETE FROM auth.users`는 아무 에러 없이
+  성공**함을 확인했다(`auth.identities`/`auth.sessions`/`auth.one_time_tokens`도 특별한 이상 없음).
+  즉 우리 스키마·CASCADE 설정은 문제가 아니고, GoTrue Admin API가 내부적으로 수행하는 추가 처리
+  단계(우리가 관여할 수 없는 부분)에서만 실패하는 것으로 결론지었다 — 정확한 원인은 서버 로그 접근
+  권한이 없어 특정하지 못함.
+- **정리**: 사용자 승인 하에 실제 `DELETE FROM auth.users WHERE id = ...`로 유령 계정을 직접 제거
+  (CASCADE로 관련 행 전부 정리됨, `remaining: 0` 확인).
+- **재발 방지**: `master-delete-account`에 삭제 후 `admin.getUserById()`로 재확인하는 방어 로직
+  추가·재배포 — 앞으로 같은 상황이 재발하면 거짓 성공 대신 명확한 에러를 반환한다.
+- **부수적으로 드러난 두 번째 문제(별개 버그 아님, 동일 근본 원인의 다른 증상)**: 계정이 실제로는
+  안 지워졌으니 `special_access='master'`도 그대로 남아있었고, 재초대 메일이 "이미 가입된 이메일"
+  폴백(매직 링크)으로 발송되면서 사용자가 `MasterAcceptPage`에서 아무것도 제출하지 않았는데도
+  이미 마스터 권한이 있는 기존 세션으로 로그인되는 것처럼 보였다. 계정이 제대로 삭제되면 이 증상도
+  같이 사라진다.
+
+### Master 초대를 자체 토큰 방식(계정은 accept 시점에만 생성)으로 복귀
+
+- **문제 제기**: 위 조사 과정에서 사용자가 "Supabase 대시보드를 보면 초대 메일을 보내는 순간
+  바로 회원(auth.users)이 추가돼 있다 — 수락해야만 회원 테이블에 추가되는 게 맞다"고 지적. 확인
+  결과 실제 권한(`special_access`)과 초대 상태(`master_invitations.status`)는 수락 전까지 정확히
+  `'none'`/`'sent'`로 남아있어 **정책·보안상 실질적 영향은 없었지만**, "수락 전에는 계정 자체가
+  존재해서는 안 된다"는 사용자 요구사항과는 맞지 않았다. 원인은 2026-07-18에 원래 설계(자체 토큰,
+  `docs/MASTER_INVITATION_DESIGN.md` §2~§4 원문)를 `inviteUserByEmail()`(Supabase가 호출 즉시
+  계정을 만들어버리는 API) 기반으로 단순화했던 것.
+- **선택지 두 가지를 제시**: (a) 현재 방식 유지(계정 셀당은 초대 시 생성되지만 권한은 수락 시에만
+  부여 — 추가 구현 없음) vs (b) 원안대로 자체 토큰 방식으로 전환(계정 생성 자체를 수락 시점으로
+  미룸, 구현량 많음). **사용자가 (b) 선택**.
+- **구현**:
+  - `master_invitations.token_hash`(마이그레이션 19에서 만들어졌다가 마이그레이션 28에서 안 쓰게
+    되며 nullable로 바뀐 컬럼)를 다시 채운다 — base64url 인코딩된 256비트 랜덤 토큰을 발급하고
+    SHA-256 해시만 저장(`_shared/masterInvite.ts`의 `generateInviteToken`/`hashInviteToken`).
+  - **이메일 발송 방식 전환**: `inviteUserByEmail()`은 계정 생성과 발송이 분리 불가능해 더 이상 쓸
+    수 없다 — Resend API를 Edge Function에서 직접 호출하도록 변경(`RESEND_API_KEY` 신규 시크릿
+    등록, 발신 주소는 기존 Supabase SMTP와 동일하게 `Moroutine <noreply@moroutine.kr>` 유지).
+  - `master-invite`: 자체 토큰 생성 + Resend 직접 발송. 이미 가입된 이메일이면(`email_exists` RPC
+    재사용) 초대 자체를 거부(권한만 다시 주려면 `master-add-existing` 안내).
+  - `master-accept`: 더 이상 세션(`getCallerUser`)에 의존하지 않는다 — body의 `token`을 해시해
+    `master_invitations.token_hash`와 대조, `status='sent'` + `expires_at > now()`일 때만 통과.
+    통과하면 그 자리에서 `auth.admin.createUser({ email, password })`로 계정을 생성(비밀번호도
+    이 시점에 같이 설정 — §4-3 원문과 동일한 형태로 복귀)하고 이후 special_access 부여/초대 상태
+    갱신/약관 동의 기록까지 한 번에 처리.
+  - `check_master_invitation(p_token)` RPC 신설(마이그레이션 50, `email_exists`와 동일한
+    anon 호출 가능 SECURITY DEFINER 패턴) — `MasterAcceptPage`가 폼을 다 채우게 하기 전에 토큰
+    유효성만 먼저 가볍게 확인하는 용도. pgcrypto의 `digest()`가 `extensions` 스키마에 있어
+    `extensions.digest(...)`로 명시 호출해야 했음(기본 `search_path`엔 없음) — JS(`crypto.subtle
+    .digest`)와 SQL(`extensions.digest`) 양쪽의 SHA-256 결과가 동일한 UTF-8 바이트에 대해
+    정확히 일치하는지 실제 값으로 교차 검증 완료.
+  - `MasterAcceptPage.tsx`: 세션 유무 대신 URL의 `?token=...`을 읽어 `check_master_invitation`으로
+    먼저 검증, 제출 시 `master-accept`에 `token`을 같이 보내고 성공하면 반환된 `email`로
+    `signInWithPassword()`를 호출해 세션을 확립.
+  - `master-invite-resend`도 토큰을 재발급(기존 토큰 폐기)하도록 함께 수정.
+- **부가 요구사항**: 초대 토큰 만료(`INVITE_TTL_DAYS=7일`)가 로그인/비밀번호 재설정 토큰 만료
+  (Supabase Dashboard "Email OTP Expiration", 3600초=1시간)보다 항상 길어야 한다는 사용자 요구 —
+  `_shared/masterInvite.ts`에 이 비교를 코드 레벨 단언(assert)으로 남겨, 나중에 값이 바뀌어도
+  깨지면 바로 알 수 있게 함.
+- **딥링크 영향(긍정적)**: 기존엔 초대 메일 링크가 Supabase `/auth/v1/verify`를 거쳐
+  `www.moroutine.kr`로 리다이렉트되는 구조였는데, 이제는 메일 링크 자체가 처음부터
+  `https://www.moroutine.kr/master/accept?token=...`라 리다이렉트 체인 없이 바로 우리 도메인이다 —
+  Universal Links/App Links가 더 안정적으로 동작할 것으로 예상(경로 자체는 그대로라 기존
+  AASA/intentFilters 등록은 그대로 유효).
+- **개인정보처리방침 영향**: Resend 위탁 목적·수탁 항목은 변경 없음(여전히 Master 초대/인증 메일
+  발송) — **발송 "방법"만 (Supabase Auth 경유 → Resend API 직접 호출) 바뀐 것이라
+  `docs/legal/PRIVACY_POLICY_PHASE1.md` §7/§8의 해당 행만 방법 설명을 갱신**, 새로운 처리 목적이나
+  수탁 범위 추가는 없음(`web/public/legal/privacy-policy.md`도 동기화).
+- **한계**: 실제 초대 메일 발송·수락 전체 플로우를 이 세션에서 실계정으로 검증하지 못함(Edge
+  Function 배포와 `check_master_invitation` 해시 교차검증까지만 확인) — 사용자가 직접 관리자
+  화면에서 재초대해 실제 가입까지 확인 필요.
+
 ## 2026-09-12 (2)
 
 ### 딥링크로 앱은 열리는데 로그인은 안 되는 버그 — WebView 풀 네비게이션 강제

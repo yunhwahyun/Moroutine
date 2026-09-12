@@ -53,7 +53,7 @@ authenticated + admin
 | 공용 책장(관리자) ✅ 구현 완료(2026-09-08) | `/admin/books`, `/admin/books/new`, `/admin/books/:id` | 책장 | Admin만(`ProtectedRoute requireRole="admin"`) | 책 목록(draft/published/archived 필터), 상세에서 목차 수동 추가 + `.txt` 여러 파일 일괄등록(파일 하나 = 목차 1개) |
 | Master 관리 ✅ 구현 완료(2026-07-18) | `/admin/masters` | Master | Admin만(`ProtectedRoute requireRole="admin"`) | 초대 폼 + 초대 목록 + 현재 Master 목록을 한 페이지에 |
 | 감사 로그 ✅ 구현 완료(2026-07-19) | `/admin/audit-log` | LOG | Admin만(`ProtectedRoute requireRole="admin"`) | `admin_audit_log` 최신 200건 읽기 전용 조회 |
-| Master 초대 수락 ✅ 구현 완료(2026-07-18) | `/master/accept` | — | 세션 기반(§2 편차로 토큰 아님) | `docs/MASTER_INVITATION_DESIGN.md` §4-3, 편차는 상단 참고 |
+| Master 초대 수락 ✅ 구현 완료(2026-07-18, 2026-09-12 자체 토큰 방식 복귀) | `/master/accept?token=...` | — | 토큰 기반(세션 없음, accept 시 계정 생성) | `docs/MASTER_INVITATION_DESIGN.md` §4-3, 편차는 상단 참고 |
 
 ### 라우팅 구조
 
@@ -537,26 +537,26 @@ Pro/Master 전용(`permissions.canUsePublicWordbooks` 아니면 업그레이드 
 
 ---
 
-### Master 초대 수락 (`/master/accept`) ✅ 구현 완료(2026-07-18, 세션 기반으로 편차 / 2026-09-10 동의 폼+비밀번호 추가)
+### Master 초대 수락 (`/master/accept`) ✅ 구현 완료(2026-07-18 세션 기반 → 2026-09-12 자체 토큰 방식 복귀)
 
-`docs/MASTER_INVITATION_DESIGN.md` §4-3, 편차는 §2 상단 참고. `?token=...` 쿼리 파라미터는 쓰지 않는다 —
-초대/매직 링크를 클릭하면 Supabase가 이미 세션을 확립한 채로 이 페이지에 도착한다.
+`docs/MASTER_INVITATION_DESIGN.md` §4-3, 2026-09-12 재변경 경위는 §2 상단 참고. **이제
+`?token=...` 쿼리 파라미터를 실제로 쓴다** — 세션 없이(초대 시점엔 아직 계정 자체가 없다) 이
+페이지에 도착하고, 마운트 시 `check_master_invitation(token)` RPC로 토큰 유효성만 가볍게 먼저
+확인해 `form`/`invalid` 상태를 정한다.
 
-**2026-09-10(P0) 변경**: 세션이 확인되면 더 이상 `master-accept`를 곧바로 호출하지 않는다. 대신
-① 비밀번호 / 비밀번호 확인 입력(6자 이상, 둘이 일치해야 함) ② `[필수] 이용약관에 동의합니다`(체크박스,
-`/terms`로 링크) ③ `[필수] 만 14세 이상입니다`(체크박스)와, 체크박스가 아닌 개인정보처리방침 안내
-문구 + `/privacy` 링크를 먼저 보여주고, 비밀번호 2칸 + 체크박스 2개를 모두 채워야 "가입 완료하기"
-버튼이 활성화된다(`docs/launch/PHASE1_POLICY.md` §3.2, §5). 제출 시 먼저
-`supabase.auth.updateUser({ password })`로 비밀번호를 설정한 뒤, `master-accept`를
-`{ agreedTerms: true, agreedAge: true, policyVersion }` body로 호출 — 서버가 다시 검증 후
-`user_policy_agreements`에 `terms`/`age_eligibility` 두 행을 기록한다. 실패하면 폼으로 돌아가 인라인
-에러만 보여준다(입력값 유지). 완료 시 "Master 권한이 부여되었습니다" 표시 후 홈으로 이동, 세션이 없으면
-"초대 링크가 유효하지 않습니다" 안내.
+폼 내용 자체(① 비밀번호/비밀번호 확인 ② 이용약관 동의 체크박스 ③ 만 14세 이상 확인 체크박스 +
+개인정보처리방침 안내)는 2026-09-10에 확정된 것과 동일(`docs/launch/PHASE1_POLICY.md` §3.2, §5).
+달라진 건 제출 처리 방식 — 이제 `supabase.auth.updateUser()`를 먼저 호출하지 않고, `master-accept`를
+`{ token, password, agreedTerms: true, agreedAge: true, policyVersion }` body로 한 번에 호출한다.
+서버가 토큰을 재검증하고 통과하면 그 자리에서 `auth.admin.createUser({ email, password })`로
+**계정을 처음 생성**하며 `special_access='master'`와 `user_policy_agreements` 두 행을 함께 기록한다.
+성공 응답(`{ success, email }`)을 받으면 클라이언트가 그 email/password로
+`supabase.auth.signInWithPassword()`를 호출해 세션을 확립한다. 실패하면 폼으로 돌아가 인라인 에러만
+보여준다(입력값 유지). 완료 시 "Master 권한이 부여되었습니다" 표시 후 홈으로 이동, 토큰이 유효하지
+않으면(만료/이미 사용됨/형식 오류) "초대 링크가 유효하지 않습니다" 안내.
 
-**2026-09-10 추가 수정**: 원래 "비밀번호 생성 폼 없음"(LoginPage 매직 링크로만 재로그인)으로 편차를
-뒀었으나, 이건 `docs/launch/PHASE1_POLICY.md` §3.2가 이미 5번 단계로 "비밀번호 설정"을 명시하고 있던
-것과 어긋난 상태였다 — 최초 P0 구현 때 놓친 부분을 이번에 바로잡았다. 비밀번호를 설정해도 매직 링크
-로그인은 계속 가능(두 방식 모두 지원, 배타적이지 않음).
+비밀번호를 설정해도 이후 로그인 방식은 `LoginPage`의 이메일/비밀번호 탭·매직 링크 탭 둘 다 그대로
+지원(배타적이지 않음, 2026-09-10 결정 유지).
 
 ---
 

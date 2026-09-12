@@ -11,22 +11,25 @@ Master는 관리자가 지정한 무료 로그인 회원 — 유료 결제 없�
 
 ---
 
-> **구현 편차(2026-07-18, ✅ 구현 완료)**: 아래 §2~§4의 "자체 crypto 토큰 생성 → SHA-256 해시 저장 →
-> 토큰 직접 검증" 방식은 실제로는 **Supabase 세션 인증 방식으로 단순화**해 구현했다. `inviteUserByEmail`은
-> 이미 가입된 이메일에는 사용할 수 없고, 초대/매직 링크 모두 Supabase 자체 토큰으로 로그인 세션을 만드는
-> 방식이라 자체 토큰 스킴과 결이 맞지 않았기 때문. 근거는 `docs/DECISION_LOG.md` 2026-07-18 항목 참고.
-> 실제 동작: 신규 이메일은 `auth.admin.inviteUserByEmail`, 이미 가입된 이메일은 그 호출이 실패하면
-> `auth.signInWithOtp`(매직 링크)로 자동 폴백 — 어느 쪽이든 클릭하면 `/master/accept`에 **이미 인증된
-> 세션**으로 도착하고, `master-accept` Edge Function은 토큰 대신 **세션의 이메일**을 `master_invitations`와
-> 대조한다. 이에 따라 `token_hash` 컬럼은 검증에 쓰이지 않아 NOT NULL 제약을 제거(마이그레이션 28)하고
-> INSERT 시 채우지 않는다.
+> **2026-07-18~2026-09-12 편차, 이후 원안 복귀**: 한때 아래 §2~§4의 자체 토큰 방식을 Supabase
+> `inviteUserByEmail`/세션 인증 방식으로 단순화했었다(신규 이메일은 `inviteUserByEmail`, 이미 가입된
+> 이메일은 `signInWithOtp` 폴백, `master-accept`가 토큰 대신 세션의 이메일을 대조). **이 방식은
+> `inviteUserByEmail` 호출 시점에 Supabase가 `auth.users` 계정을 즉시 생성해버려, 사용자가 아직
+> 아무것도 하지 않았는데도 Supabase Dashboard의 회원 목록에 계정이 뜨는 문제가 있었다**(2026-09-12
+> QA에서 발견 — 실제 권한(`special_access`)이나 초대 상태(`master_invitations.status`)는 계속
+> `'none'`/`'sent'`로 남아있어 실질적 영향은 없었지만, "수락 전에는 계정 자체가 존재하면 안 된다"는
+> 사용자 요구와 맞지 않았다). 그래서 2026-09-12에 **아래 §2~§4 원안(자체 crypto 토큰 → SHA-256 해시
+> 저장 → 토큰 직접 검증) 그대로 복귀**했다 — `token_hash` 컬럼도 다시 채운다(마이그레이션 28의 NOT
+> NULL 제거는 유지, 어차피 nullable이어도 항상 값을 넣으므로 문제없음). 이메일 발송도
+> `inviteUserByEmail`이 아니라 **Resend API를 직접 호출**하는 방식으로 바뀌었다(Supabase Auth의
+> 이메일 발송 API는 실제 계정 생성과 분리할 수 없기 때문). 근거는 `docs/DECISION_LOG.md` 2026-09-12
+> 항목 참고.
 >
-> **추가 변경(2026-09-10)**: P0 구현 세션에서 한 번 더 "비밀번호 설정 단계 없음"으로 편차를 뒀었으나
-> (§4-3 원문은 애초에 `{ token, password }`로 비밀번호를 받는 설계였음), 매직 링크로만 로그인해야
-> 하는 게 일반적인 회원가입 경험과 동떨어진다는 지적에 따라 **원안대로 비밀번호 입력을 되돌렸다**.
-> `MasterAcceptPage`가 세션이 확립된 상태에서 `supabase.auth.updateUser({ password })`로 비밀번호를
-> 설정한 뒤 `master-accept`를 호출한다(자체 토큰 검증은 여전히 세션 기반 편차 그대로 유지 — 이 부분은
-> 되돌리지 않음). 결과적으로 Master는 이후 매직 링크와 이메일/비밀번호 로그인을 모두 쓸 수 있다.
+> 비밀번호 입력(2026-09-10에 §4-3 원안대로 되돌린 것)은 원안 복귀 후에도 그대로 유지된다 — 다만
+> 이제는 세션 확립 후 `updateUser({ password })`로 바꾸는 게 아니라, `master-accept`가 토큰 검증에
+> 성공하면 그 자리에서 `auth.admin.createUser({ email, password })`로 **계정을 비밀번호와 함께 한
+> 번에 생성**한다(§4-3 원문과 동일한 형태). 계정 생성 후 클라이언트가 그 비밀번호로
+> `signInWithPassword()`를 호출해 세션을 확립한다.
 
 ## 2. master_invitations 테이블
 
@@ -190,14 +193,14 @@ special_access='none' 처리 직후 get_service_tier() 재평가:
 
 ---
 
-## 6. Edge Function 목록 요약 ✅ 구현 완료(2026-07-18, `supabase/functions/master-*/`)
+## 6. Edge Function 목록 요약 ✅ 구현 완료(2026-07-18, 2026-09-12 자체 토큰 방식으로 재작성, `supabase/functions/master-*/`)
 
 | 함수 | 설명 |
 |---|---|
-| `master-invite` | 신규 초대 생성 + 이메일 발송(신규는 inviteUserByEmail, 기존 가입자는 signInWithOtp 폴백) |
-| `master-invite-resend` | 동일 이메일로 재발송 + `expires_at` 갱신 |
+| `master-invite` | 이미 가입된 이메일인지 확인(`email_exists`) 후 자체 토큰 생성·해시 저장 + Resend API 직접 호출로 발송 |
+| `master-invite-resend` | 토큰 재발급(기존 토큰 폐기) + 재발송 + `expires_at` 갱신 |
 | `master-invite-revoke` | 초대 철회 |
-| `master-accept` | 세션 인증(§2 편차 참고) → special_access='master' 부여 |
+| `master-accept` | 세션 없이 `?token=...` 자체 검증 → 통과 시 `auth.admin.createUser()`로 계정 생성 + special_access='master' 부여 |
 | `master-revoke` | Admin이 기존 Master 권한 해제(§5), 유효 구독 있으면 자동 유지 |
 
 각 함수는 `docs/API_SPEC.md`에 상세 스펙을 추가한다. 공용 헬퍼는 `supabase/functions/_shared/`
