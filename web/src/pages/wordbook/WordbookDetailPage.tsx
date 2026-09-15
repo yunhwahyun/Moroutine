@@ -291,16 +291,20 @@ export default function WordbookDetailPage() {
     <div className="flex flex-col min-h-dvh bg-gray-50">
       {/* 헤더 */}
       <div
-        className="sticky top-0 z-10 bg-white flex items-center justify-between px-4 pb-3 border-b border-gray-100"
+        className="sticky top-0 z-10 bg-white border-b border-gray-100"
         style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
       >
-        <button onClick={() => navigate(-1)} className="p-1 -ml-1 text-gray-600" aria-label="뒤로">
-          <BackIcon />
-        </button>
-        <h1 className="text-base font-semibold text-gray-900 truncate max-w-[160px]">
-          {wordbook?.name ?? '단어장'}
-        </h1>
-        <div className="flex items-center gap-1.5 shrink-0">
+        {/* 버튼이 최대 3개까지 나오면서 제목과 한 줄에서 다투다 보니 제목이 거의 안 보이던 문제 —
+            제목 줄과 버튼 줄을 분리(사용자 확정, docs/DECISION_LOG.md 2026-09-16). */}
+        <div className="flex items-center gap-2 px-4">
+          <button onClick={() => navigate(-1)} className="p-1 -ml-1 text-gray-600 shrink-0" aria-label="뒤로">
+            <BackIcon />
+          </button>
+          <h1 className="flex-1 min-w-0 truncate text-base font-semibold text-gray-900">
+            {wordbook?.name ?? '단어장'}
+          </h1>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-1.5 px-4 pt-2 pb-3">
           {/* docs/DESIGN.md §13 — Guest에게는 일괄등록을 제공하지 않는다(Pro/Premium/Master만) */}
           {permissions?.canBulkImport && (
             <button

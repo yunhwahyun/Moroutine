@@ -206,7 +206,7 @@ export default function AdminBookDetailPage() {
             onClick={handleBulkImportClick}
             className="text-xs text-gray-500 px-2.5 py-1.5 rounded-md border border-gray-200"
           >
-            .txt 일괄등록
+            일괄등록
           </button>
         </div>
         <input
