@@ -719,8 +719,20 @@ export default function ScheduleListPage() {
       }
       // 선택 occurrence부터 새 schedule 생성
       // 원본이 삭제된 경우(cutDate=null) parent_schedule_id는 null — 삭제된 행 참조 불가
+      //
+      // endDate를 occ.occurrence_date로 강제하면 안 된다 — 여러 날짜에 걸친 일정(종일 다중일자,
+      // 자정 넘기는 시간 일정)의 "이후 모두 수정"에서 새로 쪼개진 schedule의 기간이 하루로
+      // 뭉개지는 버그였다(실사용자 확인 요청으로 발견, docs/DECISION_LOG.md 2026-09-15). f에
+      // 담긴(사용자가 방금 수정한) 시작~종료 날짜 간격을 그대로 유지한 채 시작일만 옮긴다.
       await repository!.saveSchedule(
-        formToScheduleFields({ ...f, date: occ.occurrence_date, endDate: occ.occurrence_date }, cutDate ? origSchedule.id : undefined),
+        formToScheduleFields(
+          {
+            ...f,
+            date: occ.occurrence_date,
+            endDate: addDays(occ.occurrence_date, diffDays(f.date, f.endDate)),
+          },
+          cutDate ? origSchedule.id : undefined,
+        ),
       )
     },
     onSuccess: (_data, { origSchedule }) => {
