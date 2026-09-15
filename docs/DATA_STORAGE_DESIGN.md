@@ -246,7 +246,7 @@ class LocalDB extends Dexie {
 
 ---
 
-## 13. 데이터 내보내기 / 가져오기 (§20) ✅ 구현 완료(2026-07-19)
+## 13. 데이터 내보내기 / 가져오기 (§20) ✅ 구현 완료(2026-07-19, 2026-09-15 books/bookChapters 누락 수정)
 
 **스코프 컷**: `docs/UI_FLOW.md` §3 등급별 표에서 "가져오기"/"로컬 데이터 초기화"는 Guest에만 있고
 Pro/Master는 "내보내기"만 있다 — Supabase가 이미 정본이라 별도 가져오기 UI가 필요 없기
@@ -260,6 +260,13 @@ Guest 쪽 전체 스냅샷은 Phase 15의 `readLocalSnapshot()`을 그대로 재
 내보내기도 헤더/데이터 행 정확히 생성 확인, 콘솔 에러 0건. **한계**: Pro/Master의 "내보내기"는
 실제 계정이 없어 직접 검증 못함(코드 리뷰로 정확성 신뢰).
 
+> **버그 수정(2026-09-15)**: 책장(`books`/`book_chapters`, 마이그레이션 42, 2026-09-08)이 `BackupBundle`
+> 타입 자체에 없어 "내보내기"를 눌러도 책장이 백업 파일에 안 담기고 "가져오기"로도 복원이 안 되던
+> 기존 버그를 수정 — `wordbooks`/`words`와 동일하게 Guest는 `readLocalSnapshot()`, Remote는
+> `fetchAllRemote('books'|'book_chapters')`로 포함시켰다. 구버전 백업 파일(이 필드가 없는 파일)도
+> `parseBackupFile()`에서 빈 배열로 채워 그대로 복원 가능 — `SCHEMA_VERSION`은 올리지 않았다.
+> 상세는 `docs/DECISION_LOG.md` 2026-09-15 참고.
+
 ### 13-1. 포맷
 
 ```json
@@ -268,6 +275,8 @@ Guest 쪽 전체 스냅샷은 Phase 15의 `readLocalSnapshot()`을 그대로 재
   "exportedAt": "2026-07-18T00:00:00.000Z",
   "wordbooks": [],
   "words": [],
+  "books": [],
+  "bookChapters": [],
   "studyHistory": [],
   "schedules": [],
   "settings": {}

@@ -6,6 +6,68 @@
 
 ## 2026-09-15
 
+### 책장 계정이전/백업 누락 버그 2건 발견·수정
+
+위 해시태그 작업 중 사용자가 "계정이전/내보내기·가져오기에도 잘 적용된 거지?"라고 물어 전체
+경로를 다시 훑다가, 해시태그와 무관한 **기존 버그 2건**을 발견했다 — 둘 다 책장(`books`/
+`book_chapters`, 마이그레이션 42, 2026-09-08)이 나중에 추가된 기능이라 통합이 누락된 케이스.
+
+1. **Remote→Local 다운그레이드 누락**: `remoteToLocalMigration.ts`(구독 만료/Master 해제 시
+   서버→로컬 강제 전환)의 `ENTITY_TABLES`에 `books`/`book_chapters`가 없었다. Guest→Remote
+   방향은 마이그레이션 49(2026-09-11)로 챙겼지만 반대 방향은 그대로 빠져 있어, 다운그레이드되면
+   서버의 책장 데이터가 로컬로 전혀 안 내려오는 **실질적 데이터 유실 위험**이었다. `wordbooks`/
+   `words`와 동일 패턴(`select('*')` + `bulkPut`)으로 수정.
+2. **JSON 백업/가져오기 누락**: `dataExport.ts`의 `BackupBundle` 타입에 `books`/`bookChapters`
+   필드 자체가 없어 "내보내기"를 눌러도 책장이 백업 파일에 안 담기고 "가져오기"로도 복원이 안 됐다.
+   `wordbooks`/`words`와 동일하게 Guest는 `readLocalSnapshot()`, Remote는 `fetchAllRemote()`로
+   포함시켰다. `SCHEMA_VERSION`은 올리지 않고 `parseBackupFile()`에서 구버전 파일(필드 없음)을
+   빈 배열로 채워 하위 호환 유지. `ImportSummary`/`SettingsPage.tsx` 가져오기 확인 문구에도
+   `bookCount` 추가.
+
+**상세**: `docs/MIGRATION_DESIGN.md` §6, `docs/DATA_STORAGE_DESIGN.md` §13.
+**검증**: `tsc --noEmit`, `npm run build`, `eslint` 통과. **한계**: 브라우저 자동화 도구가 없어
+실제 다운그레이드/백업-복원 화면 동작은 검증 못함, Pro/Master 실계정도 없어 다운그레이드 경로
+자체가 예전부터 실계정 검증 불가 상태(§ 기존 한계와 동일).
+
+---
+
+### 개인 단어장/책장 해시태그 등록·필터 — 설계
+
+**배경**: 단어장/책장 등록 시 제목/언어만 입력할 수 있어, 학년(중1)·목적(아이엘츠)·용도(회화) 같은
+분류가 안 돼 단어장이 늘어날수록 목록에서 찾기 어렵다는 사용자 피드백.
+
+**결정**:
+- **범위는 개인 단어장(`wordbooks`)/개인 책장(`books`)만** — 공용 단어장/책장(`public_wordbooks`/
+  `public_books`)은 관리자 전용 큐레이션 화면·폼이 따로 있고 이미 `category` 필드가 있어 이번
+  범위에서 제외(사용자 확정).
+- **입력**: 등록/수정 폼에 이름 다음 줄에 해시태그 입력칸 1개 추가(선택 입력). 쉼표로 여러 개
+  구분, `placeholder="예) 중1, 아이엘츠, 회화"`(사용자 지정 문구).
+- **저장 형식**: `wordbooks`/`books`에 `hashtags text[] NOT NULL DEFAULT '{}'` 컬럼 추가
+  (마이그레이션 51). 정규화: 쉼표 분리 → trim → 선행 `#` 제거 → 빈 문자열 제외 → 완전 일치
+  중복 제거 → 태그 20자/개, 단어장(책장)당 5개로 절단. RLS는 컬럼 추가라 기존 4종 정책 그대로
+  적용, 변경 없음.
+- **목록 필터는 AND 조건** — 여러 태그를 동시에 선택하면 선택한 태그를 **전부** 가진 항목만
+  보여준다. 처음엔 "하나라도 포함(OR)"으로 설계했으나, 사용자가 "태그를 좁혀갈수록 결과가
+  줄어드는 게 자연스럽다"며 AND로 변경 요청.
+- 필터는 이미 로드된 목록에 대한 **클라이언트 사이드 필터**(서버 재조회 없음), 선택 상태는
+  화면 이탈 시 초기화(영속 저장 안 함) — 개인 단어장/책장 개수가 적어 서버 쿼리 파라미터화나
+  인덱스가 필요 없다고 판단.
+- **이전 엔진 반영**: Guest→Remote 이전 RPC `migrate_wordbooks`(마이그레이션 26)/`migrate_books`
+  (마이그레이션 49)도 `hashtags`를 함께 복사하도록 재정의해야 함 — 안 하면 Guest가 붙인 태그가
+  계정 이전 시 유실된다.
+
+**상세**: `docs/DB_SCHEMA.md`(마이그레이션 51), `docs/ADMIN_DESIGN.md` §8-3(books DDL 요약),
+`docs/MIGRATION_DESIGN.md` "Phase 15 후속 2", `docs/UI_FLOW.md` 단어장/책장 절.
+
+**진행 상태**: 구현 완료(같은 날 이어서 진행). 마이그레이션 51 SQL 작성 + `supabase db query
+--linked`로 운영 DB 적용 완료(컬럼 생성 확인), `types/index.ts`/`repositories/types.ts`/
+Local·RemoteDataRepository/`guestToRemoteMigration.ts`/`WordbookListPage.tsx`/
+`BookshelfListPage.tsx` 전부 반영. 정규화/필터 로직은 `web/src/lib/hashtags.ts`로 공용화.
+`tsc --noEmit`, `npm run build`, `eslint` 전부 통과. **한계**: 브라우저를 직접 조작할 도구가
+없어 실제 화면에서 등록/필터 클릭 동작은 검증하지 못함 — 사용자가 실제 화면에서 확인 필요.
+
+---
+
 ### 초대 메일 디자인을 Supabase 기본 템플릿 스타일로 재변경(사용자가 Supabase 쪽은 직접 설정 완료)
 
 사용자가 아래 "메일 디자인 통일" 작업에서 제가 만든 `emailShell()`(단순한 디자인)을 되돌리고,

@@ -31,6 +31,7 @@ export type Wordbook = {
   name: string
   description: string | null
   language: string | null
+  hashtags: string[]
   word_count: number
   created_at: string
   updated_at: string
@@ -90,6 +91,7 @@ export type Book = {
   user_id: string
   name: string
   language: string | null
+  hashtags: string[]
   chapter_count: number
   created_at: string
   updated_at: string

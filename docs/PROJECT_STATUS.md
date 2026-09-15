@@ -2,6 +2,25 @@
 
 > 최종 업데이트: 2026-09-15
 
+**책장 계정이전/백업 누락 버그 2건 수정(2026-09-15):** 해시태그 기능이 계정이전·백업/가져오기에
+잘 적용됐는지 확인하던 중 발견 — (1) `remoteToLocalMigration.ts`(구독 만료/Master 해제 다운그레이드)
+`ENTITY_TABLES`에 `books`/`book_chapters`가 빠져 있어 다운그레이드 시 서버의 책장 데이터가
+로컬로 전혀 안 내려오던 유실 위험, (2) `dataExport.ts`의 `BackupBundle`에 책장 필드가 없어
+JSON 백업/가져오기에서 책장이 통째로 빠지던 문제. 둘 다 책장(2026-09-08 추가) 통합 누락이었고
+`wordbooks`/`words`와 동일 패턴으로 수정. 상세는 `docs/DECISION_LOG.md`/`docs/MIGRATION_DESIGN.md`
+§6/`docs/DATA_STORAGE_DESIGN.md` §13 2026-09-15 참고.
+
+**개인 단어장/책장 해시태그 등록·필터 구현 완료(2026-09-15):** 단어장/책장 등록 시 제목/언어만
+입력 가능해 분류가 어렵다는 피드백으로, 선택 입력 해시태그(쉼표 구분,
+`placeholder="예) 중1, 아이엘츠, 회화"`) + 목록 상단 필터 칩 바(다중 선택, **AND** 조건)를
+추가. 범위는 개인 단어장/책장(`wordbooks`/`books`)만 — 공용(관리자 큐레이션)은 제외.
+`hashtags text[] DEFAULT '{}'` 컬럼 추가(마이그레이션 51, `supabase db query --linked`로
+운영 DB 적용 완료), `migrate_wordbooks`/`migrate_books` RPC도 함께 재정의해 Guest→Remote
+이전 시 태그 유실 없음. 정규화·필터 로직은 `web/src/lib/hashtags.ts`에 공용화(태그 20자·
+5개 제한, 완전 일치 중복 제거). `tsc --noEmit`/`npm run build`/`eslint` 통과 확인. **한계**:
+브라우저 자동화 도구가 없어 실제 화면 동작(등록/필터 토글)은 수동 QA 필요 — 사용자 확인 대기.
+상세는 `docs/DECISION_LOG.md`/`docs/TODO.md` 2026-09-15 참고.
+
 **초대/로그인/비밀번호 재설정 메일 디자인 통일 완료(2026-09-15):** Master 초대 메일
 (`_shared/masterInvite.ts`의 `sendInviteEmailViaResend`)을 Supabase Auth 기본 템플릿과 동일한
 카드형 마크업(로고+제목+구분선+링크 버튼)으로 맞춤, 제목은 `[Moroutine] Master 초대`. 로그인

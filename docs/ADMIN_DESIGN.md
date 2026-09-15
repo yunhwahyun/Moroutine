@@ -413,7 +413,8 @@ public_book_chapters(id, book_id, title, content, sort_order,
                       status 'active'|'archived', created_at, updated_at)
 
 -- 개인(42) — user_id 소유, wordbooks/words와 동일 구조(상태값 없음)
-books(id, user_id, name, language nullable, chapter_count, created_at, updated_at)
+-- hashtags(마이그레이션 51)는 개인 books에만 추가, 공용 public_books에는 없음
+books(id, user_id, name, language nullable, hashtags text[] default '{}', chapter_count, created_at, updated_at)
 book_chapters(id, book_id, user_id, title, content, sort_order, created_at, updated_at)
 ```
 

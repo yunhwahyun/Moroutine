@@ -32,6 +32,15 @@ _현재 진행 중인 작업 없음_
   - [ ] **새 EAS 빌드(iOS+Android) 필요** — `app.json` 네이티브 설정 변경이라 지금까지의 preview 빌드엔 반영 안 됨. **사용자 직접 진행 필요**
   - [ ] Vercel 배포 후 AASA/assetlinks.json을 Apple/Google 검증 도구로 재확인, 새 빌드로 메일 링크 실제 탭 테스트(iOS/Android 둘 다) **사용자 직접 진행 필요**
 
+### 개인 단어장/책장 해시태그 등록·필터 ✅ 완료 2026-09-15(`docs/DECISION_LOG.md` 2026-09-15)
+- [x] DB: 마이그레이션 51 적용 완료(`supabase db query --linked`) — `wordbooks`/`books`에 `hashtags text[] NOT NULL DEFAULT '{}'` 추가
+- [x] `migrate_wordbooks`/`migrate_books` RPC(마이그레이션 26/49) 재정의 — `hashtags` 파라미터 추가(`docs/MIGRATION_DESIGN.md` "Phase 15 후속 2")
+- [x] 타입/Repository: `types/index.ts`(`Wordbook`/`Book`), `repositories/types.ts`(`CreateWordbookInput`/`CreateBookInput`/`UpdateWordbookInput`/`UpdateBookInput`)에 `hashtags` 추가 + Local/RemoteDataRepository 구현 반영
+- [x] UI: `WordbookListPage.tsx`/`BookshelfListPage.tsx` 등록·수정 폼에 해시태그 입력칸(`placeholder="예) 중1, 아이엘츠, 회화"`) + 정규화 로직(`lib/hashtags.ts`) + 목록 카드 태그 칩 표시 + 상단 필터 칩 바(AND 조건, 클라이언트 사이드) 구현
+- [x] `guestToRemoteMigration.ts` 이전 페이로드 빌더에 `hashtags` 반영
+- [x] **(연쇄 발견·수정)** 책장 Remote→Local 다운그레이드 누락 버그 + JSON 백업/가져오기 책장 누락 버그 수정 — `docs/DECISION_LOG.md` 2026-09-15 "책장 계정이전/백업 누락 버그 2건" 참고
+- [ ] **실기기/브라우저 수동 QA 필요** — 해시태그 등록/수정/필터, 책장 다운그레이드, JSON 백업-가져오기(책장 포함) 동작을 실제 화면에서 아직 확인 못함(브라우저 자동화 도구 없이 tsc/build/lint만 통과 확인). **사용자 직접 진행 필요**(다운그레이드는 Pro/Master 실계정 자체가 없어 검증 불가 — 코드 리뷰로만 신뢰)
+
 ### Phase 11 — 권한 모델 (`docs/PERMISSION_DESIGN.md`) ✅ 완료 2026-07-18
 - [x] Migration 13: profiles_role_access (`role`, `special_access` 컬럼 + `is_admin()` + `prevent_self_privilege_escalation` 트리거)
 - [x] Migration 14: subscription_plans (+ 시드 데이터, `personal_word_limit`은 NULL 임시값 — 배포 전 확정 필요)

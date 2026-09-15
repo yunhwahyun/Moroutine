@@ -659,6 +659,7 @@ export default function SettingsPage() {
                   <div className="px-4 py-3 flex flex-col gap-2 bg-gray-50">
                     <p className="text-xs text-gray-600">
                       단어장 {pendingImport.summary.wordbookCount}개 · 단어 {pendingImport.summary.wordCount}개 ·
+                      책장 {pendingImport.summary.bookCount}개 ·
                       일정 {pendingImport.summary.scheduleCount}건을 가져옵니다. 기존 데이터와 ID가 겹치면
                       덮어씁니다.
                     </p>

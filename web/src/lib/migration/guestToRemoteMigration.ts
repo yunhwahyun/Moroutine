@@ -108,7 +108,7 @@ async function getOrCreateMigrationJob(totalRecords: number): Promise<string> {
 }
 
 function toWordbookPayload(wb: LocalSnapshot['wordbooks'][number]) {
-  return { local_id: wb.id, name: wb.name, description: wb.description, language: wb.language }
+  return { local_id: wb.id, name: wb.name, description: wb.description, language: wb.language, hashtags: wb.hashtags }
 }
 
 function toWordPayload(w: LocalSnapshot['words'][number]) {
@@ -129,7 +129,7 @@ function toWordPayload(w: LocalSnapshot['words'][number]) {
 }
 
 function toBookPayload(b: LocalSnapshot['books'][number]) {
-  return { local_id: b.id, name: b.name, language: b.language }
+  return { local_id: b.id, name: b.name, language: b.language, hashtags: b.hashtags }
 }
 
 function toBookChapterPayload(c: LocalSnapshot['bookChapters'][number]) {

@@ -48,6 +48,17 @@
 
 ---
 
+## Phase 15 후속 2 (설계, 2026-09-15) — 단어장/책장 해시태그 컬럼 추가
+
+`wordbooks`/`books`에 `hashtags text[]` 컬럼이 추가되면(마이그레이션 51, `docs/DECISION_LOG.md` 2026-09-15) 이전 RPC도 함께 넓혀야 값이 유실되지 않는다.
+
+- `migrate_wordbooks`(마이그레이션 26)의 `p_wordbooks` jsonb 배열 원소에 `hashtags`(string[], 없으면 `[]`) 추가, `INSERT INTO wordbooks (..., hashtags)` 컬럼 목록에 반영.
+- `migrate_books`(마이그레이션 49)의 `p_books` jsonb 배열 원소에도 동일하게 `hashtags` 추가.
+- `existing`/`owned` 재사용 분기(마이그레이션 35)는 변경 없음 — 이미 서버에 있는 행을 그대로 쓰는 경로라 신규 컬럼과 무관.
+- 프런트: `guestToRemoteMigration.ts`가 로컬 `Wordbook`/`Book` 객체를 RPC 페이로드로 만들 때 `hashtags` 필드를 그대로 실어 보내기만 하면 된다(타입이 이미 `hashtags: string[]`로 확장되므로 별도 매핑 불필요).
+
+---
+
 ## 1. 범위
 
 | 방향 | 트리거 | 관련 정책 문서 |
@@ -202,6 +213,14 @@ for (const chunk of chunksOf(localWords, CHUNK_SIZE)) {
 ## 6. Remote → Local 이전 (구독 만료/Master 해제)
 
 `docs/SUBSCRIPTION_DESIGN.md` §6 절차의 4번(Local DB에 적용) 단계가 이 엔진을 사용한다. 방향만 반대이고 청크/Idempotency/검증 원칙은 동일. 차이점:
+
+> **버그 수정(2026-09-15)**: `remoteToLocalMigration.ts`의 `ENTITY_TABLES`에 `books`/`book_chapters`
+> (마이그레이션 42, 2026-09-08)가 처음부터 빠져 있었다 — Guest→Remote 방향은 마이그레이션 49(2026-09-11)로
+> 챙겼지만 반대 방향(다운그레이드) 통합을 놓쳤다. 즉 Master 해제/구독 만료로 강제 다운그레이드되면
+> 서버에 있던 책장 데이터가 로컬로 전혀 안 내려오는 실질적 데이터 유실 위험이 있었다. `wordbooks`/`words`와
+> 동일한 패턴(`select('*')` 직접 조회 + `bulkPut`)으로 `books`/`book_chapters`를 추가해 수정.
+> 실제 Pro/Master 계정으로 다운그레이드 성공 경로를 검증하지 못한 기존 한계(§ 위 Phase 15/15후속 참고)와
+> 동일한 이유로 이번 수정도 실계정 검증은 못했다.
 
 - 서버가 항상 기준 데이터(source of truth) — 로컬에 남아있던 이전 Guest 데이터(§6-3)와 충돌 시 **서버 데이터를 우선**하고, 로컬 전용 데이터(서버에 없던 것)는 병합 유지.
 - `migration_jobs.direction='remote_to_local'`로 동일 테이블 재사용.

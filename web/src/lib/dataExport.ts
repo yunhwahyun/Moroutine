@@ -4,7 +4,7 @@ import { localDB, type LocalStudySession, type LocalStudyResult } from '@/reposi
 import { readLocalSnapshot } from '@/lib/migration/localSnapshot'
 import { cancelReviewNotification } from '@/lib/reviewNotificationScheduler'
 import type { DataRepository } from '@/repositories/types'
-import type { ServiceTier, Schedule, ScheduleException, UserSettings, Word, Wordbook } from '@/types'
+import type { Book, BookChapter, ServiceTier, Schedule, ScheduleException, UserSettings, Word, Wordbook } from '@/types'
 
 // docs/DATA_STORAGE_DESIGN.md §13 — 데이터 내보내기/가져오기.
 const SCHEMA_VERSION = 1 as const
@@ -14,6 +14,12 @@ export type BackupBundle = {
   exportedAt: string
   wordbooks: Wordbook[]
   words: Word[]
+  // books/bookChapters(마이그레이션 42, 2026-09-08)는 처음엔 백업/복원에서 빠져 있던 기존 버그 —
+  // "내보내기"를 눌러도 책장이 백업 파일에 안 담기고 "가져오기"로도 복원이 안 됐다. 2026-09-15 수정
+  // (docs/DECISION_LOG.md 2026-09-15). SCHEMA_VERSION은 올리지 않는다 — 필드 추가만이라 구버전
+  // 백업 파일도 그대로 읽히고(빈 배열로 취급), 복원 시 책장만 비게 될 뿐 나머지는 문제없다.
+  books: Book[]
+  bookChapters: BookChapter[]
   schedules: Schedule[]
   scheduleExceptions: ScheduleException[]
   // 문서 원안의 단일 studyHistory 배열 대신 studySessions/studyResults로 분리 — 복원 시 관계 보존을
@@ -51,6 +57,8 @@ export async function buildBackup(tier: ServiceTier, repository: DataRepository)
       exportedAt,
       wordbooks: snapshot.wordbooks,
       words: snapshot.words,
+      books: snapshot.books,
+      bookChapters: snapshot.bookChapters,
       schedules: snapshot.schedules,
       scheduleExceptions: snapshot.scheduleExceptions,
       studySessions: snapshot.studySessions,
@@ -59,9 +67,11 @@ export async function buildBackup(tier: ServiceTier, repository: DataRepository)
     }
   }
 
-  const [wordbooks, words, schedules, scheduleExceptions, rawSessions, rawResults] = await Promise.all([
+  const [wordbooks, words, books, bookChapters, schedules, scheduleExceptions, rawSessions, rawResults] = await Promise.all([
     fetchAllRemote<Wordbook>('wordbooks'),
     fetchAllRemote<Word>('words'),
+    fetchAllRemote<Book>('books'),
+    fetchAllRemote<BookChapter>('book_chapters'),
     fetchAllRemote<Schedule>('schedules'),
     fetchAllRemote<ScheduleException>('schedule_exceptions'),
     fetchAllRemote<LocalStudySession & { user_id: string }>('study_sessions'),
@@ -73,6 +83,8 @@ export async function buildBackup(tier: ServiceTier, repository: DataRepository)
     exportedAt,
     wordbooks,
     words,
+    books,
+    bookChapters,
     schedules,
     scheduleExceptions,
     studySessions: stripUserId(rawSessions),
@@ -139,12 +151,15 @@ export async function parseBackupFile(file: File): Promise<BackupBundle> {
     // 현재는 v1만 존재 — 향후 새 스키마 버전이 생기면 여기서 마이그레이션 체인을 적용해야 한다.
     throw new Error('지원하지 않는 백업 파일 버전입니다.')
   }
-  return bundle as BackupBundle
+  // books/bookChapters는 2026-09-15 이전 백업 파일에는 없는 필드 — 없으면 빈 배열로 취급(구버전
+  // 백업도 그대로 복원 가능하게, 책장만 비어 있을 뿐 나머지는 정상 복원).
+  return { books: [], bookChapters: [], ...bundle } as BackupBundle
 }
 
 export type ImportSummary = {
   wordbookCount: number
   wordCount: number
+  bookCount: number
   scheduleCount: number
 }
 
@@ -152,6 +167,7 @@ export function summarizeBackup(bundle: BackupBundle): ImportSummary {
   return {
     wordbookCount: bundle.wordbooks.length,
     wordCount: bundle.words.length,
+    bookCount: bundle.books.length,
     scheduleCount: bundle.schedules.length,
   }
 }
@@ -163,13 +179,16 @@ export async function importBackupToLocal(bundle: BackupBundle): Promise<void> {
   await localDB.transaction(
     'rw',
     [
-      localDB.wordbooks, localDB.words, localDB.schedules, localDB.scheduleExceptions,
+      localDB.wordbooks, localDB.words, localDB.books, localDB.bookChapters,
+      localDB.schedules, localDB.scheduleExceptions,
       localDB.studySessions, localDB.studyResults, localDB.settings,
     ],
     async () => {
       await Promise.all([
         localDB.wordbooks.bulkPut(bundle.wordbooks),
         localDB.words.bulkPut(bundle.words),
+        localDB.books.bulkPut(bundle.books),
+        localDB.bookChapters.bulkPut(bundle.bookChapters),
         localDB.schedules.bulkPut(bundle.schedules),
         localDB.scheduleExceptions.bulkPut(bundle.scheduleExceptions),
         localDB.studySessions.bulkPut(bundle.studySessions),

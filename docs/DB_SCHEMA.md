@@ -213,6 +213,7 @@ CREATE TABLE wordbooks (
   name        text NOT NULL,
   description text,
   language    text,
+  hashtags    text[] NOT NULL DEFAULT '{}',  -- 마이그레이션 51, docs/DECISION_LOG.md 2026-09-15
   word_count  int NOT NULL DEFAULT 0,
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now()
@@ -462,6 +463,7 @@ ALTER TABLE profiles
 | 48 | public_content_delete_audit | `log_public_wordbook_action()`/`log_public_word_action()`/`log_public_book_action()`/`log_public_book_chapter_action()` 4개 트리거 함수를 확장해 `AFTER DELETE`도 처리(OLD 참조, `*_delete` action 기록) — 마이그레이션 30/41 트리거가 INSERT/UPDATE만 커버해 그동안 없었던 관리자 삭제 기능(신규)의 감사 로그 공백을 메움 | `docs/DECISION_LOG.md` 2026-09-10 |
 | 49 | migration_books | `migrate_books`/`migrate_book_chapters` RPC 신설(마이그레이션 26/35와 동일한 existing/owned/new_items 3-way 패턴) — 책장(books/book_chapters, 마이그레이션 42)이 이전 엔진(마이그레이션 26, 2026-07-18)보다 나중에 생겨 Guest→Remote 계정 이전 대상에서 빠져 있던 공백을 메움 | `docs/MIGRATION_DESIGN.md` "Phase 15 후속", `docs/DECISION_LOG.md` 2026-09-11 |
 | 50 | master_invitation_token_check | `check_master_invitation(p_token text) RETURNS boolean`(SECURITY DEFINER, `anon`/`authenticated` 실행 권한) — Master 초대를 자체 토큰 방식으로 되돌리며(§ 아래 참고) `MasterAcceptPage`가 계정 생성 전에 토큰 유효성만 가볍게 확인하는 용도. `extensions.digest()`(pgcrypto)로 해시해 `master_invitations.token_hash`와 대조 | `docs/MASTER_INVITATION_DESIGN.md`, `docs/DECISION_LOG.md` 2026-09-12 |
+| 51 | wordbooks_books_hashtags | `wordbooks`/`books`(개인 단어장·책장 전용, 공용 `public_wordbooks`/`public_books`는 대상 아님)에 `hashtags text[] NOT NULL DEFAULT '{}'` 컬럼 추가. RLS 정책 변경 없음(컬럼 추가는 기존 4종 정책 그대로 적용). `migrate_wordbooks`/`migrate_books` RPC(마이그레이션 26/49)도 `hashtags` 파라미터를 받아 함께 복사하도록 재정의 | `docs/DECISION_LOG.md` 2026-09-15 |
 
 > **참고(2026-09-10)**: 38번 마이그레이션의 `get_service_tier()` 정의는 44번이 즉시 대체했다 — 38번 파일 자체(과거 마이그레이션)는 수정하지 않고 `CREATE OR REPLACE FUNCTION`으로 다음 마이그레이션이 덮어쓰는 기존 관례를 그대로 따랐다.
 

@@ -107,6 +107,7 @@ export class RemoteDataRepository implements DataRepository {
         name: input.name,
         description: input.description ?? null,
         language: input.language ?? null,
+        hashtags: input.hashtags ?? [],
       })
       .select()
       .single()
@@ -411,7 +412,12 @@ export class RemoteDataRepository implements DataRepository {
   async createBook(input: CreateBookInput): Promise<Book> {
     const { data, error } = await supabase
       .from('books')
-      .insert({ user_id: requireUserId(), name: input.name, language: input.language ?? null })
+      .insert({
+        user_id: requireUserId(),
+        name: input.name,
+        language: input.language ?? null,
+        hashtags: input.hashtags ?? [],
+      })
       .select()
       .single()
     if (error) throw error

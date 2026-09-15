@@ -16,8 +16,9 @@ export type CreateWordbookInput = {
   name: string
   description?: string | null
   language?: string | null
+  hashtags?: string[]
 }
-export type UpdateWordbookInput = Partial<Pick<Wordbook, 'name' | 'description' | 'language'>>
+export type UpdateWordbookInput = Partial<Pick<Wordbook, 'name' | 'description' | 'language' | 'hashtags'>>
 
 export type CreateWordInput = {
   wordbookId: string
@@ -101,8 +102,8 @@ export type CreateNotificationInput = { scheduleId: string; fireAt: string }
 
 // 개인 책장 — docs/ADMIN_DESIGN.md §8. 단어장/단어처럼 등급별 한도가 없어 BulkCreateResult 같은
 // 차단 판정 없이 단순 배열만 반환한다.
-export type CreateBookInput = { name: string; language?: string | null }
-export type UpdateBookInput = Partial<Pick<Book, 'name' | 'language'>>
+export type CreateBookInput = { name: string; language?: string | null; hashtags?: string[] }
+export type UpdateBookInput = Partial<Pick<Book, 'name' | 'language' | 'hashtags'>>
 
 export type CreateChapterInput = { bookId: string; title: string; content: string }
 export type UpdateChapterInput = Partial<Pick<BookChapter, 'title' | 'content'>>

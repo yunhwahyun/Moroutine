@@ -9,6 +9,7 @@ import { buildAutoPlaySegments, buildAutoPlayCaption } from '@/lib/autoplaySegme
 import { useSettingsStore } from '@/stores/settingsStore'
 import { EditIcon, ChevronRightIcon, PlayIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
+import { parseHashtagsInput, collectHashtagFilterOptions, matchesHashtagFilter } from '@/lib/hashtags'
 import type { Wordbook, SelectionTarget, Word } from '@/types'
 
 const LANG_LABEL: Record<string, string> = {
@@ -65,12 +66,15 @@ export default function WordbookListPage() {
   const [showForm, setShowForm] = useState(false)
   const [formName, setFormName] = useState('')
   const [formLanguage, setFormLanguage] = useState('')
+  const [formHashtags, setFormHashtags] = useState('')
   const [isActionLoading, setIsActionLoading] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [tagFilters, setTagFilters] = useState<Set<string>>(new Set())
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editLanguage, setEditLanguage] = useState('')
+  const [editHashtags, setEditHashtags] = useState('')
 
   const { data: todayWords = [] } = useTodayStudyWords()
 
@@ -98,8 +102,8 @@ export default function WordbookListPage() {
   })
 
   const { mutateAsync: createWordbook, isPending, error: createError, reset: resetError } = useMutation({
-    mutationFn: async ({ name, language }: { name: string; language: string | null }) => {
-      return repository!.createWordbook({ name, language })
+    mutationFn: async ({ name, language, hashtags }: { name: string; language: string | null; hashtags: string[] }) => {
+      return repository!.createWordbook({ name, language, hashtags })
     },
     onSuccess: (data) => {
       queryClient.setQueryData<WordbookWithStats[]>(['wordbooks', tier], (old = []) => [
@@ -147,12 +151,12 @@ export default function WordbookListPage() {
   }
 
   const { mutate: updateWordbook, isPending: isUpdating } = useMutation({
-    mutationFn: async ({ id, name, language }: { id: string; name: string; language: string | null }) => {
-      await repository!.updateWordbook(id, { name, language })
+    mutationFn: async ({ id, name, language, hashtags }: { id: string; name: string; language: string | null; hashtags: string[] }) => {
+      await repository!.updateWordbook(id, { name, language, hashtags })
     },
-    onSuccess: (_, { id, name, language }) => {
+    onSuccess: (_, { id, name, language, hashtags }) => {
       queryClient.setQueryData<WordbookWithStats[]>(['wordbooks', tier], (old = []) =>
-        old.map((wb) => (wb.id === id ? { ...wb, name, language } : wb)),
+        old.map((wb) => (wb.id === id ? { ...wb, name, language, hashtags } : wb)),
       )
       setEditingId(null)
     },
@@ -163,22 +167,33 @@ export default function WordbookListPage() {
     setShowForm(false)
     setFormName('')
     setFormLanguage('')
+    setFormHashtags('')
   }
 
   const handleCreate = async () => {
     if (!formName.trim()) return
-    await createWordbook({ name: formName.trim(), language: formLanguage || null })
+    await createWordbook({ name: formName.trim(), language: formLanguage || null, hashtags: parseHashtagsInput(formHashtags) })
   }
 
   const handleEditStart = (wb: WordbookWithStats) => {
     setEditingId(wb.id)
     setEditName(wb.name)
     setEditLanguage(wb.language ?? '')
+    setEditHashtags(wb.hashtags.join(', '))
   }
 
   const handleEditSave = () => {
     if (!editName.trim() || !editingId) return
-    updateWordbook({ id: editingId, name: editName.trim(), language: editLanguage || null })
+    updateWordbook({ id: editingId, name: editName.trim(), language: editLanguage || null, hashtags: parseHashtagsInput(editHashtags) })
+  }
+
+  const toggleTagFilter = (tag: string) => {
+    setTagFilters((prev) => {
+      const next = new Set(prev)
+      if (next.has(tag)) next.delete(tag)
+      else next.add(tag)
+      return next
+    })
   }
 
   const toggleId = (id: string) => {
@@ -262,6 +277,9 @@ export default function WordbookListPage() {
     }
   }
 
+  const hashtagOptions = collectHashtagFilterOptions(wordbooks)
+  const filteredWordbooks = wordbooks.filter((wb) => matchesHashtagFilter(wb.hashtags, tagFilters))
+
   return (
     <div className="flex flex-col h-full">
       {/* 헤더 */}
@@ -318,7 +336,7 @@ export default function WordbookListPage() {
                   {(createError as { message?: string })?.message ?? '추가에 실패했습니다.'}
                 </p>
                 <button
-                  onClick={() => { resetError(); setFormName(''); setFormLanguage('') }}
+                  onClick={() => { resetError(); setFormName(''); setFormLanguage(''); setFormHashtags('') }}
                   className="w-full py-2.5 rounded-lg border border-gray-200 text-gray-700 text-sm"
                 >
                   다시 시도
@@ -349,6 +367,13 @@ export default function WordbookListPage() {
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
+                <input
+                  type="text"
+                  value={formHashtags}
+                  onChange={(e) => setFormHashtags(e.target.value)}
+                  placeholder="예) 중1, 아이엘츠, 회화"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400"
+                />
                 <div className="flex gap-2">
                   <button
                     onClick={handleCreate}
@@ -375,11 +400,36 @@ export default function WordbookListPage() {
           </div>
         )}
 
+        {/* 해시태그 필터 칩 바 — 태그가 하나도 없으면 숨김 */}
+        {!isLoading && hashtagOptions.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {hashtagOptions.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => toggleTagFilter(tag)}
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                  tagFilters.has(tag)
+                    ? 'bg-gray-900 border-gray-900 text-white'
+                    : 'bg-white border-gray-200 text-gray-500'
+                }`}
+              >
+                #{tag}
+              </button>
+            ))}
+          </div>
+        )}
+
         {!isLoading && wordbooks.length === 0 && !showForm && (
           <div className="flex flex-col items-center justify-center py-16 gap-1">
             <p className="text-gray-400 text-sm">단어장이 없습니다</p>
             <p className="text-gray-300 text-xs">단어장을 추가하고,</p>
             <p className="text-gray-300 text-xs">학습할 단어들로 채워보세요</p>
+          </div>
+        )}
+
+        {!isLoading && wordbooks.length > 0 && filteredWordbooks.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 gap-1">
+            <p className="text-gray-400 text-sm">선택한 태그를 모두 가진 단어장이 없습니다</p>
           </div>
         )}
 
@@ -401,7 +451,7 @@ export default function WordbookListPage() {
         )}
 
         {/* 단어장 목록 */}
-        {wordbooks.map((wb) => (
+        {filteredWordbooks.map((wb) => (
           <div
             key={wb.id}
             className={`bg-white rounded-2xl shadow-sm overflow-hidden ${
@@ -427,6 +477,13 @@ export default function WordbookListPage() {
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
+                <input
+                  type="text"
+                  value={editHashtags}
+                  onChange={(e) => setEditHashtags(e.target.value)}
+                  placeholder="예) 중1, 아이엘츠, 회화"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400"
+                />
                 <div className="flex gap-2">
                   <button
                     onClick={handleEditSave}
@@ -469,6 +526,13 @@ export default function WordbookListPage() {
                     </span>
                   </div>
                   <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">{wb.name}</p>
+                  {wb.hashtags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {wb.hashtags.map((tag) => (
+                        <span key={tag} className="text-[11px] text-gray-400">#{tag}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleEditStart(wb) }}

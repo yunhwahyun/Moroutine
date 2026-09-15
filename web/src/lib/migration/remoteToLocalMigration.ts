@@ -3,16 +3,22 @@ import { localDB, type LocalStudyResult, type LocalStudySession } from '@/reposi
 import { localDataRepository } from '@/repositories/local/LocalDataRepository'
 import { remoteDataRepository } from '@/repositories/remote/RemoteDataRepository'
 import { getOrCreateDeviceId } from '@/lib/deviceId'
-import type { NotificationRecord, Schedule, ScheduleException, Word, Wordbook } from '@/types'
+import type { Book, BookChapter, NotificationRecord, Schedule, ScheduleException, Word, Wordbook } from '@/types'
 import type { MigrationEntityType, MigrationProgress } from './types'
 
 // docs/SUBSCRIPTION_DESIGN.md §6, docs/MIGRATION_DESIGN.md §6 — 구독 만료/해지로 Remote→Local
 // 강제 전환할 때 쓰는 다운로드 엔진. guestToRemoteMigration.ts(Local→Remote)의 반대 방향이지만,
 // 서버 UUID를 로컬 id로 그대로 사용하므로 RPC/migration_id_map 없이 직접 조회 + bulkPut으로 충분하다
 // (로컬 ID 재매핑이 필요 없음 — 애초에 서버가 매긴 id를 그대로 쓰기 때문).
+//
+// ⚠️ books/book_chapters(마이그레이션 42, 2026-09-08)는 처음엔 이 목록에 없었다 — guestToRemoteMigration.ts와
+// 달리 반대 방향(다운그레이드)에 통합하는 걸 놓친 기존 버그. 발견 계기로 2026-09-15에 추가
+// (docs/DECISION_LOG.md 2026-09-15 참고, "책장 계정 이전 지원" 2026-09-11 항목이 Guest→Remote만
+// 다루고 이 반대 방향은 빠뜨렸었다).
 
 const ENTITY_TABLES = [
-  'wordbooks', 'words', 'schedules', 'schedule_exceptions', 'study_sessions', 'study_results', 'notifications',
+  'wordbooks', 'words', 'books', 'book_chapters',
+  'schedules', 'schedule_exceptions', 'study_sessions', 'study_results', 'notifications',
 ]
 
 async function countRows(table: string): Promise<number> {
@@ -90,6 +96,8 @@ export async function runRemoteToLocalMigration(
   try {
     const wordbooks = await downloadEntity<Wordbook>('wordbooks', 'wordbook', onProgress, progressBase)
     const words = await downloadEntity<Word>('words', 'word', onProgress, progressBase)
+    const books = await downloadEntity<Book>('books', 'book', onProgress, progressBase)
+    const bookChapters = await downloadEntity<BookChapter>('book_chapters', 'book_chapter', onProgress, progressBase)
     const schedules = await downloadEntity<Schedule>('schedules', 'schedule', onProgress, progressBase)
     const scheduleExceptions = await downloadEntity<ScheduleException>(
       'schedule_exceptions', 'schedule_exception', onProgress, progressBase,
@@ -135,13 +143,16 @@ export async function runRemoteToLocalMigration(
     await localDB.transaction(
       'rw',
       [
-        localDB.wordbooks, localDB.words, localDB.schedules, localDB.scheduleExceptions,
+        localDB.wordbooks, localDB.words, localDB.books, localDB.bookChapters,
+        localDB.schedules, localDB.scheduleExceptions,
         localDB.studySessions, localDB.studyResults, localDB.notifications,
       ],
       async () => {
         await Promise.all([
           localDB.wordbooks.bulkPut(wordbooks),
           localDB.words.bulkPut(words),
+          localDB.books.bulkPut(books),
+          localDB.bookChapters.bulkPut(bookChapters),
           localDB.schedules.bulkPut(schedules),
           localDB.scheduleExceptions.bulkPut(scheduleExceptions),
           localDB.studySessions.bulkPut(studySessions),
