@@ -322,6 +322,13 @@ authenticated + admin
 - `expandScheduleOccurrences` → `applyScheduleExceptions` → `groupOccurrencesByDate` 순으로 클라이언트 처리
 - 일정 항목 탭 → 인라인 폼 (수정/삭제)
 - 반복 일정 수정/삭제 시 범위 선택 모달: **이 일정만 / 이후 모두 / 전체**
+- **여러 날짜에 걸친 일정 표시** (2026-09-15 버그 수정, `docs/DECISION_LOG.md` 참고): 종일
+  다중일자 지원(§ 아래) 이후 발견 — `expandScheduleOccurrences`가 예전엔 occurrence를 **시작일
+  하나**에만 붙여서, 시작일이 조회 범위보다 이전이면(예: 9/14~9/15 종일 일정을 "오늘"=9/15만
+  조회) 통째로 안 보였다. 이제 일정이 걸치는 기간과 조회 범위가 겹치는 **날짜마다** 카드를
+  하나씩 만든다 — 실제 `starts_at`/`ends_at`은 그대로 유지하고 카드가 붙는 날짜(`occurrence_date`)만
+  날짜별로 바뀐다. 당일 일정(전체의 대다수)은 겹치는 날이 하루뿐이라 기존과 동일하게 1건만
+  나온다(회귀 없음).
 
 **등록/수정 폼 — 날짜·시간 입력** (`ScheduleFormPanel`, 2026-09-15 정리):
 - 날짜/시간 입력은 `NativeDateTimeInput`(`<input type="date"|"time">` 래퍼) — **아이콘 없이**

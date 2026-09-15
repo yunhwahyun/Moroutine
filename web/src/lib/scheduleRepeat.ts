@@ -55,16 +55,20 @@ function nextOccurrenceDate(schedule: Schedule, from: Date): Date {
   }
 }
 
+// instanceStartDay: 이 occurrence(반복이면 해당 회차)가 실제로 시작하는 날. displayDay: 이
+// 카드를 어느 날짜 헤더 아래 보여줄지(여러 날짜에 걸친 일정은 겹치는 기간 내 날짜마다 한 장씩
+// 카드를 만든다 — 기본값은 instanceStartDay와 동일, 즉 기존 동작 그대로).
 function makeOccurrence(
   schedule: Schedule,
-  occDay: Date,
+  instanceStartDay: Date,
   isRecurring: boolean,
+  displayDay: Date = instanceStartDay,
 ): ScheduleOccurrence {
   const orig = new Date(schedule.starts_at)
   const startsAt = new Date(
-    occDay.getFullYear(),
-    occDay.getMonth(),
-    occDay.getDate(),
+    instanceStartDay.getFullYear(),
+    instanceStartDay.getMonth(),
+    instanceStartDay.getDate(),
     orig.getHours(),
     orig.getMinutes(),
     orig.getSeconds(),
@@ -76,7 +80,7 @@ function makeOccurrence(
     endsAt = new Date(startsAt.getTime() + duration).toISOString()
   }
 
-  const occDate = dateStr(occDay)
+  const occDate = dateStr(displayDay)
   return {
     occurrence_id: `${schedule.id}:${occDate}`,
     schedule_id: schedule.id,
@@ -98,6 +102,13 @@ function makeOccurrence(
 /**
  * 단일 schedule의 조회 기간 내 occurrence 목록을 반환합니다.
  * repeat_end_type='count'일 때는 시작일부터 N회를 먼저 계산 후 range로 필터합니다.
+ *
+ * 여러 날짜에 걸친 일정(예: 종일 2박 3일, 자정을 넘기는 시간 일정)은 "시작일에만 occurrence가
+ * 붙고 그 시작일이 조회 범위 밖이면 통째로 안 보인다"는 버그가 있었다 — 예를 들어 9/14~9/15
+ * 종일 일정을 만들고 "오늘"(9/15)만 조회하면 시작일(9/14)이 범위 밖이라 아예 안 뜬다(실사용자
+ * 리포트, docs/DECISION_LOG.md 2026-09-15). 이제 일정이 걸치는 기간과 조회 범위가 겹치는
+ * 날짜마다 카드를 하나씩 만든다(겹치는 날이 여러 개면 그 날짜 헤더 밑에 각각 나타남) — 실제
+ * starts_at/ends_at 값은 그대로 유지하고 occurrence_date(카드가 붙는 날짜)만 날짜별로 바뀐다.
  */
 export function expandScheduleOccurrences(
   schedule: Schedule,
@@ -107,11 +118,21 @@ export function expandScheduleOccurrences(
   const result: ScheduleOccurrence[] = []
   const origStart = new Date(schedule.starts_at)
   const baseDay = floorToDay(origStart)
+  const baseEndDay = schedule.ends_at ? floorToDay(new Date(schedule.ends_at)) : baseDay
+  // 일정이 걸치는 일수(당일이면 0) — 반복 회차마다 시작일이 밀려도 걸치는 일수는 동일하다고 가정.
+  const spanDays = Math.max(0, Math.round((baseEndDay.getTime() - baseDay.getTime()) / 86400000))
+
+  function pushOverlappingDays(instanceStartDay: Date, isRecurring: boolean) {
+    const instanceEndDay = addDays(instanceStartDay, spanDays)
+    const visibleStart = instanceStartDay > rangeStart ? instanceStartDay : rangeStart
+    const visibleEnd = instanceEndDay < rangeEnd ? instanceEndDay : rangeEnd
+    for (let d = new Date(visibleStart); d <= visibleEnd; d = addDays(d, 1)) {
+      result.push(makeOccurrence(schedule, instanceStartDay, isRecurring, d))
+    }
+  }
 
   if (schedule.repeat_type === 'none') {
-    if (baseDay >= rangeStart && baseDay <= rangeEnd) {
-      result.push(makeOccurrence(schedule, baseDay, false))
-    }
+    pushOverlappingDays(baseDay, false)
     return result
   }
 
@@ -132,8 +153,8 @@ export function expandScheduleOccurrences(
     if (repeatUntilDay && current > repeatUntilDay) break
     if (current > rangeEnd) break
 
-    if (current >= rangeStart) {
-      result.push(makeOccurrence(schedule, current, true))
+    if (addDays(current, spanDays) >= rangeStart) {
+      pushOverlappingDays(current, true)
     }
 
     totalCount++
