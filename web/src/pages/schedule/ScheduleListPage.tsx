@@ -6,6 +6,7 @@ import { refreshScheduleNotifications, cancelScheduleNotifications } from '@/lib
 import { EditIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
 import NativeDateTimeInput from '@/components/ui/NativeDateTimeInput'
+import Toggle from '@/components/ui/Toggle'
 import {
   expandScheduleOccurrences,
   applyScheduleExceptions,
@@ -106,13 +107,17 @@ function toTimePart(dt: Date) {
 // occurrence의 실제 시간 데이터 + 원본 schedule의 반복 설정으로 폼 구성
 function occurrenceToForm(occ: ScheduleOccurrence, s: Schedule): ScheduleForm {
   const d = new Date(occ.starts_at)
+  const startTime = toTimePart(d)
   const endDt = occ.ends_at ? new Date(occ.ends_at) : null
   return {
     title: occ.title,
     date: toDatePart(d),
-    time: toTimePart(d),
+    time: startTime,
     endDate: endDt ? toDatePart(endDt) : toDatePart(d),
-    endTime: endDt ? toTimePart(endDt) : '',
+    // ends_at이 없는(예: 이 수정 전에 만들어진 종일 일정) 기존 데이터를 열어도 시간 입력이
+    // 빈 값으로 보이지 않도록 시작 + 1시간을 기본값으로 채운다(사용자 확정, "시간은 빈 값이
+    // 없이" — docs/DECISION_LOG.md 2026-09-15).
+    endTime: endDt ? toTimePart(endDt) : minutesToTime(timeToMinutes(startTime) + 60),
     isAllDay: occ.is_all_day,
     location: occ.location ?? '',
     repeatType: s.repeat_type,
@@ -185,14 +190,12 @@ type ScheduleForm = {
 
 type RepeatEditScope = 'this' | 'future' | 'all'
 
+// 현재 시각 기준 정시(분 절삭)를 기본 시작 시간으로 쓴다 — 13:20이면 13:00(사용자 확정,
+// docs/DECISION_LOG.md 2026-09-15). 종료는 항상 시작 + 1시간.
 function defaultForm(): ScheduleForm {
   const now = new Date()
   const date = toDateStr(now)
-  const h = String(now.getHours()).padStart(2, '0')
-  const rawMin = now.getMinutes()
-  const roundedMin = Math.ceil(rawMin / 15) * 15
-  const minStr = String(roundedMin >= 60 ? 0 : roundedMin).padStart(2, '0')
-  const time = `${h}:${minStr}`
+  const time = `${String(now.getHours()).padStart(2, '0')}:00`
   return {
     title: '', date, time, endDate: date, endTime: minutesToTime(timeToMinutes(time) + 60),
     isAllDay: false, location: '',
@@ -207,7 +210,10 @@ function buildStartsAt(form: ScheduleForm) {
 }
 
 function buildEndsAt(form: ScheduleForm): string | null {
-  if (form.isAllDay) return null
+  // 종일 일정은 종료 날짜/시간 입력이 화면에 없으므로(단일 날짜 개념) 항상 시작 날짜의
+  // 23:59로 저장한다 — 예전엔 null로 저장해 "종일인데 종료 시각이 없다"는 이상한 상태였다
+  // (사용자 확정, docs/DECISION_LOG.md 2026-09-15).
+  if (form.isAllDay) return new Date(`${form.date}T23:59:00`).toISOString()
   if (!form.endTime) return null
   return new Date(`${form.endDate || form.date}T${form.endTime}:00`).toISOString()
 }
@@ -326,19 +332,21 @@ function ScheduleFormPanel({
           {/* 360px 이하 좁은 화면에서만 날짜/시간을 세로로 쌓는다(그 이상은 한 줄에 나란히). */}
           <div className="flex flex-row gap-2 flex-1 overflow-hidden max-[360px]:flex-col">
             {/* 날짜/시간 폭이 텍스트 길이에 따라 들쭉날쭉해지는 걸 막기 위해 flex-basis를
-                명시적으로 고정한다(날짜가 시간보다 조금 더 넓게, 3:2). */}
+                명시적으로 고정한다 — 아이콘을 없애면서 실제 텍스트 길이("2026. 9. 15." vs
+                "오후 1:00")가 서로 비슷해져 1:1로 변경(예전 3:2, 사용자 확정,
+                docs/DECISION_LOG.md 2026-09-15). */}
             <NativeDateTimeInput
               type="date" value={form.date}
               onChange={(v) => onChange(adjustScheduleDateTime(form, 'date', v))}
-              className={`${INPUT} pr-5`}
-              wrapperClassName="flex-[3] min-w-0"
+              className={INPUT}
+              wrapperClassName="flex-1 min-w-0"
             />
             {!form.isAllDay && (
               <NativeDateTimeInput
                 type="time" value={form.time}
                 onChange={(v) => onChange(adjustScheduleDateTime(form, 'time', v))}
-                className={`${INPUT} pr-5`}
-                wrapperClassName="flex-[2] min-w-0"
+                className={INPUT}
+                wrapperClassName="flex-1 min-w-0"
               />
             )}
           </div>
@@ -350,26 +358,22 @@ function ScheduleFormPanel({
               <NativeDateTimeInput
                 type="date" value={form.endDate}
                 onChange={(v) => onChange(adjustScheduleDateTime(form, 'endDate', v))}
-                className={`${INPUT} pr-5`}
-                wrapperClassName="flex-[3] min-w-0"
+                className={INPUT}
+                wrapperClassName="flex-1 min-w-0"
               />
               <NativeDateTimeInput
                 type="time" value={form.endTime}
                 onChange={(v) => onChange(adjustScheduleDateTime(form, 'endTime', v))}
-                className={`${INPUT} pr-5`}
-                wrapperClassName="flex-[2] min-w-0"
+                className={INPUT}
+                wrapperClassName="flex-1 min-w-0"
               />
             </div>
           </div>
         )}
-        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none pl-10">
-          <input
-            type="checkbox" checked={form.isAllDay}
-            onChange={(e) => onChange({ ...form, isAllDay: e.target.checked })}
-            className="w-4 h-4 accent-gray-800"
-          />
-          종일
-        </label>
+        <div className="flex items-center justify-between pl-10 pr-1">
+          <span className="text-sm text-gray-600">종일</span>
+          <Toggle value={form.isAllDay} onChange={(v) => onChange({ ...form, isAllDay: v })} />
+        </div>
       </div>
 
       {/* 그룹 2: 반복 */}
@@ -412,7 +416,7 @@ function ScheduleFormPanel({
               <NativeDateTimeInput
                 type="date" value={form.repeatUntil}
                 onChange={(v) => onChange({ ...form, repeatUntil: v })}
-                className={`${INPUT} min-w-0 pr-5`}
+                className={`${INPUT} min-w-0`}
               />
             )}
             {form.repeatEndType === 'count' && (
@@ -888,13 +892,13 @@ export default function ScheduleListPage() {
         <div className="flex items-center gap-2 overflow-hidden">
           <NativeDateTimeInput type="date" value={fromDate}
             onChange={(v) => { setFromDate(v); setActivePreset(null) }}
-            className="w-full border border-gray-200 rounded-lg pl-3 pr-5 py-2 text-sm outline-none focus:border-gray-400"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
             wrapperClassName="flex-1 min-w-0"
           />
           <span className="text-gray-400 text-sm shrink-0">~</span>
           <NativeDateTimeInput type="date" value={toDate}
             onChange={(v) => { setToDate(v); setActivePreset(null) }}
-            className="w-full border border-gray-200 rounded-lg pl-3 pr-5 py-2 text-sm outline-none focus:border-gray-400"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
             wrapperClassName="flex-1 min-w-0"
           />
         </div>

@@ -12,6 +12,7 @@ import { translateAuthError } from '@/lib/authErrors'
 import { isNative } from '@/bridge'
 import { useNotificationPermissionStore } from '@/stores/notificationPermissionStore'
 import { Section, Row } from '@/components/ui/SettingsList'
+import Toggle from '@/components/ui/Toggle'
 import NativeDateTimeInput from '@/components/ui/NativeDateTimeInput'
 import {
   buildBackup,
@@ -72,21 +73,6 @@ function SegmentControl<T extends string>({
         </button>
       ))}
     </div>
-  )
-}
-
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      onClick={() => onChange(!value)}
-      className={`relative w-11 h-6 rounded-full transition-colors ${value ? 'bg-gray-900' : 'bg-gray-200'}`}
-    >
-      <span
-        className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-          value ? 'translate-x-5' : 'translate-x-0'
-        }`}
-      />
-    </button>
   )
 }
 
