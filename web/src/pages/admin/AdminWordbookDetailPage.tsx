@@ -199,13 +199,6 @@ export default function AdminWordbookDetailPage() {
           >
             일괄등록
           </button>
-          <button
-            onClick={handleDeleteWordbook}
-            disabled={isDeletingWordbook}
-            className="text-xs text-red-500 px-2.5 py-1.5 rounded-md border border-red-200 disabled:opacity-50"
-          >
-            {isDeletingWordbook ? '삭제 중...' : '삭제'}
-          </button>
         </div>
         <input ref={fileInputRef} type="file" accept=".csv,.tsv,.txt" className="hidden" onChange={handleFileChange} />
       </div>
@@ -242,20 +235,30 @@ export default function AdminWordbookDetailPage() {
               ))}
             </select>
           </div>
+          <button
+            onClick={() => saveMeta()}
+            disabled={!metaForm.title.trim() || isSavingMeta}
+            className="w-full py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium disabled:opacity-50"
+          >
+            {isSavingMeta ? '저장 중...' : '저장'}
+          </button>
+          {/* 예전엔 헤더에 있던 "삭제"가 일괄등록 버튼 옆에 붙어 있어 뭘 삭제하는 건지 애매했다 —
+              메타 수정 폼 쪽으로 옮기고 "단어 비우기"와 나란히 둬서 범위를 명확히 구분한다
+              (사용자 확정, docs/DECISION_LOG.md 2026-09-16). */}
           <div className="flex gap-2">
-            <button
-              onClick={() => saveMeta()}
-              disabled={!metaForm.title.trim() || isSavingMeta}
-              className="flex-1 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium disabled:opacity-50"
-            >
-              {isSavingMeta ? '저장 중...' : '저장'}
-            </button>
             <button
               onClick={handleClearWords}
               disabled={words.length === 0 || isClearingWords}
-              className="px-4 py-2.5 rounded-lg border border-red-200 text-red-500 text-sm disabled:opacity-50"
+              className="flex-1 py-2.5 rounded-lg border border-red-200 text-red-500 text-sm disabled:opacity-50"
             >
-              {isClearingWords ? '비우는 중...' : '비우기'}
+              {isClearingWords ? '비우는 중...' : '단어 비우기'}
+            </button>
+            <button
+              onClick={handleDeleteWordbook}
+              disabled={isDeletingWordbook}
+              className="flex-1 py-2.5 rounded-lg border border-red-200 text-red-500 text-sm disabled:opacity-50"
+            >
+              {isDeletingWordbook ? '삭제 중...' : '단어장 삭제'}
             </button>
           </div>
         </div>
