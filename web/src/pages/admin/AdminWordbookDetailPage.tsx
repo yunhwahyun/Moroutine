@@ -11,6 +11,7 @@ import {
   deletePublicWord,
   clearPublicWordbookWords,
 } from '@/lib/publicWordbooks'
+import { parseWordsFile, type ParsedWord } from '@/lib/bulkWordsParse'
 import { BackIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
 import type { PublicWordbookStatus } from '@/types'
@@ -31,25 +32,6 @@ const STATUS_OPTIONS: { value: PublicWordbookStatus; label: string }[] = [
   { value: 'published', label: '게시' },
   { value: 'archived', label: '보관' },
 ]
-
-type ParsedWord = { term: string; definition: string; example: string }
-
-// WordbookDetailPage.tsx의 parseWordsTxt와 동일한 규칙(탭 구분 .txt, 3번째 컬럼은 예문) — 개인
-// 한도 관련 계산만 제외.
-function parseWordsTxt(content: string): { parsed: ParsedWord[]; errorCount: number } {
-  const lines = content.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0)
-  const parsed: ParsedWord[] = []
-  let errorCount = 0
-  for (const line of lines) {
-    const parts = line.split('\t')
-    const term = parts[0]?.trim() ?? ''
-    const definition = (parts[1]?.trim() ?? '').replace(/\\n/g, '\n')
-    const example = (parts[2]?.trim() ?? '').replace(/\\n/g, '\n')
-    if (term && definition) parsed.push({ term, definition, example })
-    else errorCount++
-  }
-  return { parsed, errorCount }
-}
 
 export default function AdminWordbookDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -162,7 +144,7 @@ export default function AdminWordbookDetailPage() {
     if (!file) return
     try {
       const content = await file.text()
-      const result = parseWordsTxt(content)
+      const result = parseWordsFile(file.name, content)
       if (result.parsed.length === 0) {
         setBulkError('등록할 단어가 없습니다. 형식을 확인해주세요.')
         return
@@ -215,7 +197,7 @@ export default function AdminWordbookDetailPage() {
             onClick={handleBulkImportClick}
             className="text-xs text-gray-500 px-2.5 py-1.5 rounded-md border border-gray-200"
           >
-            .txt 일괄등록
+            일괄등록
           </button>
           <button
             onClick={handleDeleteWordbook}
@@ -225,7 +207,7 @@ export default function AdminWordbookDetailPage() {
             {isDeletingWordbook ? '삭제 중...' : '삭제'}
           </button>
         </div>
-        <input ref={fileInputRef} type="file" accept=".txt" className="hidden" onChange={handleFileChange} />
+        <input ref={fileInputRef} type="file" accept=".csv,.tsv,.txt" className="hidden" onChange={handleFileChange} />
       </div>
 
       <div className="flex-1 px-4 py-4 flex flex-col gap-3 pb-6">

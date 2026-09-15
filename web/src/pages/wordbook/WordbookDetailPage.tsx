@@ -5,6 +5,7 @@ import { renderLineBreaks } from '@/lib/text'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getRepository } from '@/repositories/factory'
 import { WordLimitExceededError } from '@/repositories/types'
+import { parseWordsFile, type ParsedWord } from '@/lib/bulkWordsParse'
 import { BackIcon, EditIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
 import type { Word, Wordbook } from '@/types'
@@ -79,25 +80,6 @@ function FormActions({
       </button>
     </div>
   )
-}
-
-type ParsedWord = { term: string; definition: string; example: string }
-
-// docs/DESIGN.md §13 — 오류 행(단어/뜻 중 하나라도 비어있는 줄)을 별도로 세어 미리보기에 노출한다.
-// 3번째 컬럼은 예문(example)이다.
-function parseWordsTxt(content: string): { parsed: ParsedWord[]; errorCount: number } {
-  const lines = content.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0)
-  const parsed: ParsedWord[] = []
-  let errorCount = 0
-  for (const line of lines) {
-    const parts = line.split('\t')
-    const term = parts[0]?.trim() ?? ''
-    const definition = (parts[1]?.trim() ?? '').replace(/\\n/g, '\n')
-    const example = (parts[2]?.trim() ?? '').replace(/\\n/g, '\n')
-    if (term && definition) parsed.push({ term, definition, example })
-    else errorCount++
-  }
-  return { parsed, errorCount }
 }
 
 type BulkPreview = {
@@ -245,7 +227,7 @@ export default function WordbookDetailPage() {
     setBulkError('')
     try {
       const content = await file.text()
-      const { parsed, errorCount } = parseWordsTxt(content)
+      const { parsed, errorCount } = parseWordsFile(file.name, content)
       if (parsed.length === 0) {
         setBulkError('등록할 단어가 없습니다. 형식을 확인해주세요.')
         return
@@ -363,7 +345,7 @@ export default function WordbookDetailPage() {
             {isClearingWords ? '비우는 중...' : '비우기'}
           </button>
         </div>
-        <input ref={fileInputRef} type="file" accept=".txt" className="hidden" onChange={handleFileChange} />
+        <input ref={fileInputRef} type="file" accept=".csv,.tsv,.txt" className="hidden" onChange={handleFileChange} />
       </div>
 
       {/* 일괄등록 에러 */}

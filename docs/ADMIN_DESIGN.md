@@ -12,7 +12,7 @@ Admin은 **공용 학습 콘텐츠와 Master 회원만** 관리한다. 사용자
 ### 1-1. 가능
 
 - 공용 단어장 목록 조회 / 생성 / 수정 / 상태 전환(초안·기본·게시·보관, 2026-09-02 단순화, §3)
-- 공용 단어 추가 / 수정 / 일괄 등록(.txt)
+- 공용 단어 추가 / 수정 / 일괄 등록(.csv/.tsv/.txt)
 - Master 이메일 초대 / 재발송 / 취소 / 목록 조회 / 권한 해제
 - 권한 변경 감사 로그 조회
 
@@ -429,13 +429,24 @@ book_chapters(id, book_id, user_id, title, content, sort_order, created_at, upda
 
 ### 8-4. 일괄등록 — 단어장과 다른 방식(개인/공용 공통)
 
-단어장의 `.txt` 일괄등록은 **한 파일 안에 탭 구분 여러 줄**(줄마다 단어 1개)이지만, 책장은
-**여러 `.txt` 파일을 한 번에 올리면 파일 하나 = 목차 1개**다(`<input type="file" multiple accept=".txt">`,
-개인/공용 두 상세 화면 모두 동일 규칙). 파일명(확장자 제외)이 제목, 파일 전체 텍스트가 내용이 되고,
-파일명 순서(숫자 포함 자연 정렬, `localeCompare(..., {numeric:true})`)대로 `sort_order`가 매겨진다 —
-사용자 확정. `parseChapterFiles()`가 `AdminBookDetailPage.tsx`(공용)와 `BookDetailPage.tsx`(개인)에
-각각 동일하게 구현돼 있다(공유 유틸로 추출하지 않음 — 단어장의 `parseWordsTxt()`도 개인/공용 두
-곳에 중복 구현돼 있는 기존 관례를 그대로 따름).
+단어장의 일괄등록은 **한 파일 안에 구분자로 나뉜 여러 줄**(줄마다 단어 1개, 컬럼은 term/
+definition/example 3개)이지만, 책장은 **여러 `.txt` 파일을 한 번에 올리면 파일 하나 = 목차
+1개**다(`<input type="file" multiple accept=".txt">`, 개인/공용 두 상세 화면 모두 동일 규칙).
+파일명(확장자 제외)이 제목, 파일 전체 텍스트가 내용이 되고, 파일명 순서(숫자 포함 자연 정렬,
+`localeCompare(..., {numeric:true})`)대로 `sort_order`가 매겨진다 — 사용자 확정.
+`parseChapterFiles()`가 `AdminBookDetailPage.tsx`(공용)와 `BookDetailPage.tsx`(개인)에 각각
+동일하게 구현돼 있다(공유 유틸로 추출하지 않음).
+
+**단어장 일괄등록 형식 확장(2026-09-15)**: 원래 `.txt` 파일 + 탭 구분만 지원했으나, 쉼표 구분
+`.csv`와 탭 구분 `.tsv`도 함께 지원하도록 확장했다(`docs/DECISION_LOG.md` 2026-09-15) — 구분자는
+**확장자로 결정**한다(`.csv`→쉼표, 그 외 `.tsv`/`.txt`→탭, 기존 `.txt` 동작은 그대로 유지).
+따옴표(`"`)로 감싼 필드 안의 구분자·줄바꿈·이스케이프된 큰따옴표(`""`)도 표준 CSV 규칙대로 처리해,
+정의/예문에 쉼표나 줄바꿈이 들어있는 실제 CSV 내보내기 파일도 그대로 붙여넣을 수 있다. 이 계기로
+기존에 개인/공용 두 파일에 중복 구현돼 있던 `parseWordsTxt()`를 `web/src/lib/bulkWordsParse.ts`의
+`parseWordsFile(filename, content)` 공용 유틸로 통합했다. **헤더 행 자동 스킵은 하지 않는다** —
+스프레드시트에서 내보낸 CSV에 "단어,뜻,예문" 같은 헤더 줄이 있으면 그 줄도 단어 1개로 그대로
+등록되므로, 업로드 전 헤더 줄을 지워야 한다(기존 `.txt` 관례에 헤더가 없었던 것과 동일하게, 휴리스틱
+자동 판별은 오탐 위험이 있어 넣지 않기로 결정).
 
 - 구현: `web/src/repositories/types.ts`(개인 책장 9개 메서드 추가) +
   `web/src/repositories/local/LocalDataRepository.ts`/`remote/RemoteDataRepository.ts`(양쪽 구현) +
