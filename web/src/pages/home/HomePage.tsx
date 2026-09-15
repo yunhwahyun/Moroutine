@@ -12,6 +12,7 @@ import {
   groupOccurrencesByDate,
   dateStr,
 } from '@/lib/scheduleRepeat'
+import { formatDateShort, formatScheduleCardTime } from '@/lib/scheduleFormat'
 import { useTodayStudyWords, buildQuizWords, applyQuestionOrder } from '@/hooks/useStudyWords'
 import { buildAutoPlaySegments, buildAutoPlayCaption } from '@/lib/autoplaySegments'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -33,35 +34,6 @@ function addDays(d: Date, n: number): Date {
   return r
 }
 
-function hhmm(iso: string) {
-  const d = new Date(iso)
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
-
-function formatDateHeader(occDate: string) {
-  const [y, m, d] = occDate.split('-').map(Number)
-  const date = new Date(y, m - 1, d)
-  const yy = String(y).slice(2)
-  const mm = String(m).padStart(2, '0')
-  const dd = String(d).padStart(2, '0')
-  const day = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()]
-  return `${yy}.${mm}.${dd} (${day})`
-}
-
-function formatCardTime(startsAt: string, endsAt: string | null, isAllDay: boolean, occDate: string) {
-  if (isAllDay) return '종일'
-  const start = hhmm(startsAt)
-  if (!endsAt) return start
-  const endD = new Date(endsAt)
-  const endDateStr = `${endD.getFullYear()}-${String(endD.getMonth() + 1).padStart(2, '0')}-${String(endD.getDate()).padStart(2, '0')}`
-  const end = hhmm(endsAt)
-  if (endDateStr === occDate) return `${start} ~ ${end}`
-  const ey = String(endD.getFullYear()).slice(2)
-  const em = String(endD.getMonth() + 1).padStart(2, '0')
-  const ed = String(endD.getDate()).padStart(2, '0')
-  const ew = ['일', '월', '화', '수', '목', '금', '토'][endD.getDay()]
-  return `${start} ~ ${ey}.${em}.${ed} (${ew}) ${end}`
-}
 
 
 // ─── schedule query ──────────────────────────────────────────────
@@ -271,13 +243,13 @@ export default function HomePage() {
         <div className="flex flex-col gap-4">
           {groupOccurrencesByDate(scheduleItems).map(({ date, occurrences }) => (
             <div key={date} className="flex flex-col gap-2">
-              <p className="text-xs font-semibold text-gray-500 px-1">{formatDateHeader(date)}</p>
+              <p className="text-xs font-semibold text-gray-500 px-1">{formatDateShort(date)}</p>
               {occurrences.map((occ) => (
                 <div key={occ.occurrence_id} className="bg-white rounded-2xl px-4 py-3 flex items-start gap-3 shadow-sm">
                   <span className="w-2 h-2 rounded-full bg-orange-400 mt-1.5 shrink-0" />
                   <div>
                     <p className="text-xs text-gray-400">
-                      {formatCardTime(occ.starts_at, occ.ends_at, occ.is_all_day, occ.occurrence_date)}
+                      {formatScheduleCardTime(occ)}
                     </p>
                     <p className="text-sm font-medium text-gray-900 mt-0.5">{occ.title}</p>
                   </div>

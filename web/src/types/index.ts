@@ -188,9 +188,15 @@ export type NotificationRecord = {
 }
 
 export type ScheduleOccurrence = {
-  occurrence_id: string         // `${schedule_id}:${occurrence_date}`
+  occurrence_id: string         // `${schedule_id}:${occurrence_date}:${display_date}` — 렌더링용 고유 키일 뿐(React key)
   schedule_id: string
+  // 이 occurrence(반복이면 해당 회차)의 실제 시작일 — exceptions/"이후 모두 수정" 분할의 자연키.
+  // 여러 날짜에 걸친 일정이라도 항상 회차의 시작일로 고정되며 절대 바뀌지 않는다.
   occurrence_date: string       // YYYY-MM-DD
+  // 이 카드가 어느 날짜 헤더 아래 표시되는지. 여러 날짜에 걸친 일정은 겹치는 날짜마다 같은
+  // occurrence_date를 공유하는 별도 엔트리가 생기고 display_date만 날짜별로 다르다
+  // (docs/DECISION_LOG.md 2026-09-15).
+  display_date: string          // YYYY-MM-DD
   title: string
   location: string | null
   starts_at: string

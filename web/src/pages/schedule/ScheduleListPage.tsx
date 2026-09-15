@@ -13,6 +13,7 @@ import {
   groupOccurrencesByDate,
   getOccurrenceDateBefore,
 } from '@/lib/scheduleRepeat'
+import { formatDateShort, formatScheduleCardTime } from '@/lib/scheduleFormat'
 import type {
   Schedule,
   ScheduleException,
@@ -47,47 +48,6 @@ function minutesToTime(mins: number): string {
   const h = Math.floor(wrapped / 60)
   const m = wrapped % 60
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-}
-
-function hhmm(iso: string) {
-  const d = new Date(iso)
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
-
-function formatDateHeader(occDate: string) {
-  const [y, m, d] = occDate.split('-').map(Number)
-  const date = new Date(y, m - 1, d)
-  const yy = String(y).slice(2)
-  const mm = String(m).padStart(2, '0')
-  const dd = String(d).padStart(2, '0')
-  const day = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()]
-  return `${yy}.${mm}.${dd} (${day})`
-}
-
-// 카드 내부 시간 표시 (날짜는 그룹 헤더에 있으므로 시간만)
-function formatCardTime(
-  startsAt: string,
-  endsAt: string | null,
-  isAllDay: boolean,
-  occDate: string,
-) {
-  if (isAllDay) return '종일'
-  const startTime = hhmm(startsAt)
-  if (!endsAt) return startTime
-
-  const endD = new Date(endsAt)
-  const endDate = toDateStr(endD)
-  const endTime = hhmm(endsAt)
-
-  if (endDate === occDate) {
-    return `${startTime} ~ ${endTime}`
-  }
-  // 종료일이 다른 날짜
-  const ey = endD.getFullYear()
-  const emm = String(endD.getMonth() + 1).padStart(2, '0')
-  const edd = String(endD.getDate()).padStart(2, '0')
-  const eday = ['일', '월', '화', '수', '목', '금', '토'][endD.getDay()]
-  return `${startTime} ~ ${String(ey).slice(2)}.${emm}.${edd} (${eday}) ${endTime}`
 }
 
 function formatAlarm(min: number | null) {
@@ -500,7 +460,7 @@ function OccurrenceCard({
       <span className="w-2 h-2 rounded-full bg-orange-400 mt-1.5 shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="text-xs text-gray-400 mb-0.5">
-          {formatCardTime(occ.starts_at, occ.ends_at, occ.is_all_day, occ.occurrence_date)}
+          {formatScheduleCardTime(occ)}
           {occ.is_exception && (
             <span className="ml-1.5 text-blue-400">수정됨</span>
           )}
@@ -946,7 +906,7 @@ export default function ScheduleListPage() {
         {groups.map(({ date, occurrences }) => (
           <div key={date} className="flex flex-col gap-2">
             <p className="text-xs font-semibold text-gray-500 px-1 pt-1">
-              {formatDateHeader(date)}
+              {formatDateShort(date)}
             </p>
             {occurrences.map((occ) =>
               formMode === 'edit' && editingOccurrence?.occurrence_id === occ.occurrence_id ? (

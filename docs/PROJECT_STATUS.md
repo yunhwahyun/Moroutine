@@ -2,6 +2,16 @@
 
 > 최종 업데이트: 2026-09-15
 
+**여러 날짜 걸친 일정 표시 재설계(2026-09-15):** 종일 다중일자 일정에 날짜 범위 표시
+("YY.MM.DD (요일) ~ YY.MM.DD (요일) 종일" / 이어지는 날은 "~ YY.MM.DD (요일) 종일")를 추가하고,
+반복 일정만 다중일자 표시가 안 되던 불일치를 근본적으로 해소 — `ScheduleOccurrence`에
+`occurrence_date`(회차의 진짜 시작일, exceptions 자연키)와 `display_date`(카드가 뜨는 날짜)를
+분리하고 `occurrence_id`에 둘 다 포함시켜 반복 회차끼리 겹쳐도 충돌하지 않게 만들었다. 이제
+반복이든 아니든 여러 날짜에 걸친 일정은 겹치는 날짜마다 동일하게 카드가 뜬다. `formatDateHeader`/
+`formatCardTime`이 `ScheduleListPage.tsx`/`HomePage.tsx`에 중복돼 있던 것도
+`web/src/lib/scheduleFormat.ts` 공용 유틸로 추출. 상세는 `docs/DECISION_LOG.md` 2026-09-15
+"여러 날짜 걸친 일정 표시 재설계" 참고.
+
 **여러 날짜에 걸친 일정 버그 2건 추가 수정(2026-09-15):** 앞선 "일정이 안 보이던" 수정을
 반복 일정에도 그대로 적용했더니, 반복 간격이 걸치는 기간보다 짧은 설정(2일짜리 종일 일정을
 매일 반복 등)에서 서로 다른 회차가 `occurrence_id`를 공유해 React key가 충돌 — 삭제/수정이

@@ -55,9 +55,16 @@ function nextOccurrenceDate(schedule: Schedule, from: Date): Date {
   }
 }
 
-// instanceStartDay: 이 occurrence(반복이면 해당 회차)가 실제로 시작하는 날. displayDay: 이
-// 카드를 어느 날짜 헤더 아래 보여줄지(여러 날짜에 걸친 일정은 겹치는 기간 내 날짜마다 한 장씩
-// 카드를 만든다 — 기본값은 instanceStartDay와 동일, 즉 기존 동작 그대로).
+// instanceStartDay: 이 occurrence(반복이면 해당 회차)가 실제로 시작하는 날 — occurrence_date로
+// 저장되며 exceptions/"이후 모두 수정" 분할의 자연키라 절대 안 바뀐다. displayDay: 이 카드를
+// 어느 날짜 헤더 아래 보여줄지(여러 날짜에 걸친 일정은 겹치는 기간 내 날짜마다 한 장씩 카드를
+// 만든다 — 기본값은 instanceStartDay와 동일, 즉 하루짜리 일정은 기존 동작 그대로).
+//
+// occurrence_id에 instanceStartDay와 displayDay를 둘 다 넣는 이유: 반복 간격이 일정이 걸치는
+// 기간보다 짧으면(예: 2일짜리 종일 일정을 매일 반복) 서로 다른 회차가 같은 displayDay를 공유할
+// 수 있다 — occurrence_date(=instanceStartDay)만으로 키를 만들면 이때 충돌해서 React key가
+// 겹치고 삭제/수정이 엉뚱한 카드에 적용된다(실사용자 리포트로 발견, docs/DECISION_LOG.md
+// 2026-09-15). displayDay까지 포함하면 이 경우에도 항상 고유하다.
 function makeOccurrence(
   schedule: Schedule,
   instanceStartDay: Date,
@@ -80,11 +87,13 @@ function makeOccurrence(
     endsAt = new Date(startsAt.getTime() + duration).toISOString()
   }
 
-  const occDate = dateStr(displayDay)
+  const occDate = dateStr(instanceStartDay)
+  const dispDate = dateStr(displayDay)
   return {
-    occurrence_id: `${schedule.id}:${occDate}`,
+    occurrence_id: `${schedule.id}:${occDate}:${dispDate}`,
     schedule_id: schedule.id,
     occurrence_date: occDate,
+    display_date: dispDate,
     title: schedule.title,
     location: schedule.location,
     starts_at: startsAt.toISOString(),
@@ -108,20 +117,15 @@ function makeOccurrence(
  * 종일 일정을 만들고 "오늘"(9/15)만 조회하면 시작일(9/14)이 범위 밖이라 아예 안 뜬다(실사용자
  * 리포트, docs/DECISION_LOG.md 2026-09-15).
  *
- * **반복 없는 일정**은 일정이 걸치는 기간과 조회 범위가 겹치는 날짜마다 카드를 하나씩 만든다
- * (겹치는 날이 여러 개면 그 날짜 헤더 밑에 각각 나타남) — 실제 starts_at/ends_at 값은 그대로
- * 유지하고 occurrence_date(카드가 붙는 날짜)만 날짜별로 바뀐다.
- *
- * **반복 일정**은 회차별로 occurrence를 하나만 만들되(예전과 동일, occurrence_date=그 회차의
- * 실제 시작일), 그 회차가 걸치는 기간이 조회 범위와 겹치기만 하면 포함시키도록 필터만 고쳤다 —
- * 반복 간격이 일정이 걸치는 기간보다 짧으면(예: 2일짜리 종일 일정을 매일 반복) 회차끼리 기간이
- * 겹치더라도 각 회차는 서로 다른 실제 시작일을 갖기 때문에(반복은 항상 앞으로만 진행) 뒤 문단의
- * "반복 없는 일정" 방식처럼 날짜별로 여러 장을 만들면 서로 다른 회차가 같은 표시 날짜를 공유해
- * occurrence_id가 충돌한다(React key 충돌 → 삭제/수정이 엉뚱한 카드에 적용되는 버그로 이어짐,
- * 실사용자 리포트로 발견 — docs/DECISION_LOG.md 2026-09-15). 그래서 반복 일정은 일부러 회차당
- * 카드 1장만 만들어 이 충돌 자체를 피한다 — 대가로, 시작일이 조회 범위보다 앞선 회차는 그
- * 시작일(범위 밖 날짜) 헤더 밑에 뜬다(occurrence_date는 여전히 exceptions/분할 수정의 자연키라
- * 바꿀 수 없음).
+ * 반복 여부와 무관하게, 일정이 걸치는 기간과 조회 범위가 겹치는 날짜마다 카드를 하나씩 만든다
+ * (겹치는 날이 여러 개면 그 날짜 헤더 밑에 각각 나타남) — 실제 starts_at/ends_at과
+ * occurrence_date(회차 식별자, 항상 그 회차의 진짜 시작일)는 그대로 유지하고 display_date(카드가
+ * 붙는 날짜)만 날짜별로 바뀐다. 반복 간격이 걸치는 기간보다 짧아 회차끼리 겹치는 극단적인
+ * 설정(2일짜리 종일 일정을 매일 반복 등)에서도 회차마다 진짜 시작일이 다르므로
+ * occurrence_id(=schedule:occurrence_date:display_date)는 항상 고유하다 — 한때 반복 일정만
+ * 회차당 카드 1장으로 되돌렸었는데, occurrence_id에 시작일을 포함시켜 충돌 자체를 없앤 뒤로는
+ * 반복 일정도 하루짜리 일정과 동일하게 날짜마다 카드가 뜬다(사용자 확인 요청으로 재정리,
+ * docs/DECISION_LOG.md 2026-09-15).
  */
 export function expandScheduleOccurrences(
   schedule: Schedule,
@@ -135,13 +139,17 @@ export function expandScheduleOccurrences(
   // 일정이 걸치는 일수(당일이면 0) — 반복 회차마다 시작일이 밀려도 걸치는 일수는 동일하다고 가정.
   const spanDays = Math.max(0, Math.round((baseEndDay.getTime() - baseDay.getTime()) / 86400000))
 
-  if (schedule.repeat_type === 'none') {
-    const instanceEndDay = addDays(baseDay, spanDays)
-    const visibleStart = baseDay > rangeStart ? baseDay : rangeStart
+  function pushOverlappingDays(instanceStartDay: Date, isRecurring: boolean) {
+    const instanceEndDay = addDays(instanceStartDay, spanDays)
+    const visibleStart = instanceStartDay > rangeStart ? instanceStartDay : rangeStart
     const visibleEnd = instanceEndDay < rangeEnd ? instanceEndDay : rangeEnd
     for (let d = new Date(visibleStart); d <= visibleEnd; d = addDays(d, 1)) {
-      result.push(makeOccurrence(schedule, baseDay, false, d))
+      result.push(makeOccurrence(schedule, instanceStartDay, isRecurring, d))
     }
+  }
+
+  if (schedule.repeat_type === 'none') {
+    pushOverlappingDays(baseDay, false)
     return result
   }
 
@@ -163,7 +171,7 @@ export function expandScheduleOccurrences(
     if (current > rangeEnd) break
 
     if (addDays(current, spanDays) >= rangeStart) {
-      result.push(makeOccurrence(schedule, current, true))
+      pushOverlappingDays(current, true)
     }
 
     totalCount++
@@ -171,6 +179,13 @@ export function expandScheduleOccurrences(
   }
 
   return result
+}
+
+// exception은 항상 (schedule_id, occurrence_date=회차의 진짜 시작일) 자연키로 저장되므로,
+// 매칭도 이 키로 해야 한다 — occurrence_id는 display_date까지 포함해 카드마다 달라질 수 있어
+// (여러 날짜에 걸친 일정) 그걸로 매칭하면 같은 회차의 다른 날짜 카드는 예외가 안 걸린다.
+function occurrenceIdentityKey(scheduleId: string, occurrenceDate: string): string {
+  return `${scheduleId}:${occurrenceDate}`
 }
 
 /**
@@ -182,22 +197,22 @@ export function applyScheduleExceptions(
   occurrences: ScheduleOccurrence[],
   exceptions: ScheduleException[],
 ): ScheduleOccurrence[] {
-  const cancelledDates = new Set<string>()
+  const cancelledKeys = new Set<string>()
   const modifiedMap = new Map<string, ScheduleException>()
 
   for (const ex of exceptions) {
-    const key = `${ex.schedule_id}:${ex.occurrence_date}`
+    const key = occurrenceIdentityKey(ex.schedule_id, ex.occurrence_date)
     if (ex.exception_type === 'cancelled') {
-      cancelledDates.add(key)
+      cancelledKeys.add(key)
     } else {
       modifiedMap.set(key, ex)
     }
   }
 
   return occurrences
-    .filter((occ) => !cancelledDates.has(occ.occurrence_id))
+    .filter((occ) => !cancelledKeys.has(occurrenceIdentityKey(occ.schedule_id, occ.occurrence_date)))
     .map((occ) => {
-      const ex = modifiedMap.get(occ.occurrence_id)
+      const ex = modifiedMap.get(occurrenceIdentityKey(occ.schedule_id, occ.occurrence_date))
       if (!ex) return occ
       return {
         ...occ,
@@ -214,7 +229,8 @@ export function applyScheduleExceptions(
 }
 
 /**
- * 여러 schedule의 occurrences를 날짜별로 그룹핑합니다.
+ * 여러 schedule의 occurrences를 날짜별로 그룹핑합니다. display_date(카드가 실제로 표시되는
+ * 날짜) 기준 — occurrence_date(회차 식별자)가 아니다, 여러 날짜에 걸친 일정은 이 둘이 다르다.
  * 반환: { date: string; occurrences: ScheduleOccurrence[] }[] (날짜 오름차순)
  */
 export function groupOccurrencesByDate(
@@ -222,9 +238,9 @@ export function groupOccurrencesByDate(
 ): { date: string; occurrences: ScheduleOccurrence[] }[] {
   const map = new Map<string, ScheduleOccurrence[]>()
   for (const occ of occurrences) {
-    const list = map.get(occ.occurrence_date) ?? []
+    const list = map.get(occ.display_date) ?? []
     list.push(occ)
-    map.set(occ.occurrence_date, list)
+    map.set(occ.display_date, list)
   }
 
   return Array.from(map.entries())

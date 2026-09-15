@@ -6,6 +6,47 @@
 
 ## 2026-09-15
 
+### 여러 날짜 걸친 일정 표시 재설계 — occurrence_date/display_date 분리, 종일 다중일자 카드 텍스트
+
+**배경**: 바로 아래 항목에서 반복 일정만 회차당 카드 1장으로 되돌려 occurrence_id 충돌을
+피했는데, 사용자가 "종일 다중일자는 카드에 날짜 범위가 노출돼야 한다"와 "반복으로 등록한
+종일 일정은 왜 일반 다중일자 일정과 다르게(날짜마다 안 뜨고) 동작하냐"고 지적 — 트레이드오프로
+남겨둔 반복/비반복 간 동작 불일치가 실제로 사용자를 헷갈리게 했다.
+
+**결정**: `ScheduleOccurrence`에 필드를 역할별로 분리한다 — `occurrence_date`(그 occurrence의
+진짜 시작일, exceptions/분할수정의 불변 자연키)와 `display_date`(이 카드가 어느 날짜 헤더
+아래 뜨는지, 여러 날짜에 걸치면 겹치는 날마다 별도 엔트리). `occurrence_id`(React key)는
+`schedule_id:occurrence_date:display_date` 조합으로 만들어 — 회차마다 진짜 시작일
+(occurrence_date)이 항상 다르므로, 반복 간격이 걸치는 기간보다 짧아 회차끼리 겹치는 경우에도
+키가 절대 충돌하지 않는다. 이 설계 덕분에 **반복 일정도 다시 하루짜리 일정과 동일하게 날짜마다
+카드가 뜨도록 복원** — 반복/비반복 동작 불일치를 완전히 없앴다(원래 물어본 "왜 다르냐"에 대한
+답: 의도된 게 아니라 이전 수정의 임시 트레이드오프였고, 이번에 근본적으로 없앰).
+
+`applyScheduleExceptions()`도 `occurrence_id`(카드마다 다를 수 있음) 대신
+`schedule_id:occurrence_date`(회차의 진짜 식별자)로 매칭하도록 함께 수정 — 안 그러면 여러
+날짜에 걸친 회차를 "이 일정만 취소/수정"했을 때 그 회차의 일부 표시 카드에만 예외가 적용되는
+반쪽짜리 결과가 나온다.
+
+**종일 다중일자 카드 텍스트 추가**(사용자 확정): 시작일 카드는
+`YY.MM.DD (요일) ~ YY.MM.DD (요일) 종일`(전체 범위), 그 이후 날짜 카드는
+`~ YY.MM.DD (요일) 종일`(계속 진행 중). 당일 종일 일정은 기존과 동일하게 그냥 `종일`. 이
+계기로 `ScheduleListPage.tsx`/`HomePage.tsx`에 완전히 중복돼 있던 `formatDateHeader`/
+`formatCardTime`을 `web/src/lib/scheduleFormat.ts`(`formatDateShort`/`formatScheduleCardTime`)
+공용 유틸로 추출.
+
+**검증**: `tsx`로 사용자 재현 시나리오(종일 09-14~09-15, 매일 반복 2회, 넓은 범위 조회) 포함
+10개 이상 케이스 실행 — occurrence_id 충돌 없음, 카드 텍스트 정확히 요청 형식대로 출력,
+exceptions가 회차의 모든 표시 카드에 일관 적용, `groupOccurrencesByDate`가 `display_date`
+기준으로 정상 그룹핑, `getOccurrenceDateBefore`(삭제/분할 범위 계산) 회귀 없음 확인.
+`tsc --noEmit`/`npm run build`/`eslint` 통과.
+
+**한계**: 브라우저 자동화 도구가 없어 실제 화면(카드 렌더링, 클릭 조작)은 검증 못함 — 순수
+함수 레벨만 확인.
+
+**상세**: `docs/UI_FLOW.md` "일정(`/schedules`)" §여러 날짜에 걸친 일정 표시.
+
+---
+
 ### 여러 날짜에 걸친 일정이 조회 범위에서 통째로 안 보이던 버그 수정
 
 **증상**: 사용자가 로컬 테스트로 종일 일정을 2026-09-14~2026-09-15로(반복 2회 설정) 저장했는데,
