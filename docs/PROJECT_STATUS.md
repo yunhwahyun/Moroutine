@@ -1,6 +1,13 @@
 # Project Status
 
-> 최종 업데이트: 2026-09-12
+> 최종 업데이트: 2026-09-15
+
+**로그인/비밀번호 재설정 메일 디자인을 Master 초대 메일과 통일(2026-09-15):**
+`_shared/masterInvite.ts`에 공용 `emailShell()` 추출, 동일 디자인의
+`supabase/email-templates/{magic-link,reset-password}.html` 작성 — **Supabase Dashboard의
+Email Templates에 수동으로 붙여넣어야 적용됨(자동 배포 아님)**. `config.toml` 기반 자동 배포는
+검토했으나 원격 설정 14곳과 충돌 위험이 커 포기(`docs/DECISION_LOG.md` 2026-09-15 참고). **사용자
+확인 필요**: Dashboard에 붙여넣기 + 실제 수신 디자인 확인.
 
 **탈퇴 계정 미삭제 버그 발견/정리 + Master 초대 자체 토큰 방식 복귀(2026-09-12):**
 `master-delete-account`가 성공 응답을 줘도 실제로는 `auth.users` 행이 안 지워지는 경우가 있음을

@@ -4,6 +4,30 @@
 
 ---
 
+## 2026-09-15
+
+### 로그인/비밀번호 재설정 메일 디자인을 Master 초대 메일과 통일
+
+- **요청 배경**: Master 초대 메일은 이제 우리 코드(Resend API 직접 호출)가 보내는데, 로그인
+  링크(Magic Link)/비밀번호 재설정 메일은 여전히 Supabase Auth가 보낸다(커스텀 SMTP 경유) —
+  사용자가 셋의 디자인을 통일하고 싶어함.
+- **`supabase config push`로 자동 배포하는 방법을 검토했으나 채택하지 않음**: `config.toml`의
+  `[auth.email.template.*]`로 템플릿을 코드 관리할 수 있긴 하지만, 이 프로젝트엔 `config.toml`
+  자체가 없다(CLI 기반 워크플로우를 안 씀). 임시로 `supabase init`한 스캐폴드로
+  `supabase config pull --dry-run`을 돌려 원격 설정과 비교해본 결과, OTP 길이(6→8),
+  `secure_password_change`(false→true), MFA TOTP, `site_url`, SMTP, rate limit 등 **14곳이
+  로컬 기본값과 다름**을 확인 — `config push`는 로컬 파일이 선언한 값 전체를 밀어붙이는 방식이라
+  (`--dry-run` 옵션 자체가 없음, `config diff`로만 사전 확인 가능), 템플릿만 바꾸려다 이 값들을
+  실수로 로컬 기본값으로 되돌릴 위험이 너무 커서 **이 경로는 포기**했다.
+- **대신**: `supabase/functions/_shared/masterInvite.ts`에 공용 `emailShell()` 함수를 만들어
+  Master 초대 메일이 이걸 쓰도록 리팩터링하고, 같은 디자인의 HTML을
+  `supabase/email-templates/{magic-link,reset-password}.html`로 저장해뒀다 — 사용자가 Supabase
+  Dashboard → Authentication → Email Templates에 수동으로 붙여넣어야 한다(자동 배포 아님, 매번
+  같이 갱신해야 하는 수동 동기화 대상 — `web/public/legal/*.md`와 동일한 패턴).
+- **한계**: 실제로 Dashboard에 붙여넣고 메일이 의도한 디자인대로 오는지는 사용자가 직접 확인
+  필요(Resend/Supabase 양쪽 다 HTML 이메일 클라이언트 호환성 이슈가 있을 수 있음 — 인라인 스타일만
+  써서 위험은 낮췄지만 실제 수신 확인 전까지는 보장 못함).
+
 ## 2026-09-12 (3)
 
 ### 탈퇴한 auth.users 계정이 실제로는 삭제되지 않는 버그 발견 + Master 초대를 자체 토큰 방식으로 복귀
