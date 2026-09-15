@@ -19,10 +19,14 @@ export function parseHashtagsInput(raw: string): string[] {
 }
 
 // 목록에 등장한 해시태그를 빈도 내림차순(동률이면 가나다순)으로 모은 필터 칩 옵션.
-export function collectHashtagFilterOptions(items: { hashtags: string[] }[]): string[] {
+// hashtags 컬럼 추가 이전 데이터(Guest IndexedDB에 남아있던 레코드 등)는 이 필드 자체가 없을 수
+// 있어(?? [])로 방어 — 없으면 "not iterable" 예외로 화면 전체가 하얗게 죽는다(실기기에서 발견,
+// docs/DECISION_LOG.md 2026-09-15). Repository 계층(LocalDataRepository.ts)에서도 이미
+// 채워주지만, 이 함수는 공용 유틸이라 호출부를 다 신뢰하지 않고 한 번 더 방어한다.
+export function collectHashtagFilterOptions(items: { hashtags?: string[] }[]): string[] {
   const counts = new Map<string, number>()
   for (const item of items) {
-    for (const tag of item.hashtags) {
+    for (const tag of item.hashtags ?? []) {
       counts.set(tag, (counts.get(tag) ?? 0) + 1)
     }
   }
@@ -32,7 +36,8 @@ export function collectHashtagFilterOptions(items: { hashtags: string[] }[]): st
 }
 
 // 선택된 태그를 전부(AND) 가진 항목만 통과.
-export function matchesHashtagFilter(itemHashtags: string[], selectedTags: Set<string>): boolean {
+export function matchesHashtagFilter(itemHashtags: string[] | undefined, selectedTags: Set<string>): boolean {
   if (selectedTags.size === 0) return true
-  return [...selectedTags].every((tag) => itemHashtags.includes(tag))
+  const tags = itemHashtags ?? []
+  return [...selectedTags].every((tag) => tags.includes(tag))
 }

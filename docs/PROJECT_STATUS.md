@@ -2,6 +2,17 @@
 
 > 최종 업데이트: 2026-09-15
 
+**🔴 프로덕션 화이트스크린 긴급 수정(2026-09-15):** 해시태그 기능 배포 직후 실사용자
+브라우저(`www.moroutine.kr`)에서 단어장/책장 화면이 완전히 하얗게 뜨는 버그 발견·수정.
+원인은 해시태그 기능 배포 이전에 Guest 로컬(IndexedDB)에 저장된 `wordbooks`/`books`
+레코드에 `hashtags` 필드 자체가 없어(`ALTER TABLE ... DEFAULT`는 서버 DB에만 적용되고
+클라이언트 로컬 저장소엔 소급 적용 안 됨) `for...of` 순회 시 "not iterable" 예외로 렌더링이
+통째로 죽던 것. `LocalDataRepository.ts`(`getWordbooks`/`getWordbook`/`getBooks`/`getBook`)와
+`localSnapshot.ts`(`readLocalSnapshot`)에서 읽은 값에 `hashtags: row.hashtags ?? []`를
+채우도록 수정 + `lib/hashtags.ts` 공용 유틸에도 방어 코드 이중으로 추가. 로컬 개발 환경은
+도메인이 달라 레거시 데이터가 없어 재현이 안 됐던 것도 원인 파악 포인트. 상세는
+`docs/DECISION_LOG.md` 2026-09-15 "프로덕션 화이트스크린 긴급 수정" 참고.
+
 **일정 등록 폼 — 날짜/시간 UI 정리 + 종일 저장값 수정(2026-09-15):** 실기기에서 날짜/시간
 입력 옆 커스텀 아이콘 때문에 화면이 깨져 보인다는 지적으로 아이콘을 완전히 제거하고
 날짜:시간 입력 폭 비율을 3:2→1:1로 조정(`NativeDateTimeInput.tsx`/`ScheduleListPage.tsx`).

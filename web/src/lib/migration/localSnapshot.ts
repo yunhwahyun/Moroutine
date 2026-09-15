@@ -1,6 +1,13 @@
 import { localDB } from '@/repositories/local/schema'
 import type { LocalDataSummary, LocalSnapshot } from './types'
 
+// hashtags 컬럼 추가(마이그레이션 51, 2026-09-15) 이전에 저장된 레코드는 이 필드 자체가 없다 —
+// LocalDataRepository.ts의 동명 함수와 같은 이유(Dexie가 기존 레코드에 새 필드를 소급 적용하지
+// 않음). 이 파일은 LocalDataRepository를 거치지 않고 localDB를 직접 읽어서 별도로 방어해야 한다.
+function withHashtags<T extends { hashtags?: string[] }>(row: T): T & { hashtags: string[] } {
+  return { ...row, hashtags: row.hashtags ?? [] }
+}
+
 // docs/MIGRATION_DESIGN.md — 이전 엔진 전용. 화면은 이 함수를 직접 쓰지 않고
 // useGuestMigration() 훅을 거친다. LocalDataRepository가 아니라 localDB를 직접 읽는 이유는
 // 이전에는 "로컬 ID를 보존한 전체 스냅샷"이 필요한데(개별 CRUD 인터페이스로는 로컬 ID를 노출하지 않음),
@@ -17,7 +24,16 @@ export async function readLocalSnapshot(): Promise<LocalSnapshot> {
       localDB.studySessions.toArray(),
       localDB.studyResults.toArray(),
     ])
-  return { wordbooks, words, books, bookChapters, schedules, scheduleExceptions, studySessions, studyResults }
+  return {
+    wordbooks: wordbooks.map(withHashtags),
+    words,
+    books: books.map(withHashtags),
+    bookChapters,
+    schedules,
+    scheduleExceptions,
+    studySessions,
+    studyResults,
+  }
 }
 
 export async function readLocalDataSummary(): Promise<LocalDataSummary> {

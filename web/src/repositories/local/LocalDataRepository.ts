@@ -26,16 +26,27 @@ function nowIso(): string {
   return new Date().toISOString()
 }
 
+// hashtags 컬럼 추가(마이그레이션 51, 2026-09-15) 이전에 IndexedDB에 저장된 기존 단어장/책장
+// 행에는 이 필드 자체가 없다 — Dexie는 새 필드를 기존 레코드에 소급 적용하지 않으므로, 읽을
+// 때마다 빈 배열로 채워서 타입(hashtags: string[], 항상 배열)과 실제 데이터를 맞춘다. 이걸 안
+// 하면 화면 쪽에서 hashtags를 순회(for...of, .map 등)하다 "not iterable" 예외로 전체 화면이
+// 하얗게 죽는다(실기기에서 발견, docs/DECISION_LOG.md 2026-09-15).
+function withHashtags<T extends { hashtags?: string[] }>(row: T): T & { hashtags: string[] } {
+  return { ...row, hashtags: row.hashtags ?? [] }
+}
+
 // docs/DATA_STORAGE_DESIGN.md §6 — Guest 전용 구현. 서버 왕복 없이 IndexedDB(Dexie)에 정본을 저장한다.
 // Guest는 개인 단어 등록 수를 제한하지 않는다(docs/SUBSCRIPTION_DESIGN.md §1) — bulkCreateWords는
 // 항상 blocked=false, limitValue=null을 반환한다.
 export class LocalDataRepository implements DataRepository {
   async getWordbooks(): Promise<Wordbook[]> {
-    return localDB.wordbooks.orderBy('created_at').reverse().toArray()
+    const rows = await localDB.wordbooks.orderBy('created_at').reverse().toArray()
+    return rows.map(withHashtags)
   }
 
   async getWordbook(id: string): Promise<Wordbook | null> {
-    return (await localDB.wordbooks.get(id)) ?? null
+    const row = await localDB.wordbooks.get(id)
+    return row ? withHashtags(row) : null
   }
 
   async createWordbook(input: CreateWordbookInput): Promise<Wordbook> {
@@ -315,11 +326,13 @@ export class LocalDataRepository implements DataRepository {
   // ── 개인 책장 ────────────────────────────────────────────────────────
 
   async getBooks(): Promise<Book[]> {
-    return localDB.books.orderBy('created_at').reverse().toArray()
+    const rows = await localDB.books.orderBy('created_at').reverse().toArray()
+    return rows.map(withHashtags)
   }
 
   async getBook(id: string): Promise<Book | null> {
-    return (await localDB.books.get(id)) ?? null
+    const row = await localDB.books.get(id)
+    return row ? withHashtags(row) : null
   }
 
   async createBook(input: CreateBookInput): Promise<Book> {

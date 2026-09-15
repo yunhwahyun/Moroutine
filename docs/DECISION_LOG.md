@@ -6,6 +6,43 @@
 
 ## 2026-09-15
 
+### 프로덕션 화이트스크린 긴급 수정 — 해시태그 없는 레거시 Guest 데이터로 `TypeError: r.hashtags is not iterable`
+
+**증상**: 해시태그 기능 배포 직후 사용자가 `www.moroutine.kr`(로컬 dev에서는 재현 안 됨)에서
+단어장/책장 화면이 완전히 하얗게 뜬다고 보고. 콘솔에 `TypeError: r.hashtags is not iterable`.
+
+**원인**: `hashtags text[] NOT NULL DEFAULT '{}'` 컬럼은 Supabase(Remote) 쪽엔 `ALTER TABLE`
+시점에 기존 행까지 기본값이 채워지지만, **Guest의 로컬 저장소(IndexedDB/Dexie)는 스키마
+개념이 없어 이 기능 배포 이전에 만들어진 `wordbooks`/`books` 레코드에는 `hashtags` 필드
+자체가 아예 없다**(`undefined`, `null`도 아니라 키 자체가 없음). `lib/hashtags.ts`의
+`collectHashtagFilterOptions()`가 `for (const tag of item.hashtags)`로 순회하다가 이
+레코드를 만나면 즉시 예외를 던지고, 앱 전체에 에러 바운더리가 없어 렌더링이 통째로 중단된다.
+로컬 개발 환경은 도메인이 달라(localhost vs `www.moroutine.kr`) IndexedDB가 완전히 분리돼
+있어 오래된 레거시 데이터가 없었고, 그래서 로컬에서는 재현되지 않았다.
+
+**수정**:
+- **근본 수정**: `LocalDataRepository.ts`의 `getWordbooks`/`getWordbook`/`getBooks`/`getBook`이
+  Dexie에서 읽은 행을 반환하기 전에 `withHashtags()`로 `hashtags: row.hashtags ?? []`를
+  채워, `Wordbook`/`Book` 타입의 "`hashtags`는 항상 배열" 계약을 실제 데이터와 일치시켰다.
+- **같은 문제가 있던 또 다른 경로**: `lib/migration/localSnapshot.ts`의 `readLocalSnapshot()`은
+  `LocalDataRepository`를 거치지 않고 `localDB`를 직접 읽어(계정 이전/JSON 백업 양쪽이 이 함수를
+  씀) 같은 결함이 있어 동일하게 수정.
+- **방어 코드 추가**: `lib/hashtags.ts`의 `collectHashtagFilterOptions`/`matchesHashtagFilter`도
+  `item.hashtags ?? []`로 한 번 더 방어 — 화면 전체를 죽이는 예외의 파급력이 커서, Repository
+  계층을 다 신뢰하지 않고 공용 유틸 자체에도 안전장치를 이중으로 둠.
+
+**교훈**: DB 컬럼에 `NOT NULL DEFAULT`를 추가할 때 "기존 행에도 기본값이 채워진다"는 건
+**서버 DB에만 해당하는 이야기**이고, 로컬 우선(Guest) 데이터가 있는 앱에서는 클라이언트 저장소
+쪽 레거시 데이터도 반드시 별도로 점검해야 한다. `docs/DECISION_LOG.md` 2026-09-15
+"개인 단어장/책장 해시태그" 항목 작업 시 이 부분을 놓쳤다.
+
+**검증**: `tsx`로 해시태그 필드가 없는 레거시 형태 객체를 `collectHashtagFilterOptions`/
+`matchesHashtagFilter`에 직접 넣어 예외 없이 정상 동작 확인, `tsc --noEmit`/`npm run build`/
+`eslint` 통과. **한계**: 브라우저 자동화 도구가 없어 실제 레거시 IndexedDB 데이터가 있는
+브라우저에서 화면이 다시 뜨는지는 재검증 못함 — 사용자 확인 필요.
+
+---
+
 ### 일정 등록 폼 — 날짜/시간 UI 정리 + 종일 저장값 수정
 
 **배경**: 사용자가 실기기 스크린샷 3장(iOS 네이티브 캘린더 스타일 참고 이미지 2장 + 실제
