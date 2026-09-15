@@ -6,7 +6,17 @@
 
 ## 2026-09-15
 
-### 로그인/비밀번호 재설정 메일 디자인을 Master 초대 메일과 통일
+### 초대 메일 디자인을 Supabase 기본 템플릿 스타일로 재변경(사용자가 Supabase 쪽은 직접 설정 완료)
+
+사용자가 아래 "메일 디자인 통일" 작업에서 제가 만든 `emailShell()`(단순한 디자인)을 되돌리고,
+Supabase Auth의 기본 초대 템플릿 마크업(테두리 박스 + 로고 + `hr` 구분선 + 텍스트 링크, 영문
+"You've been invited"/"Accept invitation" 문구 그대로)을 그대로 쓰도록 요청 — 로그인 링크/비밀번호
+재설정은 이미 Supabase Dashboard에서 사용자가 직접 같은 스타일로 설정을 마쳤다고 확인해줌. 제목도
+`[Moroutine] Master 초대`로 변경. `sendInviteEmailViaResend()`를 이 마크업으로 교체하고 재배포,
+이제 더 이상 정확하지 않은 예전 단순 디자인 참고 파일(`magic-link.html`/`reset-password.html`)은
+삭제(`supabase/email-templates/README.md` 갱신).
+
+### 로그인/비밀번호 재설정 메일 디자인을 Master 초대 메일과 통일(위 항목으로 디자인 자체는 대체됨, 조사 과정은 유효)
 
 - **요청 배경**: Master 초대 메일은 이제 우리 코드(Resend API 직접 호출)가 보내는데, 로그인
   링크(Magic Link)/비밀번호 재설정 메일은 여전히 Supabase Auth가 보낸다(커스텀 SMTP 경유) —

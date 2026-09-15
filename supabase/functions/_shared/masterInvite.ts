@@ -49,30 +49,10 @@ export function acceptUrl(token: string): string {
 // 발신 주소는 Supabase SMTP 설정과 동일하게 맞춘다(docs/DECISION_LOG.md 2026-09-09 확인값).
 const FROM_ADDRESS = 'Moroutine <noreply@moroutine.kr>'
 
-// 로그인(Magic Link)/비밀번호 재설정 메일과 디자인을 통일한다(2026-09-15, 사용자 요청).
-// 저 둘은 Supabase Auth가 직접 보내서 이 함수로 코드 관리가 안 되고, Supabase Dashboard →
-// Authentication → Email Templates에 수동으로 붙여넣어야 한다 — 그 HTML은
-// supabase/email-templates/{magic-link,reset-password}.html에 이 셸과 동일한 디자인으로
-// 보관해뒀다. 이 셸을 바꾸면 그 두 파일도 같이 바꿔서 Dashboard에 다시 붙여넣어야 한다.
-function emailShell(heading: string, bodyHtml: string, buttonLabel: string, url: string, footerNote: string): string {
-  return `
-    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-      <h2 style="color: #111827;">${heading}</h2>
-      <p style="color: #374151; line-height: 1.6;">
-        ${bodyHtml}
-      </p>
-      <p style="text-align: center; margin: 32px 0;">
-        <a href="${url}" style="background:#111827;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;">
-          ${buttonLabel}
-        </a>
-      </p>
-      <p style="color: #9ca3af; font-size: 12px;">
-        ${footerNote}
-      </p>
-    </div>
-  `.trim()
-}
-
+// 2026-09-15 — Supabase Auth 기본 템플릿(Dashboard에 이미 적용된 디자인)과 동일한 마크업으로
+// 되돌림. 로그인(Magic Link)/비밀번호 재설정은 Supabase Dashboard에서 사용자가 직접 관리하고,
+// 이 초대 메일만 코드로 관리한다 — 셋의 시각적 통일은 "이 마크업 구조를 그대로 따른다"는 규칙으로
+// 유지한다(자동 동기화 아님, `supabase/email-templates/README.md` 참고).
 export async function sendInviteEmailViaResend(
   email: string,
   token: string,
@@ -81,13 +61,49 @@ export async function sendInviteEmailViaResend(
   if (!apiKey) return { ok: false, error: 'RESEND_API_KEY가 설정되지 않았습니다.' }
 
   const url = acceptUrl(token)
-  const html = emailShell(
-    'Moroutine Master 초대',
-    'Moroutine의 Master로 초대되었습니다. 아래 버튼을 눌러 가입을 완료해주세요.',
-    '가입 완료하기',
-    url,
-    `이 링크는 ${INVITE_TTL_DAYS}일간 유효합니다. 본인이 요청하지 않았다면 이 메일을 무시하세요.`,
-  )
+  const html = `
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100% !important">
+        <tbody>
+          <tr>
+            <td align="center">
+              <table style="border: 1px solid #eaeaea; border-radius: 5px; margin: 40px auto; width: 600px; max-width: 100%;" width="600" border="0" cellspacing="0" cellpadding="40">
+                <tbody>
+                  <tr>
+                    <td align="center">
+                      <div style="font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif; text-align: left; width: 465px;">
+                        <div style="margin-bottom: 48px">
+                          <img src="https://www.moroutine.kr/symbol-artwork.png" width="60" height="60" alt="Moroutine" style="display: block" loading="lazy" />
+                        </div>
+                        <h1 style="color: #000; font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif; font-size: 24px; font-weight: normal; margin: 30px 0; padding: 0;">
+                          You've been invited
+                        </h1>
+                        <p style=" color: #000; font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif; font-size: 14px; line-height: 24px;">
+                          Hello,
+                        </p>
+                        <p style=" color: #000; font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif; font-size: 14px; line-height: 24px;">
+                          You've been invited to create an account. Follow the link below to accept.
+                        </p>
+
+                        <hr style="border: none; border-top: 1px solid #e6e6e6; margin: 44px 0 32px 0; width: 100%" />
+                        <p style="color: #171717; font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif; font-size: 14px; line-height: 24px;">
+                          <a href="${url}" target="_blank" style="color: #171717;" rel="noreferrer noopener">
+                            Accept invitation
+                          </a>
+                        </p>
+                        <p style="color: #000; font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif; font-size: 14px; line-height: 24px;">
+                          This link is valid for ${INVITE_TTL_DAYS} days.<br>
+                          If you didn't request this, you can safely ignore this email.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+  `.trim()
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -98,7 +114,7 @@ export async function sendInviteEmailViaResend(
     body: JSON.stringify({
       from: FROM_ADDRESS,
       to: [email],
-      subject: 'Moroutine Master 초대',
+      subject: '[Moroutine] Master 초대',
       html,
     }),
   })
