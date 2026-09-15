@@ -574,8 +574,8 @@ export default function ScheduleListPage() {
   })
 
   const { data: exceptions = [] } = useQuery<ScheduleException[]>({
-    queryKey: ['schedule_exceptions', fromDate, toDate, tier],
-    queryFn: () => repository!.getScheduleExceptions(fromDate, toDate),
+    queryKey: ['schedule_exceptions', tier],
+    queryFn: () => repository!.getScheduleExceptions(),
     enabled: !!repository,
   })
 

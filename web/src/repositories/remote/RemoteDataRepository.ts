@@ -282,12 +282,10 @@ export class RemoteDataRepository implements DataRepository {
     if (error) throw error
   }
 
-  async getScheduleExceptions(fromDate: string, toDate: string): Promise<ScheduleException[]> {
+  async getScheduleExceptions(): Promise<ScheduleException[]> {
     const { data, error } = await supabase
       .from('schedule_exceptions')
       .select('*')
-      .gte('occurrence_date', fromDate)
-      .lte('occurrence_date', toDate)
     if (error) throw error
     return data ?? []
   }

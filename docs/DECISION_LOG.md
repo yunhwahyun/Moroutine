@@ -6,6 +6,36 @@
 
 ## 2026-09-15
 
+### "이 일정만 삭제"가 과거에 시작해 오늘까지 이어지는 일정에서 반영 안 되던 버그 수정
+
+**증상**: 시작일이 오늘 이전이고 종료일이 오늘이거나 그 이후인 일정에서 "이 일정만 삭제"를
+누르면 삭제가 반영되지 않는다(카드가 안 사라짐) — "이후 모두 삭제"나 "전체 삭제"는 정상 동작.
+
+**원인**: `getScheduleExceptions(fromDate, toDate)`가 exception의 `occurrence_date`(그
+occurrence/회차의 진짜 시작일)를 현재 화면에 보이는 조회 범위(예: "오늘")로 DB/IndexedDB
+단에서 필터링하고 있었다. 그런데 여러 날짜에 걸친 일정(또는 다중일자 반복 회차)의
+`occurrence_date`는 화면에 지금 보이는 날짜(`display_date`)보다 훨씬 이전일 수 있다 — 예:
+9/10에 시작해 9/16까지 이어지는 일정을 "오늘"(9/15)에서 보고 "이 일정만 삭제"를 누르면,
+`saveScheduleException()`은 `occurrence_date='2026-09-10'`로 정확히 저장하지만, 그 직후
+`getScheduleExceptions('2026-09-15', '2026-09-15')`로 다시 조회하면 9/10은 그 범위 밖이라
+안 걸려서 방금 만든 exception 자체를 못 받아온다 — 화면은 여전히 삭제 전 상태로 렌더링된다.
+`getSchedules()`가 애초에 날짜 필터 없이 전체를 가져와 클라이언트에서
+`expandScheduleOccurrences()`로 걸러내는 것과 똑같은 이유(반복 일정 시작일이 조회 기간보다
+이전일 수 있음)가 exceptions에도 똑같이 적용됐어야 하는데 빠져 있었다.
+
+**수정**: `getScheduleExceptions()`에서 `fromDate`/`toDate` 파라미터를 완전히 제거하고
+사용자의 전체 exceptions를 가져오도록 변경(`getSchedules()`와 동일한 패턴) — 필터링은
+클라이언트의 `applyScheduleExceptions()`가 `schedule_id`+`occurrence_date`로 정확히
+매칭하므로 서버/DB 단 날짜 필터가 애초에 불필요했다. `ScheduleListPage.tsx`/`HomePage.tsx`
+호출부도 함께 정리.
+
+**검증**: `tsc --noEmit`/`npm run build`/`eslint` 통과. 로직상 exceptions 전체를 가져와
+클라이언트에서 정확한 키로 매칭하므로 날짜 범위와 무관하게 항상 올바르게 반영된다(개인
+규모 데이터라 전체 조회 성능 부담 없음, `getSchedules()`가 이미 같은 전제로 설계돼 있음).
+**한계**: 브라우저 자동화 도구가 없어 실제 화면에서 재현·재확인은 못함.
+
+---
+
 ### 여러 날짜 걸친 일정 표시 재설계 — occurrence_date/display_date 분리, 종일 다중일자 카드 텍스트
 
 **배경**: 바로 아래 항목에서 반복 일정만 회차당 카드 1장으로 되돌려 occurrence_id 충돌을

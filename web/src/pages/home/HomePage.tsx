@@ -10,7 +10,6 @@ import {
   expandScheduleOccurrences,
   applyScheduleExceptions,
   groupOccurrencesByDate,
-  dateStr,
 } from '@/lib/scheduleRepeat'
 import { formatDateShort, formatScheduleCardTime } from '@/lib/scheduleFormat'
 import { useTodayStudyWords, buildQuizWords, applyQuestionOrder } from '@/hooks/useStudyWords'
@@ -40,13 +39,11 @@ function addDays(d: Date, n: number): Date {
 
 async function fetchHomeSchedules(repository: DataRepository): Promise<ScheduleOccurrence[]> {
   const today = floorDay(new Date())
-  const todayStr = dateStr(today)
   const rangeEnd = addDays(today, 30)
-  const rangeEndStr = dateStr(rangeEnd)
 
   const [schedules, exceptions] = await Promise.all([
     repository.getSchedules(),
-    repository.getScheduleExceptions(todayStr, rangeEndStr),
+    repository.getScheduleExceptions(),
   ])
   const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59)
 

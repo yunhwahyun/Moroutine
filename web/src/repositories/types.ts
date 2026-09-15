@@ -146,8 +146,14 @@ export interface DataRepository {
   saveSchedule(input: ScheduleInput): Promise<Schedule>
   deleteSchedule(id: string): Promise<void>
 
-  // fromDate/toDate: 'YYYY-MM-DD' (occurrence_date 기준 범위)
-  getScheduleExceptions(fromDate: string, toDate: string): Promise<ScheduleException[]>
+  // getSchedules()와 동일한 이유로 날짜 범위 파라미터를 받지 않는다 — exception의
+  // occurrence_date는 그 occurrence(반복 회차)의 진짜 시작일이라, 여러 날짜에 걸친 일정은
+  // 화면에 보이는 날짜(display_date)보다 훨씬 이전일 수 있다. 예전엔 이 함수가 화면 조회
+  // 범위로 서버/DB 단에서 필터링해서, "이 일정만 삭제" 등으로 만든 exception이 그 occurrence의
+  // 시작일이 조회 범위보다 이전이면 다시 조회되지 않아 삭제가 반영 안 된 것처럼 보이는 버그가
+  // 있었다(실사용자 리포트, docs/DECISION_LOG.md 2026-09-15) — 전체를 가져와 클라이언트에서
+  // applyScheduleExceptions()로 매칭한다.
+  getScheduleExceptions(): Promise<ScheduleException[]>
   saveScheduleException(input: ScheduleExceptionInput): Promise<ScheduleException>
 
   // 알림(Bridge 네이티브 알림 예약 상태 추적) — docs/DESIGN.md §5 참고

@@ -100,7 +100,11 @@ interface DataRepository {
 
   // Guest 일정 지원(Phase 12.5 후속, 2026-07-18) — 반복 일정 예외(이 일정만/이후 모두/전체 수정·삭제)와
   // 로컬 알림 예약 상태 추적까지 Repository로 이관. notificationScheduler.ts가 이 메서드들을 사용한다.
-  getScheduleExceptions(fromDate: string, toDate: string): Promise<ScheduleException[]>
+  // getSchedules()와 동일하게 날짜 범위 파라미터 없이 전체를 가져온다 — exception의
+  // occurrence_date(그 occurrence의 진짜 시작일)가 화면 조회 범위보다 이전일 수 있어(여러 날짜에
+  // 걸친 일정), DB 단에서 날짜로 필터링하면 "이 일정만 삭제"가 화면에 반영 안 되는 버그가 있었다
+  // (2026-09-15 제거, docs/DECISION_LOG.md 참고)
+  getScheduleExceptions(): Promise<ScheduleException[]>
   saveScheduleException(input: ScheduleExceptionInput): Promise<ScheduleException>  // 자연키(schedule_id, occurrence_date) upsert
 
   getActiveNotifications(scheduleId: string): Promise<NotificationRecord[]>

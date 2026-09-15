@@ -241,11 +241,8 @@ export class LocalDataRepository implements DataRepository {
     })
   }
 
-  async getScheduleExceptions(fromDate: string, toDate: string): Promise<ScheduleException[]> {
-    return localDB.scheduleExceptions
-      .where('occurrence_date')
-      .between(fromDate, toDate, true, true)
-      .toArray()
+  async getScheduleExceptions(): Promise<ScheduleException[]> {
+    return localDB.scheduleExceptions.toArray()
   }
 
   async saveScheduleException(input: ScheduleExceptionInput): Promise<ScheduleException> {
