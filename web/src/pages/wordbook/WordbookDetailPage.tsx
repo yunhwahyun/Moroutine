@@ -5,7 +5,7 @@ import { renderLineBreaks } from '@/lib/text'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getRepository } from '@/repositories/factory'
 import { WordLimitExceededError } from '@/repositories/types'
-import { parseWordsFile, type ParsedWord } from '@/lib/bulkWordsParse'
+import { parseWordsFile, readBulkImportFile, type ParsedWord } from '@/lib/bulkWordsParse'
 import { BackIcon, EditIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
 import type { Word, Wordbook } from '@/types'
@@ -84,13 +84,9 @@ function FormActions({
 
 type BulkPreview = {
   toRegister: ParsedWord[]
-  currentTotal: number
   addCount: number
   duplicateCount: number
   errorCount: number
-  limitValue: number | null
-  expectedTotal: number
-  canRegister: boolean
 }
 
 export default function WordbookDetailPage() {
@@ -217,8 +213,9 @@ export default function WordbookDetailPage() {
     fileInputRef.current?.click()
   }
 
-  // docs/DESIGN.md §13 — 등록 전 미리보기: 현재 수/추가 예정/중복 제외/오류 행/등록 후 예상/한도/등록 가능 여부.
-  // 최종 판정은 항상 서버(RPC)가 내리므로 여기서 계산한 canRegister는 UX 힌트일 뿐이다.
+  // docs/DESIGN.md §13 — 등록 전 미리보기: 추가 예정/중복 제외/오류 행. 요금제 한도 개념은
+  // 2026-09-15 삭제 — Guest는 로컬, Master는 서버로 저장 위치만 다를 뿐 등록 개수 제한이
+  // 없어(1차 출시 정책, 결제 없음) 미리 계산해 보여줄 한도 자체가 없다(사용자 확정).
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -226,7 +223,7 @@ export default function WordbookDetailPage() {
     setIsCalculatingPreview(true)
     setBulkError('')
     try {
-      const content = await file.text()
+      const content = await readBulkImportFile(file)
       const { parsed, errorCount } = parseWordsFile(file.name, content)
       if (parsed.length === 0) {
         setBulkError('등록할 단어가 없습니다. 형식을 확인해주세요.')
@@ -247,19 +244,11 @@ export default function WordbookDetailPage() {
         toRegister.push(w)
       }
 
-      const currentTotal = await repository!.getPersonalWordCount()
-      const limitValue = permissions?.personalWordLimit ?? null
-      const expectedTotal = currentTotal + toRegister.length
-
       setBulkPreview({
         toRegister,
-        currentTotal,
         addCount: toRegister.length,
         duplicateCount,
         errorCount,
-        limitValue,
-        expectedTotal,
-        canRegister: toRegister.length > 0 && (limitValue === null || expectedTotal <= limitValue),
       })
     } catch (err) {
       console.error('[bulk preview error]', err)
@@ -280,7 +269,7 @@ export default function WordbookDetailPage() {
     setIsRegisteringBulk(true)
     setBulkError('')
     try {
-      const result = await repository.bulkCreateWords({
+      await repository.bulkCreateWords({
         wordbookId: id!,
         words: bulkPreview.toRegister.map((w) => ({
           term: w.term,
@@ -288,14 +277,6 @@ export default function WordbookDetailPage() {
           example: w.example || null,
         })),
       })
-      if (result.blocked) {
-        // docs/SUBSCRIPTION_DESIGN.md §5-1 — Pro 한도 초과 시 신규 등록 차단. 클라이언트 사전 계산과
-        // 서버 판정이 어긋날 수 있으므로(동시 등록 등) 서버 결과를 최종으로 신뢰한다.
-        setBulkError(
-          `개인 단어 한도(${result.limitValue}개)를 초과해 등록할 수 없습니다. 현재 ${result.currentTotal}개.`,
-        )
-        return
-      }
       invalidate()
       setBulkPreview(null)
     } catch (err) {
@@ -356,30 +337,23 @@ export default function WordbookDetailPage() {
         </div>
       )}
 
-      {/* 일괄등록 미리보기 — docs/DESIGN.md §13 요구 항목(현재 수/추가 예정/중복 제외/오류 행/등록 후 예상/한도/등록 가능 여부) */}
+      {/* 일괄등록 미리보기 — docs/DESIGN.md §13 요구 항목(추가 예정/중복 제외/오류 행). 요금제
+          한도 관련 항목은 2026-09-15 삭제(사용자 확정, docs/DECISION_LOG.md 참고). */}
       {bulkPreview && (
         <div className="bg-white mx-4 mt-4 rounded-2xl border border-gray-200 p-4 flex flex-col gap-2">
           <p className="text-sm font-semibold text-gray-900 mb-1">일괄등록 미리보기</p>
           <div className="grid grid-cols-2 gap-y-1.5 text-xs text-gray-600">
-            <span>현재 개인 단어 수</span><span className="text-right font-medium text-gray-900">{bulkPreview.currentTotal}개</span>
             <span>추가 예정</span><span className="text-right font-medium text-gray-900">{bulkPreview.addCount}개</span>
             <span>중복 제외</span><span className="text-right font-medium text-gray-900">{bulkPreview.duplicateCount}개</span>
             <span>오류 행</span><span className="text-right font-medium text-gray-900">{bulkPreview.errorCount}개</span>
-            <span>등록 후 예상</span><span className="text-right font-medium text-gray-900">{bulkPreview.expectedTotal}개</span>
-            <span>요금제 한도</span>
-            <span className="text-right font-medium text-gray-900">{bulkPreview.limitValue === null ? '무제한' : `${bulkPreview.limitValue}개`}</span>
           </div>
-          {!bulkPreview.canRegister && (
-            <p className="text-red-500 text-xs mt-1">
-              {bulkPreview.addCount === 0
-                ? '새로 등록할 단어가 없습니다(전부 중복 또는 오류).'
-                : `개인 단어 한도를 초과해 등록할 수 없습니다. Premium으로 업그레이드하면 무제한으로 등록할 수 있습니다.`}
-            </p>
+          {bulkPreview.addCount === 0 && (
+            <p className="text-red-500 text-xs mt-1">새로 등록할 단어가 없습니다(전부 중복 또는 오류).</p>
           )}
           <div className="flex gap-2 pt-2">
             <button
               onClick={handleConfirmBulkImport}
-              disabled={!bulkPreview.canRegister || isRegisteringBulk}
+              disabled={bulkPreview.addCount === 0 || isRegisteringBulk}
               className="flex-1 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium disabled:opacity-50"
             >
               {isRegisteringBulk ? '등록 중...' : `${bulkPreview.addCount}개 등록`}

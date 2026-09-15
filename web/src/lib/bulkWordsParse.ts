@@ -9,6 +9,21 @@
 export type ParsedWord = { term: string; definition: string; example: string }
 export type ParsedWordsResult = { parsed: ParsedWord[]; errorCount: number }
 
+// 구글시트에서 내보낸 CSV/TSV는 항상 UTF-8이라 file.text()로 문제없이 읽히지만, 한글 윈도우
+// 엑셀의 "CSV(쉼표로 분리)" 내보내기는 여전히 시스템 코드페이지(CP949/EUC-KR)로 저장한다 —
+// 그 파일을 UTF-8로 읽으면 한글이 다 깨진다(2026-09-15 사용자 리포트). UTF-8은 바이트 규칙이
+// 엄격해서 진짜 UTF-8이 아닌 파일은 fatal 모드에서 반드시 예외가 나므로, 이를 이용해 자동
+// 판별한다 — 성공하면 UTF-8, 실패하면 EUC-KR/CP949로 다시 디코딩(브라우저의 "euc-kr" 라벨은
+// WHATWG 인코딩 표준상 CP949 슈퍼셋까지 포함해 엑셀 결과물과 호환된다).
+export async function readBulkImportFile(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer()
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buffer)
+  } catch {
+    return new TextDecoder('euc-kr').decode(buffer)
+  }
+}
+
 function delimiterForFilename(filename: string): string {
   return filename.toLowerCase().endsWith('.csv') ? ',' : '\t'
 }

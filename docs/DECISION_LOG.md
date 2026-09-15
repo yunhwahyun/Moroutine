@@ -6,6 +6,47 @@
 
 ## 2026-09-15
 
+### 사용자 QA 피드백 4건 반영 — 필터 메시지 위치/종일 종료일/일괄등록 한도 삭제/엑셀 CSV 인코딩
+
+앞선 배포 이후 실사용 중 나온 피드백 4건을 한 번에 처리.
+
+**1. 단어장 필터 "결과 없음" 메시지 위치 변경**: "선택한 태그를 모두 가진 단어장이 없습니다"가
+목록 최상단(복습 단어모음보다 위)에 뜨던 걸 **복습 단어모음 카드 다음**으로 이동
+(`WordbookListPage.tsx`) — 복습 단어모음은 태그 필터와 무관하게 항상 보여야 하는데, 그 위에
+"결과 없음"이 뜨면 복습 카드가 가려진 것처럼 보였다. 책장(`BookshelfListPage.tsx`)은 복습 단어모음
+같은 기준점이 없어 원래 위치(필터 칩 바 다음) 그대로 둠.
+
+**2. 일정 "종일" — 종료 날짜도 계속 노출**: 어제 만든 "종일 켜면 종료 행 전체 숨김" 동작을 사용자가
+다시 지적 — 종일이어도 종료 **날짜**는 계속 선택할 수 있어야 여러 날짜에 걸친 종일 일정(휴가 등)을
+표현할 수 있다. `ScheduleFormPanel`에서 종료 행을 항상 렌더링하되 그 안의 **시간 입력만**
+`!form.isAllDay`로 감싸도록 수정. `buildEndsAt()`도 `form.date` 고정 대신 `form.endDate ||
+form.date`로 종료 날짜를 반영하게 변경 — 저장 값은 여전히 시작 `00:00`/종료 `23:59`.
+
+**3. 일괄등록 미리보기에서 요금제 한도 삭제**: "로컬에 저장하거나 서버에 저장하거나 회원에 따라
+저장 위치만 달라지는 거니까 한도는 삭제해도 된다"는 사용자 판단 — 1차 출시가 결제 없는
+Guest/Master/Admin 체제라 실제로 걸리는 한도가 없다(`docs/launch/PHASE1_POLICY.md`). `WordbookDetailPage.tsx`의
+`BulkPreview`에서 `currentTotal`/`limitValue`/`expectedTotal`/`canRegister` 제거, 미리보기 카드는
+추가 예정/중복 제외/오류 행만 표시. `getPersonalWordCount()` 사전 조회도 제거(더 이상 필요 없음).
+`handleConfirmBulkImport`의 `result.blocked` 분기(현재 정책상 도달 불가능한 죽은 코드)도 함께 제거.
+**범위 밖**: `bulkCreateWords()`가 반환하는 `BulkCreateResult` 타입 자체나 `create_words_checked`
+RPC/단건 등록의 `WordLimitExceededError` 처리는 건드리지 않음 — 이건 "일괄등록 UI"가 아니라
+Repository/DB 계층 전체의 구독 정책 인프라라 이번 요청 범위를 넘는다.
+
+**4. 엑셀 CSV 내보내기 한글 깨짐 수정**: 구글시트에서 내보낸 CSV/TSV는 항상 UTF-8이라 문제
+없었지만, 한글 윈도우 엑셀의 "CSV(쉼표로 분리)" 내보내기는 시스템 코드페이지(CP949/EUC-KR)로
+저장해 `file.text()`(UTF-8 고정 디코딩)로 읽으면 한글이 깨졌다. `web/src/lib/bulkWordsParse.ts`에
+`readBulkImportFile(file)` 추가 — 먼저 `TextDecoder('utf-8', {fatal:true})`로 시도하고(성공하면
+진짜 UTF-8), 실패하면(진짜 UTF-8이 아니었다는 뜻) `TextDecoder('euc-kr')`로 재디코딩(WHATWG
+"euc-kr" 라벨은 CP949 슈퍼셋까지 포함해 엑셀 결과물과도 호환). `WordbookDetailPage.tsx`/
+`AdminWordbookDetailPage.tsx` 양쪽의 `file.text()` 호출을 이 함수로 교체. Python `cp949` 인코딩으로
+만든 실제 바이트열을 넣어 원문과 완전히 동일하게 복원되는지 직접 검증.
+
+**검증**: `tsc --noEmit`/`npm run build`/`eslint` 통과, 인코딩 자동판별은 UTF-8/CP949 양쪽
+바이트열을 직접 만들어 `tsx`로 실행 확인. **한계**: 브라우저 자동화 도구가 없어 실제 화면
+(메시지 위치, 종일 토글 UI, 일괄등록 미리보기, 실제 엑셀 파일 업로드)은 검증 못함.
+
+---
+
 ### 프로덕션 화이트스크린 긴급 수정 — 해시태그 없는 레거시 Guest 데이터로 `TypeError: r.hashtags is not iterable`
 
 **증상**: 해시태그 기능 배포 직후 사용자가 `www.moroutine.kr`(로컬 dev에서는 재현 안 됨)에서

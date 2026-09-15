@@ -11,7 +11,7 @@ import {
   deletePublicWord,
   clearPublicWordbookWords,
 } from '@/lib/publicWordbooks'
-import { parseWordsFile, type ParsedWord } from '@/lib/bulkWordsParse'
+import { parseWordsFile, readBulkImportFile, type ParsedWord } from '@/lib/bulkWordsParse'
 import { BackIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
 import type { PublicWordbookStatus } from '@/types'
@@ -143,7 +143,7 @@ export default function AdminWordbookDetailPage() {
     const file = e.target.files?.[0]
     if (!file) return
     try {
-      const content = await file.text()
+      const content = await readBulkImportFile(file)
       const result = parseWordsFile(file.name, content)
       if (result.parsed.length === 0) {
         setBulkError('등록할 단어가 없습니다. 형식을 확인해주세요.')

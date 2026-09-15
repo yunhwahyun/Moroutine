@@ -427,12 +427,6 @@ export default function WordbookListPage() {
           </div>
         )}
 
-        {!isLoading && wordbooks.length > 0 && filteredWordbooks.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 gap-1">
-            <p className="text-gray-400 text-sm">선택한 태그를 모두 가진 단어장이 없습니다</p>
-          </div>
-        )}
-
         {/* 복습 단어모음 (가상 컬렉션) */}
         {!isLoading && todayWords.length > 0 && (
           <div
@@ -447,6 +441,13 @@ export default function WordbookListPage() {
               <p className="text-sm font-semibold text-gray-900">복습 단어모음</p>
             </div>
             <span className="text-xs text-gray-500 font-medium">{todayWords.length}개</span>
+          </div>
+        )}
+
+        {/* 태그 필터 결과 없음 — 복습 단어모음 다음, 단어장 목록 자리에 노출(사용자 확정) */}
+        {!isLoading && wordbooks.length > 0 && filteredWordbooks.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 gap-1">
+            <p className="text-gray-400 text-sm">선택한 태그를 모두 가진 단어장이 없습니다</p>
           </div>
         )}
 

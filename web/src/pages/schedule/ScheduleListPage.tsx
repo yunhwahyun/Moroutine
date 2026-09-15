@@ -210,10 +210,10 @@ function buildStartsAt(form: ScheduleForm) {
 }
 
 function buildEndsAt(form: ScheduleForm): string | null {
-  // 종일 일정은 종료 날짜/시간 입력이 화면에 없으므로(단일 날짜 개념) 항상 시작 날짜의
-  // 23:59로 저장한다 — 예전엔 null로 저장해 "종일인데 종료 시각이 없다"는 이상한 상태였다
-  // (사용자 확정, docs/DECISION_LOG.md 2026-09-15).
-  if (form.isAllDay) return new Date(`${form.date}T23:59:00`).toISOString()
+  // 종일 일정은 시간 입력만 없을 뿐 종료 날짜는 계속 선택 가능하다(여러 날짜에 걸친 종일 일정
+  // 지원) — 그 날짜의 23:59로 저장한다. 예전엔 null로 저장해 "종일인데 종료 시각이 없다"는
+  // 이상한 상태였다(사용자 확정, docs/DECISION_LOG.md 2026-09-15).
+  if (form.isAllDay) return new Date(`${form.endDate || form.date}T23:59:00`).toISOString()
   if (!form.endTime) return null
   return new Date(`${form.endDate || form.date}T${form.endTime}:00`).toISOString()
 }
@@ -351,25 +351,28 @@ function ScheduleFormPanel({
             )}
           </div>
         </div>
-        {!form.isAllDay && (
-          <div className="flex items-start gap-2 overflow-hidden">
-            <span className={LABEL}>종료</span>
-            <div className="flex flex-row gap-2 flex-1 overflow-hidden max-[360px]:flex-col">
-              <NativeDateTimeInput
-                type="date" value={form.endDate}
-                onChange={(v) => onChange(adjustScheduleDateTime(form, 'endDate', v))}
-                className={INPUT}
-                wrapperClassName="flex-1 min-w-0"
-              />
+        {/* 종일이어도 종료 날짜는 계속 노출한다 — 여러 날에 걸친 종일 일정(예: 휴가)을 표현하려면
+            종료 날짜 선택이 필요하다. 숨기는 건 시간 입력뿐(사용자 확정, docs/DECISION_LOG.md
+            2026-09-15). */}
+        <div className="flex items-start gap-2 overflow-hidden">
+          <span className={LABEL}>종료</span>
+          <div className="flex flex-row gap-2 flex-1 overflow-hidden max-[360px]:flex-col">
+            <NativeDateTimeInput
+              type="date" value={form.endDate}
+              onChange={(v) => onChange(adjustScheduleDateTime(form, 'endDate', v))}
+              className={INPUT}
+              wrapperClassName="flex-1 min-w-0"
+            />
+            {!form.isAllDay && (
               <NativeDateTimeInput
                 type="time" value={form.endTime}
                 onChange={(v) => onChange(adjustScheduleDateTime(form, 'endTime', v))}
                 className={INPUT}
                 wrapperClassName="flex-1 min-w-0"
               />
-            </div>
+            )}
           </div>
-        )}
+        </div>
         <div className="flex items-center justify-between pl-10 pr-1">
           <span className="text-sm text-gray-600">종일</span>
           <Toggle value={form.isAllDay} onChange={(v) => onChange({ ...form, isAllDay: v })} />
