@@ -29,17 +29,21 @@
 프로토콜의 메시지 형식 자체는 안 바뀌고, 이미 오던 `NOTIFICATION_RESULT` 응답을 기다리는
 쪽만 바뀜).
 
-**리포트 3 — 안드로이드에서 11시 알림이 11시 7분에 옴**: 원인은 "정확한 알람" 권한
-미요청으로 추정된다. `node_modules/expo-notifications`의 `ExpoSchedulingDelegate.kt`는
-Android 12(API 31) 이상에서 `alarmManager.canScheduleExactAlarms()`가 false면
-`setExactAndAllowWhileIdle` 대신 `setAndAllowWhileIdle`(부정확한 알람)로 강등하는데, 이건
-Doze/배터리 최적화에 의해 시스템이 몇 분씩 지연시킬 수 있다 — 증상과 정확히 일치한다.
-`mobile/app.json`에 `SCHEDULE_EXACT_ALARM` 매니페스트 권한은 선언돼 있지만, Android
-13(API 33)부터 이 권한은 설치 시 자동 부여되지 않고 사용자가 설정 화면에서 직접 켜야
-하는데, 앱이 이 권한을 요청/안내하는 흐름을 한 번도 넣은 적이 없다(`mobile/App.tsx`의
-`setupNotifications()`는 표준 알림 권한만 요청). **미해결** — 수정하려면 모바일 앱 코드
-변경(`Linking.sendIntent`로 `android.settings.REQUEST_SCHEDULE_EXACT_ALARM` 설정 화면
-유도) + 새 EAS 빌드로 실기기 검증이 필요해 사용자 확인 후 진행하기로 함.
+**리포트 3 — 안드로이드에서 11시 알림이 11시 7분에 옴**: 2026-09-08에 이미 한 번 다룬
+문제의 재발이다(아래 "안드로이드 알림이 뜨긴 하는데 정확한 시각보다 늦게 뜸" 항목) —
+그때 `SCHEDULE_EXACT_ALARM` 매니페스트 권한을 추가하면서 "안드로이드 13(API 33)부터는
+일부 기기에서 사용자가 시스템 설정에서 직접 켜야 할 수도 있다"는 한계를 남겨뒀는데, 실제로
+그 한계가 현실화된 사례로 보인다 — 매니페스트 선언만으론 부족하고, 앱이 이 권한을
+요청/안내하는 흐름을 한 번도 넣은 적이 없었다(`mobile/App.tsx`의 `setupNotifications()`는
+표준 알림 권한만 요청).
+
+**수정**: 이 액션(`android.settings.REQUEST_SCHEDULE_EXACT_ALARM`)엔 시스템 권한
+다이얼로그가 없어 설정 화면으로 보내는 것뿐이다 — 매 실행마다 띄우면 방해가 되므로,
+`@react-native-async-storage/async-storage`로 "이미 안내함" 플래그를 남겨 설치 후 딱
+한 번만 시도한다(`mobile/App.tsx`, 표준 알림 권한 요청 직후, Android 12+에서만). 사용자가
+그 화면에서 실제로 켰는지 확인할 방법은 없어(권한 상태를 안 돌려주는 액션) 결과와 무관하게
+1회 제한한다. **네이티브 코드 변경이라 새 EAS 빌드가 필요**하며, 그 빌드가 실제로 실기기에서
+알림 시각을 정확히 맞추는지는 재검증이 필요하다(사용자 확인 후 진행).
 
 ---
 

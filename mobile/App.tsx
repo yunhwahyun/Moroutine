@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar'
 import { SafeAreaView } from 'react-native'
 import WebView, { WebViewMessageEvent } from 'react-native-webview'
 import * as Notifications from 'expo-notifications'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Speech from 'expo-speech'
 import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync, requestNotificationPermissionsAsync } from 'expo-audio'
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition'
@@ -191,6 +192,26 @@ export default function App() {
       // (iOS/Android 공통 정책) — 그래서 "권한 없음"을 사용자에게 보여주는 게 유일한 대응 수단이다.
       const { granted } = await Notifications.requestPermissionsAsync()
       sendToWeb({ type: 'PERMISSION_RESULT', payload: { permission: 'notifications', granted } })
+
+      // 안드로이드 12+(API 31+)는 "정확한 알람"(SCHEDULE_EXACT_ALARM) 권한이 매니페스트 선언만
+      // 으로는 부족하고, 13+(API 33+)부터는 설치 시 자동 부여도 안 돼서 사용자가 설정 화면에서
+      // 직접 켜야 한다 — 안 켜져 있으면 expo-notifications가 부정확한 알람으로 조용히 강등해서
+      // Doze/배터리 최적화에 의해 알림이 몇 분씩 늦게 온다(실사용자 리포트로 발견,
+      // docs/DECISION_LOG.md 2026-09-16). 이 액션엔 시스템 권한 다이얼로그가 없고 설정 화면으로
+      // 보내는 것뿐이라 매 실행마다 띄우면 방해가 된다 — 설치 후 한 번만 시도한다(AsyncStorage
+      // 플래그, 유저가 그 화면에서 실제로 켰는지는 확인할 방법이 없어 결과와 무관하게 1회 제한).
+      if (Platform.OS === 'android' && Number(Platform.Version) >= 31) {
+        const EXACT_ALARM_PROMPT_KEY = 'exact_alarm_prompted_v1'
+        const alreadyPrompted = await AsyncStorage.getItem(EXACT_ALARM_PROMPT_KEY)
+        if (!alreadyPrompted) {
+          try {
+            await Linking.sendIntent('android.settings.REQUEST_SCHEDULE_EXACT_ALARM')
+          } catch (error) {
+            console.error('[exact alarm settings intent error]', error)
+          }
+          await AsyncStorage.setItem(EXACT_ALARM_PROMPT_KEY, '1')
+        }
+      }
     }
     setupNotifications()
     // docs/launch/PHASE1_POLICY.md §10 2단계 — 1차 빌드는 RevenueCat SDK 자체를 포함하지 않는다
