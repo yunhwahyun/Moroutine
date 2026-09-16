@@ -12,6 +12,17 @@ import Spinner from '@/components/ui/Spinner'
 // 여전히 눈에 띄게 남아, 임의로 실값을 채워 넣지 않는다는 원래 의도는 그대로 유지된다.
 // 실제 내용은 web/public/legal/*.md에 docs/legal 원문을 그대로 복사해 둔 것이다 — docs/legal 쪽이
 // 갱신되면 이 사본도 함께 갱신해야 한다(웹 빌드 산출물은 docs/ 밖 파일을 직접 참조할 수 없음).
+
+// react-markdown은 기본적으로 raw HTML을 실행하지 않고 그대로 이스케이프해서 문자 그대로
+// 화면에 찍는다(`allowDangerousHtml` 미설정) — 문서 안의 `<!-- 주석 -->`(H1 제목 숨김용,
+// docs/legal/*_PHASE1.md·web/public/legal/*.md 공통 패턴)이 안 숨겨지고 그대로 노출되는
+// 문제가 있었다(사용자 리포트, 2026-09-16). rehype-raw로 raw HTML을 실제로 파싱하게 해도
+// 되지만, 이 문서에서 실제로 쓰는 HTML은 주석뿐이라 그것만 처리하면 충분한데도 rehype-raw는
+// HTML 파서(parse5 등)를 통째로 끌고 와서 지연 로딩 청크가 gzip 48KB→101KB로 두 배 넘게
+// 커졌다 — 대신 마크다운 파서에 넘기기 전에 정규식으로 HTML 주석만 직접 제거한다.
+function stripHtmlComments(markdown: string): string {
+  return markdown.replace(/<!--[\s\S]*?-->/g, '')
+}
 export default function LegalDocumentPage({ title, src }: { title: string; src: string }) {
   const navigate = useNavigate()
   const [text, setText] = useState<string | null>(null)
@@ -88,7 +99,7 @@ export default function LegalDocumentPage({ title, src }: { title: string; src: 
                 td: ({ children }) => <td className="border border-gray-200 px-2 py-1.5 align-top">{children}</td>,
               }}
             >
-              {text}
+              {stripHtmlComments(text)}
             </ReactMarkdown>
           </div>
         )}
