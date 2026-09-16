@@ -56,13 +56,17 @@ function FormFields({
 function FormActions({
   onSave,
   onCancel,
+  onDelete,
   isSaving,
+  isDeleting,
   saveLabel,
   disabled,
 }: {
   onSave: () => void
   onCancel: () => void
+  onDelete?: () => void
   isSaving: boolean
+  isDeleting?: boolean
   saveLabel: string
   disabled: boolean
 }) {
@@ -70,12 +74,25 @@ function FormActions({
     <div className="flex gap-2 pt-1">
       <button
         onClick={onSave}
-        disabled={disabled || isSaving}
+        disabled={disabled || isSaving || isDeleting}
         className="flex-1 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium disabled:opacity-50"
       >
         {isSaving ? '저장 중...' : saveLabel}
       </button>
-      <button onClick={onCancel} className="flex-1 py-2.5 rounded-lg border border-gray-200 text-gray-600 text-sm">
+      {onDelete && (
+        <button
+          onClick={onDelete}
+          disabled={isSaving || isDeleting}
+          className="px-4 py-2.5 rounded-lg border border-red-200 text-red-500 text-sm disabled:opacity-50"
+        >
+          {isDeleting ? '삭제 중...' : '삭제'}
+        </button>
+      )}
+      <button
+        onClick={onCancel}
+        disabled={isSaving || isDeleting}
+        className="flex-1 py-2.5 rounded-lg border border-gray-200 text-gray-600 text-sm disabled:opacity-50"
+      >
         취소
       </button>
     </div>
@@ -398,20 +415,15 @@ export default function WordbookDetailPage() {
               <FormActions
                 onSave={() => updateWord({ wordId: word.id, form: editForm })}
                 onCancel={() => { setEditingId(null); setEditForm(EMPTY_FORM) }}
-                isSaving={isUpdating}
-                saveLabel="수정완료"
-                disabled={!editForm.term.trim() || !editForm.definition.trim()}
-              />
-              <button
-                onClick={() => {
+                onDelete={() => {
                   if (!confirm(`"${word.term}" 단어를 삭제하시겠습니까?`)) return
                   removeWord(word.id)
                 }}
-                disabled={isRemovingWord}
-                className="w-full py-2 rounded-lg border border-red-200 text-red-500 text-xs disabled:opacity-50"
-              >
-                {isRemovingWord ? '삭제 중...' : '이 단어 삭제'}
-              </button>
+                isSaving={isUpdating}
+                isDeleting={isRemovingWord}
+                saveLabel="수정완료"
+                disabled={!editForm.term.trim() || !editForm.definition.trim()}
+              />
             </div>
           ) : (
             <div key={word.id} className="bg-white rounded-2xl p-4 shadow-sm">
