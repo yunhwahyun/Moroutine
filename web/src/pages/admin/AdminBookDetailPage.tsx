@@ -11,7 +11,7 @@ import {
   deletePublicBookChapter,
   clearPublicBookChapters,
 } from '@/lib/publicBooks'
-import { BackIcon } from '@/components/icons'
+import { BackIcon, TrashIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
 import ExpandableText from '@/components/ui/ExpandableText'
 import type { PublicBookStatus } from '@/types'
@@ -341,7 +341,7 @@ export default function AdminBookDetailPage() {
         <div className="flex flex-col gap-3">
           {chapters.map((chapter, i) => (
             <div key={chapter.id} className="bg-white rounded-2xl shadow-sm p-4">
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-semibold text-gray-900 flex-1 min-w-0 truncate">
                   {i + 1}. {chapter.title}
                 </span>
@@ -351,9 +351,10 @@ export default function AdminBookDetailPage() {
                     removeChapter(chapter.id)
                   }}
                   disabled={isRemovingChapter}
-                  className="text-xs text-red-400 shrink-0 disabled:opacity-50"
+                  className="p-1 text-red-400 shrink-0 disabled:opacity-50"
+                  aria-label="삭제"
                 >
-                  삭제
+                  <TrashIcon size={15} />
                 </button>
               </div>
               <ExpandableText text={chapter.content} />

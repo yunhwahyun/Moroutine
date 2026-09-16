@@ -342,7 +342,7 @@ export default function BookDetailPage() {
             </div>
           ) : (
             <div key={chapter.id} className="bg-white rounded-2xl p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center justify-between gap-2">
                 <div className="flex items-baseline gap-1.5 flex-1 min-w-0">
                   <span className="text-xs text-gray-300 shrink-0">{i + 1}</span>
                   <span className="text-base font-bold text-gray-900 truncate min-w-0">{chapter.title}</span>

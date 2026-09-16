@@ -2,6 +2,13 @@
 
 > 최종 업데이트: 2026-09-16
 
+**관리자 삭제 버튼 아이콘화 + 아이템 카드 정렬 수정(2026-09-16):** 관리자 공용 단어/목차
+목록 아이템의 텍스트 "삭제" 버튼을 신규 `TrashIcon`으로 교체. 메인 화면을 제외한 아이템
+카드에서 제목과 아이콘이 `items-start`라 아이콘이 처져 보이던 정렬을 `items-center`로
+수정(`WordbookDetailPage.tsx`/`BookDetailPage.tsx`/`PublicBookViewPage.tsx`/
+`AdminWordbookDetailPage.tsx`/`AdminBookDetailPage.tsx`). 상세는 `docs/DECISION_LOG.md`
+2026-09-16 참고.
+
 **다국어 TTS 후속 — "오늘의 복습" 언어별 분기 + 다중 선택 시 다른 언어 차단(2026-09-16):**
 `WordbookListPage.tsx`/`BookshelfListPage.tsx` 다중 선택은 서로 다른 언어를 함께 고르지
 못하게 막고 안내 메시지 노출. "오늘의 복습"(`HomePage.tsx`)은 선택 UI가 없어 대신 언어별로

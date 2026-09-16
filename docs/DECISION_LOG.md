@@ -6,6 +6,42 @@
 
 ## 2026-09-16
 
+### 관리자 단어/목차 삭제 버튼 아이콘화 + 아이템 카드 제목·아이콘 정렬 수정
+
+**배경**: ".shadow-sm 목록중에 삭제 버튼이 있는 경우 찾아줘" 요청으로 전수 조사한 결과에
+이어, "관리자 단어 목록/목차 목록 아이템 카드의 삭제 버튼을 휴지통 아이콘으로 바꾸고,
+메인 화면을 제외한 아이템 카드에서 제목과 아이콘이 같은 줄(주로 `justify-between`)에
+있을 때 아이콘이 아래로 처져 보이는 정렬을 고쳐달라"는 후속 요청.
+
+**수정 1 — 휴지통 아이콘**: `TrashIcon`(`src/components/icons.tsx`) 신규 — Feather의
+trash-2 아이콘을 이 프로젝트 아이콘들과 동일한 스타일(`stroke currentColor`, `viewBox 0 0
+24 24`)로 추가. `AdminWordbookDetailPage.tsx`(공용 단어 목록 아이템)와
+`AdminBookDetailPage.tsx`(공용 목차 목록 아이템)의 텍스트 "삭제" 버튼을 이 아이콘 버튼으로
+교체(다른 카드들의 삭제 버튼은 이미 아이콘이 아니라 텍스트 버튼 스타일로 유지 — 이번
+요청은 이 두 카드만 지정).
+
+**수정 2 — 제목·아이콘 정렬**: 아이템 카드 제목 줄이 `items-start`(또는 텍스트 span에
+`flex-1`을 줘서 아이콘을 오른쪽 끝으로 미는 동등한 구성)로 돼 있으면, 제목 텍스트 높이와
+아이콘 높이가 달라 아이콘이 시각적으로 위쪽에 붙고 아래쪽에 여백이 남아 처져 보인다 —
+`items-center`로 변경:
+- `WordbookDetailPage.tsx`(개인 단어 목록 아이템, 번호+제목 vs 수정 아이콘)
+- `BookDetailPage.tsx`(개인 목차 목록 아이템, 번호+제목 vs 듣기/수정 아이콘)
+- `PublicBookViewPage.tsx`(공용 책장 목차 목록 아이템, 번호+제목 vs 듣기 아이콘 — 번호
+  span에 `items-start` 보정용으로 붙어 있던 `mt-0.5`도 `items-center`로 바뀌면서 더 이상
+  필요 없어 함께 제거)
+- `AdminWordbookDetailPage.tsx`/`AdminBookDetailPage.tsx`(위 아이콘화와 같이 수정)
+
+**범위 밖**: `HomePage.tsx`(메인 화면, 요청에서 명시적으로 제외)와
+`ScheduleListPage.tsx`의 `OccurrenceCard`(점 마커 + 여러 줄 내용 + 수정 아이콘 —
+제목 하나가 아니라 여러 줄짜리 블록과 아이콘이 나란히 있는 구조라 `items-start`가
+의도적인 설계이므로 이번 "제목·아이콘 한 줄" 패턴과 다르다고 판단해 제외)은 건드리지
+않았다.
+
+**검증**: `tsc -b --force`(시그니처/캐시 이슈 없음 확인), `eslint .`, `npm run build`
+통과(기존 Quiz.tsx/quizProgress.ts 관련 이슈 외 신규 문제 없음). 웹 전용 수정.
+
+---
+
 ### 다국어 TTS 수정 후속 — "오늘의 복습" 언어별 분기 + 다국어 다중 선택 차단
 
 **배경**: 직전 항목("중국어/일본어 단어장·책장이 항상 영어 음성으로 읽히던 문제 수정")에서

@@ -12,7 +12,7 @@ import {
   clearPublicWordbookWords,
 } from '@/lib/publicWordbooks'
 import { parseWordsFile, readBulkImportFile, type ParsedWord } from '@/lib/bulkWordsParse'
-import { BackIcon } from '@/components/icons'
+import { BackIcon, TrashIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
 import type { PublicWordbookStatus } from '@/types'
 
@@ -330,7 +330,7 @@ export default function AdminWordbookDetailPage() {
         <div className="flex flex-col gap-3">
           {words.map((word) => (
             <div key={word.id} className="bg-white rounded-2xl shadow-sm p-4">
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-semibold text-gray-900">{word.term}</span>
                 <button
                   onClick={() => {
@@ -338,9 +338,10 @@ export default function AdminWordbookDetailPage() {
                     removeWord(word.id)
                   }}
                   disabled={isRemovingWord}
-                  className="text-xs text-red-400 shrink-0 disabled:opacity-50"
+                  className="p-1 text-red-400 shrink-0 disabled:opacity-50"
+                  aria-label="삭제"
                 >
-                  삭제
+                  <TrashIcon size={15} />
                 </button>
               </div>
               <p className="text-xs text-gray-600 mt-1">{word.definition}</p>

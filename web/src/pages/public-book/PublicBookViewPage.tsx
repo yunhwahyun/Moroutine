@@ -96,8 +96,8 @@ export default function PublicBookViewPage() {
 
         {chapters.map((chapter, i) => (
           <div key={chapter.id} className="bg-white rounded-2xl p-4 shadow-sm">
-            <div className="flex items-start gap-2">
-              <span className="text-xs text-gray-300 mt-0.5 shrink-0">{i + 1}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-300 shrink-0">{i + 1}</span>
               <span className="text-base font-bold text-gray-900 flex-1 min-w-0 truncate">{chapter.title}</span>
               <button
                 onClick={() => handleListen(i)}

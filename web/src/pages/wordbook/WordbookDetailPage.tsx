@@ -427,7 +427,7 @@ export default function WordbookDetailPage() {
             </div>
           ) : (
             <div key={word.id} className="bg-white rounded-2xl p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <span className="text-xs text-gray-300 mr-1.5">{i + 1}</span>
                   <span className="text-base font-bold text-gray-900">{word.term}</span>
