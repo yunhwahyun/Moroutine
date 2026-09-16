@@ -99,7 +99,7 @@ function ReviewWordPreview({ words }: { words: Word[] }) {
         <p className="text-gray-400 text-xs pt-1">{renderLineBreaks(word.example)}</p>
       )}
       {moreCount > 0 && (
-        <p className="text-center text-xs text-gray-400 mt-4">+{moreCount}</p>
+        <p className="text-left text-xs text-gray-400 mt-4">+{moreCount}</p>
       )}
     </div>
   )
