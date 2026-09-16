@@ -6,6 +6,23 @@
 
 ## 2026-09-16
 
+### 이용약관/개인정보처리방침 시행일 확정 — 2026-09-17
+
+**결정**: 이용약관 제20조(시행일), 개인정보처리방침 §17(시행일)을 `2026-09-17`로 확정
+(운영자 확인). 두 문서 모두 지금까지 `[확인 필요: YYYY-MM-DD]` 플레이스홀더로 남아있던
+게시 전 필수 확인값 중 하나였다(`docs/legal/PRIVACY_POLICY_PHASE1.md` §게시 전 필수
+확인 체크리스트, `docs/legal/TERMS_PHASE1.md` 상태 표기 참고).
+
+**반영 범위**: `docs/legal/TERMS_PHASE1.md`/`docs/legal/PRIVACY_POLICY_PHASE1.md`(초안·
+체크리스트 원본)와 실제 앱에 게시되는 `web/public/legal/terms.md`/
+`web/public/legal/privacy-policy.md`(`TermsPage.tsx`/`PrivacyPolicyPage.tsx`가 fetch로
+읽는 파일) 총 4개 파일 모두 동일하게 반영.
+
+**남은 항목**: 이용약관 제19조(관할 법원)는 이번 요청 범위 밖이라 `[확인 필요: 관할
+법원]` 그대로 남겨뒀다 — 게시 전 별도 확인 필요.
+
+---
+
 ### 관리자 단어/목차 삭제 버튼 아이콘화 + 아이템 카드 제목·아이콘 정렬 수정
 
 **배경**: ".shadow-sm 목록중에 삭제 버튼이 있는 경우 찾아줘" 요청으로 전수 조사한 결과에
