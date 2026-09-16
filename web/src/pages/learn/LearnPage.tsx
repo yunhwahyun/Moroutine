@@ -161,14 +161,14 @@ export default function LearnPage() {
 
       {/* 자동재생 토글 영역 — 재생 전엔 슬림 바로 노출, 재생 중엔 전역 미니 플레이어가 대신 보인다 */}
       {words.length > 0 && !autoActive && (
-        <div className="px-4 pb-2 pt-1 flex justify-center border-t border-gray-100 bg-white">
+        <div className="px-4 pb-2 pt-1 border-t border-gray-100 bg-white">
           <button
             onClick={handleAutoPlayStart}
             disabled={!autoSupported}
-            className="flex items-center gap-1.5 text-gray-500 text-xs font-medium py-2 px-3 disabled:opacity-40"
+            className="w-full py-4 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium flex items-center justify-center gap-1.5 disabled:opacity-40"
             aria-label="자동재생 시작"
           >
-            <PlayIcon size={14} />
+            <PlayIcon size={24} />
             자동재생
           </button>
         </div>
