@@ -2,6 +2,11 @@
 
 > 최종 업데이트: 2026-09-16
 
+**"듣기"/"전체 듣기" 버튼 테두리 추가(2026-09-16):** `BookDetailPage.tsx`/`PublicBookViewPage.tsx`의
+재생 아이콘 버튼이 테두리 없이 떠 있어 어색하다는 지적으로 `border border-gray-200` 추가,
+`PublicBookViewPage.tsx`의 목차별 듣기 버튼 모양도 `rounded-full`→`rounded-md`로 통일. 상세는
+`docs/DECISION_LOG.md` 2026-09-16 참고.
+
 **책장 목차 미리보기 표시 통일(2026-09-16):** 목차 내용 미리보기가 관리자는 3줄 말줄임(펼치기
 불가), 개인은 전체 노출(안 잘림)로 화면마다 달랐던 걸 통일 — 공용 컴포넌트
 `web/src/components/ui/ExpandableText.tsx` 신설(기본 한 줄 말줄임 + "전체보기"/"한줄 보기"

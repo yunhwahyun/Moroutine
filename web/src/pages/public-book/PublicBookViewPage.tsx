@@ -75,10 +75,10 @@ export default function PublicBookViewPage() {
         <button
           onClick={() => handleListen(0)}
           disabled={!autoSupported || chapters.length === 0}
-          className="p-1 -mr-1 text-gray-600 disabled:opacity-40"
+          className="p-1.5 text-gray-600 border border-gray-200 rounded-md disabled:opacity-40"
           aria-label="전체 듣기"
         >
-          <PlayIcon size={20} />
+          <PlayIcon size={18} />
         </button>
       </div>
 
@@ -106,7 +106,7 @@ export default function PublicBookViewPage() {
                 <button
                   onClick={(e) => { e.stopPropagation(); handleListen(i) }}
                   disabled={!autoSupported}
-                  className="p-1.5 rounded-full text-gray-500 disabled:opacity-40 shrink-0"
+                  className="p-1.5 rounded-md border border-gray-200 text-gray-500 disabled:opacity-40 shrink-0"
                   aria-label="듣기"
                 >
                   <PlayIcon size={16} />

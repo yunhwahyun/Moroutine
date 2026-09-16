@@ -220,7 +220,7 @@ export default function BookDetailPage() {
           <button
             onClick={() => handleListen(0)}
             disabled={!autoSupported || chapters.length === 0}
-            className="p-1.5 text-gray-500 disabled:opacity-40"
+            className="p-1.5 text-gray-600 border border-gray-200 rounded-md disabled:opacity-40"
             aria-label="전체 듣기"
           >
             <PlayIcon size={16} />
@@ -346,7 +346,7 @@ export default function BookDetailPage() {
                   <button
                     onClick={() => handleListen(i)}
                     disabled={!autoSupported}
-                    className="p-2 text-gray-400 hover:text-gray-700 disabled:opacity-40"
+                    className="p-1.5 text-gray-500 hover:text-gray-700 border border-gray-200 rounded-md disabled:opacity-40"
                     aria-label="듣기"
                   >
                     <PlayIcon size={15} />
