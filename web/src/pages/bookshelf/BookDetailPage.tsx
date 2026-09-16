@@ -348,12 +348,12 @@ export default function BookDetailPage() {
                   <button
                     onClick={() => handleListen(i)}
                     disabled={!autoSupported}
-                    className="p-2 text-gray-400 hover:text-gray-700"
+                    className="py-2 px-1 text-gray-400 hover:text-gray-700"
                     aria-label="듣기"
                   >
                     <SpeakerIcon />
                   </button>
-                  <button onClick={() => handleEditStart(chapter)} className="p-2 text-gray-400 hover:text-gray-700" aria-label="수정">
+                  <button onClick={() => handleEditStart(chapter)} className="py-2 pl-2 pr-1 text-gray-400 hover:text-gray-700" aria-label="수정">
                     <EditIcon />
                   </button>
                 </div>

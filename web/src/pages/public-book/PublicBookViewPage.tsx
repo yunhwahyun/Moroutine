@@ -99,7 +99,7 @@ export default function PublicBookViewPage() {
               <button
                 onClick={() => handleListen(i)}
                 disabled={!autoSupported}
-                className="p-2 text-gray-400 hover:text-gray-700 disabled:opacity-40 shrink-0"
+                className="p-1.5 text-gray-400 hover:text-gray-700 disabled:opacity-40 shrink-0"
                 aria-label="듣기"
               >
                 <SpeakerIcon />
