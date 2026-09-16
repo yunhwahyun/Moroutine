@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getPublicBook, getPublicBookChapters } from '@/lib/publicBooks'
@@ -7,6 +6,7 @@ import { useAutoplayStore } from '@/stores/autoplayStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import { BackIcon, PlayIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
+import ExpandableText from '@/components/ui/ExpandableText'
 
 // 원본 참조 방식 — 읽기 전용, 수정/삭제 UI 없음. 학습/퀴즈가 없어 공용 단어장 상세 화면보다
 // 단순하다. "듣기"는 탭한 목차부터 그 책의 전체 목차를 자동재생 세션으로 시작한다 —
@@ -16,7 +16,6 @@ export default function PublicBookViewPage() {
   const navigate = useNavigate()
   const { permissions } = usePermissions()
   const canUse = permissions?.canUsePublicWordbooks ?? false
-  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const { data: book } = useQuery({
     queryKey: ['public-book', id],
@@ -93,35 +92,23 @@ export default function PublicBookViewPage() {
           <p className="text-gray-400 text-sm text-center py-16">등록된 목차가 없습니다</p>
         )}
 
-        {chapters.map((chapter, i) => {
-          const expanded = expandedId === chapter.id
-          return (
-            <div key={chapter.id} className="bg-white rounded-2xl p-4 shadow-sm">
-              <div
-                className="flex items-start gap-2 cursor-pointer"
-                onClick={() => setExpandedId(expanded ? null : chapter.id)}
+        {chapters.map((chapter, i) => (
+          <div key={chapter.id} className="bg-white rounded-2xl p-4 shadow-sm">
+            <div className="flex items-start gap-2">
+              <span className="text-xs text-gray-300 mt-0.5 shrink-0">{i + 1}</span>
+              <span className="text-base font-bold text-gray-900 flex-1 min-w-0 truncate">{chapter.title}</span>
+              <button
+                onClick={() => handleListen(i)}
+                disabled={!autoSupported}
+                className="p-1.5 rounded-md border border-gray-200 text-gray-500 disabled:opacity-40 shrink-0"
+                aria-label="듣기"
               >
-                <span className="text-xs text-gray-300 mt-0.5 shrink-0">{i + 1}</span>
-                <span className="text-base font-bold text-gray-900 flex-1 min-w-0 truncate">{chapter.title}</span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleListen(i) }}
-                  disabled={!autoSupported}
-                  className="p-1.5 rounded-md border border-gray-200 text-gray-500 disabled:opacity-40 shrink-0"
-                  aria-label="듣기"
-                >
-                  <PlayIcon size={16} />
-                </button>
-              </div>
-              <p
-                className={`text-gray-600 text-sm mt-1.5 leading-relaxed whitespace-pre-wrap ${
-                  expanded ? '' : 'line-clamp-2'
-                }`}
-              >
-                {chapter.content}
-              </p>
+                <PlayIcon size={16} />
+              </button>
             </div>
-          )
-        })}
+            <ExpandableText text={chapter.content} />
+          </div>
+        ))}
       </div>
     </div>
   )

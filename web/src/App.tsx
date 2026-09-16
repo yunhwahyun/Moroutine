@@ -13,6 +13,7 @@ import SignupPricingGate from '@/components/onboarding/SignupPricingGate'
 import SampleWordbookSeedGate from '@/components/onboarding/SampleWordbookSeedGate'
 import SettingsSeedGate from '@/components/onboarding/SettingsSeedGate'
 import ReviewNotificationSync from '@/components/notifications/ReviewNotificationSync'
+import ScheduleDailyTimeSync from '@/components/notifications/ScheduleDailyTimeSync'
 import GlobalAutoPlayBar from '@/components/autoplay/GlobalAutoPlayBar'
 import AppRoutes from '@/routes'
 
@@ -63,6 +64,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       <GuestMigrationGate />
       <DowngradeGate />
       <ReviewNotificationSync />
+      <ScheduleDailyTimeSync />
       <GlobalAutoPlayBar />
     </>
   )
