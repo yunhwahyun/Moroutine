@@ -5,6 +5,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { getRepository } from '@/repositories/factory'
 import { useAutoplayStore } from '@/stores/autoplayStore'
 import { buildChapterAutoPlaySegments, buildChapterAutoPlayCaption } from '@/lib/bookAutoplaySegments'
+import { sourceTTSLang } from '@/lib/ttsLang'
 import { BackIcon, EditIcon, SpeakerIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
 import ExpandableText from '@/components/ui/ExpandableText'
@@ -189,11 +190,13 @@ export default function BookDetailPage() {
 
   const handleListen = (startIndex: number) => {
     if (chapters.length === 0) return
+    // 사용자 리포트 — 중국어/일본어 책장이 항상 영어 음성으로 읽혔음(docs/DECISION_LOG.md 2026-09-16).
+    const lang = sourceTTSLang(book?.language)
     autoStart(
       chapters.map((c) => ({
         term: c.title,
         caption: buildChapterAutoPlayCaption(c),
-        segments: buildChapterAutoPlaySegments(c),
+        segments: buildChapterAutoPlaySegments(c, lang),
       })),
       { startIndex },
     )

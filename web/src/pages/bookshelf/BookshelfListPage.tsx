@@ -5,6 +5,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { getRepository } from '@/repositories/factory'
 import { useAutoplayStore } from '@/stores/autoplayStore'
 import { buildChapterAutoPlaySegments, buildChapterAutoPlayCaption } from '@/lib/bookAutoplaySegments'
+import { sourceTTSLang } from '@/lib/ttsLang'
 import { EditIcon, ChevronRightIcon, PlayIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
 import { parseHashtagsInput, collectHashtagFilterOptions, matchesHashtagFilter } from '@/lib/hashtags'
@@ -171,15 +172,20 @@ export default function BookshelfListPage() {
     if (selectedIds.size === 0 || isActionLoading || !repository) return
     setIsActionLoading(true)
     try {
-      const chapterLists = await Promise.all([...selectedIds].map((id) => repository.getChapters(id)))
-      const chapters = chapterLists.flat()
-      if (chapters.length === 0) return
+      const ids = [...selectedIds]
+      const chapterLists = await Promise.all(ids.map((id) => repository.getChapters(id)))
+      if (chapterLists.every((list) => list.length === 0)) return
+      // 여러 책을 함께 선택했을 수 있어 목차마다 자기 책의 언어로 읽는다(사용자 리포트 — 중국어/
+      // 일본어 책장이 항상 영어 음성으로 읽혔음, docs/DECISION_LOG.md 2026-09-16).
+      const bookLangMap = new Map(books.map((b) => [b.id, sourceTTSLang(b.language)]))
       autoStart(
-        chapters.map((c) => ({
-          term: c.title,
-          caption: buildChapterAutoPlayCaption(c),
-          segments: buildChapterAutoPlaySegments(c),
-        })),
+        ids.flatMap((id, i) =>
+          chapterLists[i].map((c) => ({
+            term: c.title,
+            caption: buildChapterAutoPlayCaption(c),
+            segments: buildChapterAutoPlaySegments(c, bookLangMap.get(id) ?? 'en-US'),
+          })),
+        ),
       )
     } catch (err) {
       console.error('[bookshelf autoplay fetch error]', err)

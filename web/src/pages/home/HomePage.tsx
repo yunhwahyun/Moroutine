@@ -13,7 +13,9 @@ import {
 } from '@/lib/scheduleRepeat'
 import { formatDateShort, formatScheduleCardTime } from '@/lib/scheduleFormat'
 import { useTodayStudyWords, buildQuizWords, applyQuestionOrder } from '@/hooks/useStudyWords'
+import { useWordbooks } from '@/hooks/useWordbooks'
 import { buildAutoPlaySegments, buildAutoPlayCaption } from '@/lib/autoplaySegments'
+import { sourceTTSLang } from '@/lib/ttsLang'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { SpeakerIcon, PlayIcon } from '@/components/icons'
@@ -75,7 +77,7 @@ async function fetchHomeSchedules(repository: DataRepository): Promise<ScheduleO
 // 단어가 많으면(100개 이상) 카드 100장 이상이 한 번에 DOM에 올라가 스크롤이 버벅이고 멈추는
 // 문제가 있었다(실사용자 리포트) — 첫 단어 하나만 보여주고 나머지는 "+N" 카운트로만 표시한다.
 // 학습하기/Quiz 시작/자동재생 시작은 이 미리보기와 무관하게 항상 studyWords 전체 목록을 쓴다.
-function ReviewWordPreview({ words }: { words: Word[] }) {
+function ReviewWordPreview({ words, lang }: { words: Word[]; lang: string }) {
   const { speak, isSupported } = useTTS()
   if (words.length === 0) return null
   const word = words[0]
@@ -88,7 +90,7 @@ function ReviewWordPreview({ words }: { words: Word[] }) {
           {STATUS_LABEL[word.status] ?? '미학습'}
         </span>
         {isSupported && (
-          <button onClick={() => speak(word.term)} className="p-1 text-gray-400 hover:text-gray-700" aria-label="발음 듣기">
+          <button onClick={() => speak(word.term, lang)} className="p-1 text-gray-400 hover:text-gray-700" aria-label="발음 듣기">
             <SpeakerIcon />
           </button>
         )}
@@ -121,6 +123,16 @@ export default function HomePage() {
     [rawStudyWords, settings.questionOrder],
   )
 
+  // "오늘의 복습"은 여러 단어장의 단어를 한데 섞으므로, 단어마다 자기 단어장의 언어로 읽으려면
+  // wordbook_id → TTS 언어 매핑이 필요하다(사용자 리포트 — 중국어/일본어 단어장이 항상 영어
+  // 음성으로 읽혔음, docs/DECISION_LOG.md 2026-09-16).
+  const { data: wordbooksForLang = [] } = useWordbooks()
+  const wordbookLangMap = useMemo(
+    () => new Map(wordbooksForLang.map((wb) => [wb.id, sourceTTSLang(wb.language)])),
+    [wordbooksForLang],
+  )
+  const langForWord = (w: Word) => wordbookLangMap.get(w.wordbook_id) ?? 'en-US'
+
   const autoSupported = useAutoplayStore((s) => s.isSupported)
   const autoStart = useAutoplayStore((s) => s.start)
 
@@ -129,7 +141,7 @@ export default function HomePage() {
   const handleAutoPlayStart = () => {
     if (studyWords.length === 0) return
     autoStart(
-      studyWords.map((w) => ({ term: w.term, caption: buildAutoPlayCaption(w), segments: buildAutoPlaySegments(w) })),
+      studyWords.map((w) => ({ term: w.term, caption: buildAutoPlayCaption(w), segments: buildAutoPlaySegments(w, langForWord(w)) })),
     )
   }
 
@@ -173,7 +185,7 @@ export default function HomePage() {
             <p className="text-gray-300 text-xs mt-1">단어장에서 단어를 추가해보세요</p>
           </div>
         ) : (
-          <ReviewWordPreview words={studyWords} />
+          <ReviewWordPreview words={studyWords} lang={langForWord(studyWords[0])} />
         )}
 
         <div className="flex gap-2">

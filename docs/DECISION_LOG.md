@@ -6,6 +6,61 @@
 
 ## 2026-09-16
 
+### 중국어/일본어 단어장·책장이 항상 영어 음성으로 읽히던 문제 수정
+
+**증상**: "중국어, 일본어는 못 읽는거야? 단어장/책장에 언어를 선택하는데 해당하는 언어로
+읽어줘야하는데" 리포트. 코드 확인 결과 실제 버그였다 — 단어/책장 발음 재생(개별 "발음 듣기"
+버튼, 자동재생)이 전부 하드코딩된 `'en-US'`로 고정돼 있었다:
+- `autoplaySegments.ts`의 `TERM_LANG = 'en-US'` (단어/예문)
+- `bookAutoplaySegments.ts`의 `CHAPTER_LANG = 'en-US'`(제목/내용) — 주석에 "책장은 언어
+  설정과 무관하게 항상 영어 원음으로 듣는다"고 명시까지 돼 있었다(당시엔 의도된 설계였으나
+  이번 리포트로 잘못된 전제였음이 확인됨)
+- `HomePage.tsx`/`LearnPage.tsx`/`Quiz.tsx`의 개별 "발음 듣기" 버튼도 `speak(word.term)`을
+  언어 인자 없이 호출(`ttsSpeak()`의 기본값 `'en-US'`로 항상 귀결)
+- `Quiz.tsx`엔 `sessionLanguage?: string` prop이 선언만 되어있고 실제로는 어디서도 쓰이지
+  않는 죽은 코드가 있었다 — 이번에 정식으로 배선함
+
+**원인**: `Wordbook`/`Book`(및 `PublicWordbook`/`PublicBook`)의 `language` 필드
+(`'en-ko'|'ja-ko'|'zh-ko'|null` — "원어-한국어" 언어쌍 표기)가 TTS 호출 어디에도 전달되지
+않고 있었다.
+
+**수정**:
+- `src/lib/ttsLang.ts` 신설 — `sourceTTSLang(language)`: `'en-ko'→'en-US'`,
+  `'ja-ko'→'ja-JP'`, `'zh-ko'→'zh-CN'`, 그 외/null → `'en-US'`(레거시 폴백, 예전 동작과
+  동일하게 유지).
+- `buildAutoPlaySegments(word, termLang)`/`buildChapterAutoPlaySegments(chapter, lang)` —
+  하드코딩된 상수 대신 호출부가 넘기는 언어를 받도록 시그니처 변경(뜻은 여전히 한국어 고정).
+- 단어는 여러 단어장이 한 화면에 섞일 수 있어(오늘의 복습, 단어장 여러 개 선택) 단어 하나마다
+  자기 단어장의 언어를 찾아야 한다 — `src/hooks/useWordbooks.ts` 신설(`['wordbooks_language_lookup', tier]`
+  캐시 키, `WordbookListPage.tsx`의 기존 `['wordbooks', tier]`는 통계까지 얹은 다른 모양이라
+  캐시 충돌을 피하려고 일부러 다른 키를 씀) + `wordbook_id → sourceTTSLang(language)` 맵을
+  `HomePage.tsx`/`LearnPage.tsx`/`WordbookListPage.tsx`에서 빌드해서 단어마다 적용.
+  책도 동일한 이유로 `BookshelfListPage.tsx`(여러 책 선택)는 `book_id → lang` 맵, 단일 책
+  화면(`BookDetailPage.tsx`/`PublicBookViewPage.tsx`)은 `book.language` 하나만 씀.
+- 퀴즈는 `QuizWord`에 `wordbook_id`가 없어 단어별로는 못 찾는다 — 기존에 죽어있던
+  `Quiz.tsx`의 `sessionLanguage` prop을 살려서 **세션 전체가 한 언어를 공유**하는 걸로
+  단순화(여러 단어장을 섞은 퀴즈는 첫 단어 기준). `QuizPage.tsx`가
+  `state.sessionLanguage`(공용 단어장 퀴즈, `PublicWordbookViewPage.tsx`가 실어 보냄) 또는
+  `wordData`의 첫 단어가 속한 개인 단어장의 language로 계산해서 넘긴다. 퀴즈 카드의 "영어"
+  라벨도 하드코딩이었던 걸 언어에 맞게(영어/일본어/중국어) 바꿈.
+- 공용 단어장 학습(`LearnPage.tsx`)은 words의 wordbook_id가 공용 단어장 id라 개인
+  `wordbookLangMap`에서 못 찾는다 — `PublicWordbookViewPage.tsx`가 `location.state.sessionLanguage`로
+  그 단어장의 language를 실어 보내고, `LearnPage.tsx`는 이 값이 있으면 단어별 맵보다 우선한다.
+
+**범위 밖(의도적으로 남김)**: 공용 단어장을 "오늘의 복습"이나 단어장 목록 다중 선택으로 함께
+묶어 재생하는 경로는 여전히 개인 `wordbookLangMap`만 보므로 `'en-US'`로 폴백한다 — 이건
+바꾸기 전에도 항상 영어였던 경로라 회귀는 아니지만(현상 유지), 완전히 고치려면 공용 단어장
+language까지 조회하는 추가 배선이 필요해 이번 범위에서는 뺐다.
+
+**검증**: `sourceTTSLang()` 매핑 3종(`tsx` 스크립트로 직접 확인), `tsc -b --force`(증분
+캐시 때문에 `tsc --noEmit`만으로는 시그니처 변경으로 깨진 호출부 일부를 못 잡아서 강제
+재빌드로 재확인), `eslint .`, `npm run build` 통과(기존 Quiz.tsx/quizProgress.ts 관련
+이슈 외 신규 문제 없음). 웹 전용 수정 — `mobile/App.tsx`의 `SPEAK_TEXT` 핸들러는 이미
+`lang`을 그대로 `Speech.speak(text, { language: lang })`에 전달하고 있어서 모바일 재빌드
+불필요.
+
+---
+
 ### 홈 화면 복습 카드 슬라이드가 버벅이는 문제 — 첫 단어 하나 + 카운트로 변경
 
 **배경**: "메인에 복습할게 너무 많아서 그런지 슬라이드가 버벅이고 움직임이 끊기고, 멈추기도

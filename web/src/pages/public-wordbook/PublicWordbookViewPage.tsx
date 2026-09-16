@@ -45,7 +45,9 @@ export default function PublicWordbookViewPage() {
     setIsPreparing('learn')
     try {
       const ordered = await prepareStudyWords()
-      navigate('/learn', { state: { targets: [{ type: 'public_wordbook', id }], words: ordered } })
+      navigate('/learn', {
+        state: { targets: [{ type: 'public_wordbook', id }], words: ordered, sessionLanguage: wordbook?.language },
+      })
     } catch (err) {
       console.error('[public wordbook learn error]', err)
     } finally {
@@ -59,7 +61,12 @@ export default function PublicWordbookViewPage() {
     try {
       const ordered = await prepareStudyWords()
       navigate('/quiz', {
-        state: { targets: [{ type: 'public_wordbook', id }], words: buildQuizWords(ordered), wordData: ordered },
+        state: {
+          targets: [{ type: 'public_wordbook', id }],
+          words: buildQuizWords(ordered),
+          wordData: ordered,
+          sessionLanguage: wordbook?.language,
+        },
       })
     } catch (err) {
       console.error('[public wordbook quiz error]', err)

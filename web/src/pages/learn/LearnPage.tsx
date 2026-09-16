@@ -1,8 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTTS } from '@/hooks/useTTS'
 import { useAutoplayStore } from '@/stores/autoplayStore'
 import { buildAutoPlaySegments, buildAutoPlayCaption } from '@/lib/autoplaySegments'
+import { sourceTTSLang } from '@/lib/ttsLang'
+import { useWordbooks } from '@/hooks/useWordbooks'
 import { renderLineBreaks } from '@/lib/text'
 import { BackIcon, SpeakerIcon } from '@/components/icons'
 import { STATUS_LABEL, STATUS_COLOR } from '@/lib/wordConstants'
@@ -45,6 +47,20 @@ export default function LearnPage() {
   const sessionIdRef = useRef<string | null>(null)
   const sessionCreatedRef = useRef(false)  // React StrictMode 개발 모드 이중 마운트로 세션이 중복 생성되는 것 방지
 
+  // 여러 단어장이 섞인 목록일 수 있어(단어장 목록 화면에서 여러 개 선택 등) 단어마다 자기
+  // 단어장의 언어로 읽으려면 wordbook_id → TTS 언어 매핑이 필요하다(사용자 리포트 — 중국어/
+  // 일본어 단어장이 항상 영어 음성으로 읽혔음, docs/DECISION_LOG.md 2026-09-16). 공용 단어장
+  // 학습은 words의 wordbook_id가 공용 단어장 id라 이 맵에서 못 찾으므로, PublicWordbookViewPage.tsx가
+  // 실어 보낸 location.state.sessionLanguage(그 단어장의 language)를 우선 쓴다.
+  const { data: wordbooksForLang = [] } = useWordbooks()
+  const wordbookLangMap = useMemo(
+    () => new Map(wordbooksForLang.map((wb) => [wb.id, sourceTTSLang(wb.language)])),
+    [wordbooksForLang],
+  )
+  const sessionLanguage: string | undefined = location.state?.sessionLanguage ?? undefined
+  const langForWord = (w: Word) =>
+    sessionLanguage ? sourceTTSLang(sessionLanguage) : wordbookLangMap.get(w.wordbook_id) ?? 'en-US'
+
   const autoActive = useAutoplayStore((s) => s.active)
   const autoIndex = useAutoplayStore((s) => s.index)
   const autoSupported = useAutoplayStore((s) => s.isSupported)
@@ -55,7 +71,7 @@ export default function LearnPage() {
   const handleAutoPlayStart = () => {
     if (words.length === 0) return
     autoStart(
-      words.map((w) => ({ term: w.term, caption: buildAutoPlayCaption(w), segments: buildAutoPlaySegments(w) })),
+      words.map((w) => ({ term: w.term, caption: buildAutoPlayCaption(w), segments: buildAutoPlaySegments(w, langForWord(w)) })),
     )
   }
 
@@ -118,7 +134,7 @@ export default function LearnPage() {
               </div>
               {isSupported && (
                 <button
-                  onClick={() => speak(word.term)}
+                  onClick={() => speak(word.term, langForWord(word))}
                   className="p-1.5 text-gray-400 hover:text-gray-700 active:text-gray-900 transition-colors"
                   aria-label="발음 듣기"
                 >

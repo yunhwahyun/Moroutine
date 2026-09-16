@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getPublicBook, getPublicBookChapters } from '@/lib/publicBooks'
 import { buildChapterAutoPlaySegments, buildChapterAutoPlayCaption } from '@/lib/bookAutoplaySegments'
+import { sourceTTSLang } from '@/lib/ttsLang'
 import { useAutoplayStore } from '@/stores/autoplayStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import { BackIcon, SpeakerIcon } from '@/components/icons'
@@ -34,11 +35,13 @@ export default function PublicBookViewPage() {
 
   const handleListen = (startIndex: number) => {
     if (chapters.length === 0) return
+    // 사용자 리포트 — 중국어/일본어 책장이 항상 영어 음성으로 읽혔음(docs/DECISION_LOG.md 2026-09-16).
+    const lang = sourceTTSLang(book?.language)
     autoStart(
       chapters.map((c) => ({
         term: c.title,
         caption: buildChapterAutoPlayCaption(c),
-        segments: buildChapterAutoPlaySegments(c),
+        segments: buildChapterAutoPlaySegments(c, lang),
       })),
       { startIndex },
     )

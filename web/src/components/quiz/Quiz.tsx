@@ -7,10 +7,22 @@ import { BackIcon, CloseIcon, SpeakerIcon, MicIcon } from '@/components/icons'
 import { useTTS } from '@/hooks/useTTS'
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { sourceTTSLang } from '@/lib/ttsLang'
+
+// 단어장 언어 라벨 — WordbookListPage.tsx 등의 LANG_LABEL과 같은 값 집합.
+const TERM_LABEL: Record<string, string> = {
+  'en-ko': '영어',
+  'ja-ko': '일본어',
+  'zh-ko': '중국어',
+}
 
 interface Props {
   words: QuizWord[]
   initialMode?: QuizMode
+  // 단어장/책장의 language 필드 원본 값('en-ko'|'ja-ko'|'zh-ko') — 퀴즈 세션 전체가 한 언어를
+  // 공유한다고 가정한다(여러 단어장을 섞은 퀴즈는 첫 단어 기준, 호출부인 QuizPage.tsx 참고).
+  // 예전엔 이 prop이 선언만 되고 실제로 쓰이지 않아 발음 듣기가 항상 영어로 고정돼 있었다
+  // (사용자 리포트, docs/DECISION_LOG.md 2026-09-16).
   sessionLanguage?: string
   onComplete: (correctCount: number, total: number) => void
   onClose: () => void
@@ -23,8 +35,10 @@ function normalize(text: string): string {
   return text.toLowerCase().trim().replace(/[.,!?]/g, '')
 }
 
-export default function Quiz({ words, initialMode = 'multiple_choice', onComplete, onClose, onWordAnswered }: Props) {
+export default function Quiz({ words, initialMode = 'multiple_choice', sessionLanguage, onComplete, onClose, onWordAnswered }: Props) {
   const { speak, isSupported: ttsSupported } = useTTS()
+  const ttsLang = sourceTTSLang(sessionLanguage)
+  const termLabel = (sessionLanguage && TERM_LABEL[sessionLanguage]) || '영어'
   const { supported: sttSupported, listening, transcript, start: startSTT, stop: stopSTT } = useSpeechRecognition()
   const shortAnswerInput = useSettingsStore((s) => s.settings.shortAnswerInput)
 
@@ -141,11 +155,11 @@ export default function Quiz({ words, initialMode = 'multiple_choice', onComplet
             </>
           ) : (
             <>
-              <p className="text-xs text-gray-400 mb-2">영어</p>
+              <p className="text-xs text-gray-400 mb-2">{termLabel}</p>
               <p className="text-3xl font-bold text-gray-900 tracking-tight">{word.term}</p>
               {ttsSupported && (
                 <button
-                  onClick={() => speak(word.term)}
+                  onClick={() => speak(word.term, ttsLang)}
                   className="mt-3 flex items-center gap-1.5 mx-auto text-gray-400 hover:text-gray-600 active:text-gray-800 transition-colors text-sm"
                   aria-label="발음 듣기"
                 >
@@ -165,9 +179,9 @@ export default function Quiz({ words, initialMode = 'multiple_choice', onComplet
             isCorrect={isCorrectAnswer}
             correctDefinition={mode === 'short_answer' ? word.term : word.definition}
             example={word.example}
-            onSpeak={ttsSupported ? () => speak(word.term) : undefined}
+            onSpeak={ttsSupported ? () => speak(word.term, ttsLang) : undefined}
             onSpeakExample={
-              ttsSupported && word.example ? () => speak(word.example!) : undefined
+              ttsSupported && word.example ? () => speak(word.example!, ttsLang) : undefined
             }
           />
         )}

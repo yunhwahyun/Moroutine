@@ -6,6 +6,7 @@ import { getRepository } from '@/repositories/factory'
 import { useTodayStudyWords, buildQuizWords, applyQuestionOrder } from '@/hooks/useStudyWords'
 import { useAutoplayStore } from '@/stores/autoplayStore'
 import { buildAutoPlaySegments, buildAutoPlayCaption } from '@/lib/autoplaySegments'
+import { sourceTTSLang } from '@/lib/ttsLang'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { EditIcon, ChevronRightIcon, PlayIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
@@ -267,8 +268,15 @@ export default function WordbookListPage() {
     try {
       const words = await fetchSelectedWords()
       if (words.length === 0) return
+      // 여러 단어장을 함께 선택했을 수 있어 단어마다 자기 단어장의 언어로 읽는다(사용자 리포트 —
+      // 중국어/일본어 단어장이 항상 영어 음성으로 읽혔음, docs/DECISION_LOG.md 2026-09-16).
+      const wordbookLangMap = new Map(wordbooks.map((wb) => [wb.id, sourceTTSLang(wb.language)]))
       autoStart(
-        words.map((w) => ({ term: w.term, caption: buildAutoPlayCaption(w), segments: buildAutoPlaySegments(w) })),
+        words.map((w) => ({
+          term: w.term,
+          caption: buildAutoPlayCaption(w),
+          segments: buildAutoPlaySegments(w, wordbookLangMap.get(w.wordbook_id) ?? 'en-US'),
+        })),
       )
     } catch (err) {
       console.error('[wordbook autoplay fetch error]', err)

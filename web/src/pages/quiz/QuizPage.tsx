@@ -8,12 +8,17 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { useAuthStore } from '@/stores/authStore'
 import { getRepository } from '@/repositories/factory'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useWordbooks } from '@/hooks/useWordbooks'
 import type { QuizWord, SelectionTarget, SessionType, Word } from '@/types'
 
 interface QuizPageState {
   targets?: SelectionTarget[]
   words?: QuizWord[]
   wordData?: Word[]  // 상태 업데이트용 전체 Word 데이터
+  // 공용 단어장 퀴즈는 단어 하나하나가 아니라 이 값 하나로 세션 전체 발음 언어를 정한다
+  // (PublicWordbookViewPage.tsx가 그 단어장의 language를 그대로 실어 보낸다) —
+  // 없으면 wordData의 첫 단어가 속한 개인 단어장 언어로 대체(아래 sessionLanguage 계산 참고).
+  sessionLanguage?: string | null
 }
 
 // docs/DECISION_LOG.md 2026-07-19 — 공용 단어장 퀴즈는 개인 wb: 키와 충돌하지 않도록 pwb: 접두어 사용.
@@ -49,6 +54,16 @@ export default function QuizPage() {
     for (const w of state?.wordData ?? []) map[w.id] = w
     return map
   }, [state?.wordData])
+
+  // 퀴즈 발음 언어 — 공용 단어장이면 state.sessionLanguage(그 단어장 자체의 language)를 그대로
+  // 쓰고, 개인 단어장이면 wordData의 첫 단어가 속한 단어장의 language를 찾는다(여러 단어장을
+  // 섞은 퀴즈는 첫 단어 기준 — 사용자 리포트, docs/DECISION_LOG.md 2026-09-16).
+  const { data: wordbooksForLang = [] } = useWordbooks()
+  const sessionLanguage = useMemo(() => {
+    if (state?.sessionLanguage) return state.sessionLanguage
+    const firstWordbookId = (state?.wordData ?? [])[0]?.wordbook_id
+    return wordbooksForLang.find((wb) => wb.id === firstWordbookId)?.language ?? undefined
+  }, [state?.sessionLanguage, state?.wordData, wordbooksForLang])
 
   const savedProgress = useMemo(
     () => (sessionKey ? loadQuizProgress(sessionKey) : null),
@@ -204,6 +219,7 @@ export default function QuizPage() {
     <Quiz
       words={quizWords}
       initialMode={settings.quizMode}
+      sessionLanguage={sessionLanguage}
       onComplete={handleComplete}
       onClose={handleClose}
       onWordAnswered={handleWordAnswered}
