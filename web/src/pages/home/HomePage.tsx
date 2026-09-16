@@ -159,13 +159,13 @@ function ReviewGroupBlock({
         >
           <PlayIcon size={20} />
         </button>
+        <button
+          onClick={() => onQuiz(group)}
+          className="flex-1 py-3 rounded-lg bg-gray-900 text-white text-sm font-medium"
+        >
+          문제풀기
+        </button>
       </div>
-      <button
-        onClick={() => onQuiz(group)}
-        className="w-full py-3.5 rounded-lg bg-gray-900 text-white text-sm font-medium"
-      >
-        Quiz 시작하기
-      </button>
     </div>
   )
 }
