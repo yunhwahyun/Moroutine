@@ -5,7 +5,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { getRepository } from '@/repositories/factory'
 import { useAutoplayStore } from '@/stores/autoplayStore'
 import { buildChapterAutoPlaySegments, buildChapterAutoPlayCaption } from '@/lib/bookAutoplaySegments'
-import { BackIcon, EditIcon, PlayIcon } from '@/components/icons'
+import { BackIcon, EditIcon, SpeakerIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
 import ExpandableText from '@/components/ui/ExpandableText'
 import type { Book, BookChapter } from '@/types'
@@ -223,10 +223,9 @@ export default function BookDetailPage() {
           <button
             onClick={() => handleListen(0)}
             disabled={!autoSupported || chapters.length === 0}
-            className="p-1.5 text-gray-600 border border-gray-200 rounded-md disabled:opacity-40"
-            aria-label="전체 듣기"
+            className="text-xs text-gray-500 px-2.5 py-1.5 rounded-md border border-gray-200 disabled:opacity-40"
           >
-            <PlayIcon size={16} />
+            전체 듣기
           </button>
           {permissions?.canBulkImport && (
             <button
@@ -349,10 +348,10 @@ export default function BookDetailPage() {
                   <button
                     onClick={() => handleListen(i)}
                     disabled={!autoSupported}
-                    className="p-1.5 text-gray-500 hover:text-gray-700 border border-gray-200 rounded-md disabled:opacity-40"
+                    className="p-2 text-gray-400 hover:text-gray-700"
                     aria-label="듣기"
                   >
-                    <PlayIcon size={15} />
+                    <SpeakerIcon />
                   </button>
                   <button onClick={() => handleEditStart(chapter)} className="p-2 text-gray-400 hover:text-gray-700" aria-label="수정">
                     <EditIcon />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTTS } from '@/hooks/useTTS'
 import { useAutoplayStore } from '@/stores/autoplayStore'
@@ -70,63 +70,36 @@ async function fetchHomeSchedules(repository: DataRepository): Promise<ScheduleO
   return [...todayOccs, ...futureOccs.slice(0, needed)]
 }
 
-// ─── SwipeableWordCards ──────────────────────────────────────────
-
-interface SwipeableWordCardsProps {
-  words: Word[]
-  current: number
-  onIndexChange: (index: number) => void
-}
-
-function SwipeableWordCards({ words, current, onIndexChange }: SwipeableWordCardsProps) {
-  const scrollRef = useRef<HTMLDivElement>(null)
+// ─── ReviewWordPreview ────────────────────────────────────────────
+// 예전엔 studyWords 전체를 가로 스와이프 슬라이드(scroll-snap)로 렌더링했는데, 오늘 복습할
+// 단어가 많으면(100개 이상) 카드 100장 이상이 한 번에 DOM에 올라가 스크롤이 버벅이고 멈추는
+// 문제가 있었다(실사용자 리포트) — 첫 단어 하나만 보여주고 나머지는 "+N" 카운트로만 표시한다.
+// 학습하기/Quiz 시작/자동재생 시작은 이 미리보기와 무관하게 항상 studyWords 전체 목록을 쓴다.
+function ReviewWordPreview({ words }: { words: Word[] }) {
   const { speak, isSupported } = useTTS()
-
-  const handleScroll = () => {
-    if (!scrollRef.current) return
-    const idx = Math.round(scrollRef.current.scrollLeft / scrollRef.current.offsetWidth)
-    if (idx !== current) onIndexChange(idx)
-  }
-
-  // 자동재생 등 외부에서 current가 바뀌면 해당 슬라이드로 스크롤 이동
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    el.scrollTo({ left: current * el.offsetWidth, behavior: 'smooth' })
-  }, [current])
+  if (words.length === 0) return null
+  const word = words[0]
+  const moreCount = words.length - 1
 
   return (
     <div className="bg-white border border-gray-100 rounded-2xl px-5 pt-5 pb-4 shadow-sm">
-      <div
-        ref={scrollRef}
-        onScroll={handleScroll}
-        className="flex overflow-x-auto snap-x snap-mandatory"
-        style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
-      >
-        {words.map((word) => (
-          <div key={word.id} className="flex-none w-full snap-start px-0.5">
-            <div className="flex items-start justify-between mb-3">
-              <span className={`inline-block text-xs rounded-full px-2.5 py-0.5 ${STATUS_COLOR[word.status] ?? STATUS_COLOR.unseen}`}>
-                {STATUS_LABEL[word.status] ?? '미학습'}
-              </span>
-              {isSupported && (
-                <button onClick={() => speak(word.term)} className="p-1 text-gray-400 hover:text-gray-700" aria-label="발음 듣기">
-                  <SpeakerIcon />
-                </button>
-              )}
-            </div>
-            <p className="text-2xl font-bold text-gray-900 mb-1">{word.term}</p>
-            <p className="text-gray-500 text-sm mb-2">{word.definition}</p>
-            {word.example && (
-              <p className="text-gray-400 text-xs pt-1">{renderLineBreaks(word.example)}</p>
-            )}
-          </div>
-        ))}
+      <div className="flex items-start justify-between mb-3">
+        <span className={`inline-block text-xs rounded-full px-2.5 py-0.5 ${STATUS_COLOR[word.status] ?? STATUS_COLOR.unseen}`}>
+          {STATUS_LABEL[word.status] ?? '미학습'}
+        </span>
+        {isSupported && (
+          <button onClick={() => speak(word.term)} className="p-1 text-gray-400 hover:text-gray-700" aria-label="발음 듣기">
+            <SpeakerIcon />
+          </button>
+        )}
       </div>
-      {words.length > 1 && (
-        <p className="text-center text-xs text-gray-400 mt-4">
-          {current + 1}/{words.length}
-        </p>
+      <p className="text-2xl font-bold text-gray-900 mb-1">{word.term}</p>
+      <p className="text-gray-500 text-sm mb-2">{word.definition}</p>
+      {word.example && (
+        <p className="text-gray-400 text-xs pt-1">{renderLineBreaks(word.example)}</p>
+      )}
+      {moreCount > 0 && (
+        <p className="text-center text-xs text-gray-400 mt-4">+{moreCount}</p>
       )}
     </div>
   )
@@ -148,7 +121,6 @@ export default function HomePage() {
     [rawStudyWords, settings.questionOrder],
   )
 
-  const [current, setCurrent] = useState(0)
   const autoSupported = useAutoplayStore((s) => s.isSupported)
   const autoStart = useAutoplayStore((s) => s.start)
 
@@ -201,7 +173,7 @@ export default function HomePage() {
             <p className="text-gray-300 text-xs mt-1">단어장에서 단어를 추가해보세요</p>
           </div>
         ) : (
-          <SwipeableWordCards words={studyWords} current={current} onIndexChange={setCurrent} />
+          <ReviewWordPreview words={studyWords} />
         )}
 
         <div className="flex gap-2">

@@ -4,7 +4,7 @@ import { useTTS } from '@/hooks/useTTS'
 import { useAutoplayStore } from '@/stores/autoplayStore'
 import { buildAutoPlaySegments, buildAutoPlayCaption } from '@/lib/autoplaySegments'
 import { renderLineBreaks } from '@/lib/text'
-import { BackIcon, SpeakerIcon, PlayIcon } from '@/components/icons'
+import { BackIcon, SpeakerIcon } from '@/components/icons'
 import { STATUS_LABEL, STATUS_COLOR } from '@/lib/wordConstants'
 import { usePermissions } from '@/hooks/usePermissions'
 import { getRepository } from '@/repositories/factory'
@@ -165,11 +165,9 @@ export default function LearnPage() {
           <button
             onClick={handleAutoPlayStart}
             disabled={!autoSupported}
-            className="w-full py-4 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium flex items-center justify-center gap-1.5 disabled:opacity-40"
-            aria-label="자동재생 시작"
+            className="w-full py-4 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium disabled:opacity-40"
           >
-            <PlayIcon size={24} />
-            자동재생
+            전체 듣기
           </button>
         </div>
       )}

@@ -4,7 +4,7 @@ import { getPublicBook, getPublicBookChapters } from '@/lib/publicBooks'
 import { buildChapterAutoPlaySegments, buildChapterAutoPlayCaption } from '@/lib/bookAutoplaySegments'
 import { useAutoplayStore } from '@/stores/autoplayStore'
 import { usePermissions } from '@/hooks/usePermissions'
-import { BackIcon, PlayIcon } from '@/components/icons'
+import { BackIcon, SpeakerIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
 import ExpandableText from '@/components/ui/ExpandableText'
 
@@ -74,10 +74,9 @@ export default function PublicBookViewPage() {
         <button
           onClick={() => handleListen(0)}
           disabled={!autoSupported || chapters.length === 0}
-          className="p-1.5 text-gray-600 border border-gray-200 rounded-md disabled:opacity-40"
-          aria-label="전체 듣기"
+          className="text-xs text-gray-500 px-2.5 py-1.5 rounded-md border border-gray-200 disabled:opacity-40"
         >
-          <PlayIcon size={18} />
+          전체 듣기
         </button>
       </div>
 
@@ -100,10 +99,10 @@ export default function PublicBookViewPage() {
               <button
                 onClick={() => handleListen(i)}
                 disabled={!autoSupported}
-                className="p-1.5 rounded-md border border-gray-200 text-gray-500 disabled:opacity-40 shrink-0"
+                className="p-2 text-gray-400 hover:text-gray-700 disabled:opacity-40 shrink-0"
                 aria-label="듣기"
               >
-                <PlayIcon size={16} />
+                <SpeakerIcon />
               </button>
             </div>
             <ExpandableText text={chapter.content} />

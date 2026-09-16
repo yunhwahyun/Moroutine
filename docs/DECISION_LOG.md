@@ -6,6 +6,25 @@
 
 ## 2026-09-16
 
+### 홈 화면 복습 카드 슬라이드가 버벅이는 문제 — 첫 단어 하나 + 카운트로 변경
+
+**배경**: "메인에 복습할게 너무 많아서 그런지 슬라이드가 버벅이고 움직임이 끊기고, 멈추기도
+하고 그래" 리포트. `HomePage.tsx`의 `SwipeableWordCards`가 오늘 복습할 단어 전체
+(`useTodayStudyWords()`, 100개 이상 가능)를 가로 스와이프 슬라이드(scroll-snap, 카드마다
+term/definition/example/뱃지/발음 버튼 포함)로 한 번에 DOM에 올려두고 있었다 — 단어 수가
+많을수록 카드가 그만큼 많이 렌더링돼 스크롤 이벤트 핸들러(`handleScroll`)가 매번 무거워지고,
+스크롤 자체도 버벅였다.
+
+**수정**: `SwipeableWordCards`(스크롤 상태 추적 `current`, `onScroll`, snap 스크롤 전부)를
+제거하고 `ReviewWordPreview`로 교체 — 목록의 **첫 번째 단어 카드만** 렌더링하고 나머지는
+"+N" 텍스트 카운트로만 보여준다. **학습하기/Quiz 시작/자동재생 시작 버튼은 이 미리보기와
+무관하게 그대로 `studyWords` 전체 배열을 쓴다**(사용자가 명시적으로 "목록 전체"라고 확인) —
+`handleLearnStart`/`handleQuizStart`/`handleAutoPlayStart`는 변경 없음.
+
+**검증**: `tsc --noEmit`/`eslint`/`npm run build` 통과, 웹 전용 수정(모바일 재빌드 불필요).
+
+---
+
 ### 개인 단어장 상세 — 단어 수정 폼 버튼을 책장 목차 수정 폼과 통일
 
 **배경**: "단어 수정과 목차 수정 폼 하단 버튼이 달라" 리포트 — 단어 수정 폼은
