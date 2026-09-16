@@ -38,7 +38,18 @@ export async function refreshScheduleNotifications(
 
   const occurrences = expandScheduleOccurrences(schedule, rangeStart, rangeEnd)
 
-  const inputs = occurrences.reduce<{ scheduleId: string; fireAt: string }[]>((acc, occ) => {
+  // 여러 날짜에 걸친 일정(2026-09-15 다중일자 표시 개선 이후)은 겹치는 날짜마다 occurrence가
+  // 하나씩 생기는데, 전부 같은 회차의 실제 starts_at을 공유한다 — 그대로 순회하면 알림이
+  // 회차당 여러 번(겹치는 날짜 수만큼) 중복 예약된다. occurrence_date(회차의 진짜 식별자)
+  // 기준으로 중복 제거한 뒤 알림을 계산한다(사용자 리포트로 발견, docs/DECISION_LOG.md 2026-09-16).
+  const seenOccurrenceDates = new Set<string>()
+  const uniqueOccurrences = occurrences.filter((occ) => {
+    if (seenOccurrenceDates.has(occ.occurrence_date)) return false
+    seenOccurrenceDates.add(occ.occurrence_date)
+    return true
+  })
+
+  const inputs = uniqueOccurrences.reduce<{ scheduleId: string; fireAt: string }[]>((acc, occ) => {
     const fireAt = new Date(new Date(occ.starts_at).getTime() - schedule.alarm_minutes! * 60000)
     if (fireAt > now) {
       acc.push({ scheduleId: schedule.id, fireAt: fireAt.toISOString() })
