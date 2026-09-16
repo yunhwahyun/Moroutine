@@ -370,7 +370,15 @@ function ScheduleFormPanel({
           <>
             <select
               value={form.repeatEndType}
-              onChange={(e) => onChange({ ...form, repeatEndType: e.target.value as RepeatEndType })}
+              onChange={(e) => {
+                const nextEndType = e.target.value as RepeatEndType
+                // "날짜까지"로 바꿨는데 값이 비어있으면 아이폰에서 날짜 입력이 값 없이 렌더링돼
+                // 다른 입력들보다 훨씬 작게 나온다 — 시작일을 기본값으로 채워 항상 값이 있는
+                // 상태로 만든다(사용자 확정, docs/DECISION_LOG.md 2026-09-16).
+                const repeatUntil =
+                  nextEndType === 'until' && !form.repeatUntil ? form.date : form.repeatUntil
+                onChange({ ...form, repeatEndType: nextEndType, repeatUntil })
+              }}
               className={SELECT}
             >
               {REPEAT_END_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}

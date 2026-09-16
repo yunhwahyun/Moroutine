@@ -18,13 +18,19 @@
     display: flex;
     flex-direction: column;
   }
-  /* 브라우저마다(특히 select) 기본 높이가 들쭉날쭉해서 최소 높이를 고정한다 */
+  /* 브라우저마다(특히 select) 기본 높이가 들쭉날쭉해서 최소 높이를 고정한다.
+     date/time도 포함 — 아이폰 Safari는 값이 비어있는 date/time input을 다른 입력보다
+     훨씬 작게 그린다(사용자 리포트, docs/DECISION_LOG.md 2026-09-16). 값을 채우는 쪽이
+     더 확실한 해결책이라 폼 쪽에서도 항상 값이 있게 기본값을 넣지만, 이 규칙은 그와 별개로
+     비어있는 경우에도 최소한의 높이는 보장하기 위한 보조 장치다. */
   input[type='text'],
   input[type='tel'],
   input[type='number'],
   input[type='email'],
   input[type='password'],
-  input[type='search'] {
+  input[type='search'],
+  input[type='date'],
+  input[type='time'] {
     min-height: 2.75rem;
     line-height: 1.5;
   }
