@@ -498,10 +498,10 @@ function OccurrenceCard({
       </div>
       <button
         onClick={() => onEdit(occ)}
-        className="p-1.5 text-gray-300 hover:text-gray-600 shrink-0"
+        className="p-1.5 text-gray-400 hover:text-gray-700 shrink-0"
         aria-label="수정"
       >
-        <EditIcon />
+        <EditIcon size={14} />
       </button>
     </div>
   )

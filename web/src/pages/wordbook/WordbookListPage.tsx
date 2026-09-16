@@ -563,7 +563,7 @@ export default function WordbookListPage() {
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleEditStart(wb) }}
-                  className="p-1.5 text-gray-300 hover:text-gray-600"
+                  className="p-1.5 text-gray-400 hover:text-gray-700"
                   aria-label="단어장 수정"
                 >
                   <EditIcon size={14} />

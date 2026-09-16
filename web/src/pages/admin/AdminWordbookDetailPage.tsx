@@ -338,10 +338,10 @@ export default function AdminWordbookDetailPage() {
                     removeWord(word.id)
                   }}
                   disabled={isRemovingWord}
-                  className="p-1 text-red-400 shrink-0 disabled:opacity-50"
+                  className="p-1 text-gray-300 hover:text-gray-600 shrink-0 disabled:opacity-50"
                   aria-label="삭제"
                 >
-                  <TrashIcon size={15} />
+                  <TrashIcon size={14} />
                 </button>
               </div>
               <p className="text-xs text-gray-600 mt-1">{word.definition}</p>

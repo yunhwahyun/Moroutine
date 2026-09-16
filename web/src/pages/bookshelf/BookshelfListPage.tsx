@@ -424,7 +424,7 @@ export default function BookshelfListPage() {
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleEditStart(book) }}
-                  className="p-1.5 text-gray-300 hover:text-gray-600"
+                  className="p-1.5 text-gray-400 hover:text-gray-700"
                   aria-label="책 수정"
                 >
                   <EditIcon size={14} />

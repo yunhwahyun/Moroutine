@@ -351,10 +351,10 @@ export default function AdminBookDetailPage() {
                     removeChapter(chapter.id)
                   }}
                   disabled={isRemovingChapter}
-                  className="p-1 text-red-400 shrink-0 disabled:opacity-50"
+                  className="p-1 text-gray-300 hover:text-gray-600 shrink-0 disabled:opacity-50"
                   aria-label="삭제"
                 >
-                  <TrashIcon size={15} />
+                  <TrashIcon size={14} />
                 </button>
               </div>
               <ExpandableText text={chapter.content} />
