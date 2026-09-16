@@ -59,7 +59,7 @@ export function MicIcon({ size = 20, className }: IconProps) {
 export function PlayIcon({ size = 20, className }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
-      <path d="M7 4.5v15l13-7.5-13-7.5z" />
+      <path d="M7,4.541v14.918c0,.848.979,1.32,1.643.793l9.379-7.459c.51-.405.51-1.18,0-1.585L8.643,3.749c-.664-.528-1.643-.055-1.643.793Z" />
     </svg>
   )
 }
