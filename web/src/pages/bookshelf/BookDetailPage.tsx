@@ -216,7 +216,10 @@ export default function BookDetailPage() {
             {book?.name ?? '책'}
           </h1>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-1.5 px-4 pt-2 pb-3">
+        {/* 제목 줄과 버튼 줄 사이에 구분선이 없어 어색하다는 지적 — 위쪽 여백(mt-3)을 제목의
+            상단 여백(0.75rem)과 맞추고 그 자리에 구분선을 그은 뒤, 선과 버튼 사이 여백(pt-3)도
+            버튼과 하단 여백(pb-3) 간격과 맞춘다(사용자 확정, docs/DECISION_LOG.md 2026-09-16). */}
+        <div className="mt-3 border-t border-gray-100 flex flex-wrap items-center justify-end gap-1.5 px-4 pt-3 pb-3">
           <button
             onClick={() => handleListen(0)}
             disabled={!autoSupported || chapters.length === 0}

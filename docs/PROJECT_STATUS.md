@@ -2,6 +2,11 @@
 
 > 최종 업데이트: 2026-09-16
 
+**개인 단어장/책장 상세 헤더 — 제목/버튼 줄 사이 구분선 추가(2026-09-16):** 앞서 두 줄로 나눈
+헤더에 구분선이 없어 어색하다는 후속 지적 — 버튼 영역 위쪽에 제목과 동일한 여백(0.75rem)을
+주고 그 자리에 구분선을 그어 균형을 맞췄다(`WordbookDetailPage.tsx`/`BookDetailPage.tsx`).
+상세는 `docs/DECISION_LOG.md` 2026-09-16 참고.
+
 **"듣기"/"전체 듣기" 버튼 테두리 추가(2026-09-16):** `BookDetailPage.tsx`/`PublicBookViewPage.tsx`의
 재생 아이콘 버튼이 테두리 없이 떠 있어 어색하다는 지적으로 `border border-gray-200` 추가,
 `PublicBookViewPage.tsx`의 목차별 듣기 버튼 모양도 `rounded-full`→`rounded-md`로 통일. 상세는
