@@ -70,6 +70,7 @@ export default function WordbookListPage() {
   const [formHashtags, setFormHashtags] = useState('')
   const [isActionLoading, setIsActionLoading] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [selectError, setSelectError] = useState('')
   const [tagFilters, setTagFilters] = useState<Set<string>>(new Set())
 
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -197,7 +198,24 @@ export default function WordbookListPage() {
     })
   }
 
+  // 서로 다른 언어의 단어장을 함께 선택하면 자동재생/발음이 어느 언어를 따라야 할지 애매해져서
+  // (사용자 확정) 선택 자체를 막는다 — "오늘의 복습"(id='review')은 원래 여러 언어가 섞여
+  // 있는 게 정상이라 이 제약에서 제외한다.
   const toggleId = (id: string) => {
+    if (id !== 'review' && !selectedIds.has(id)) {
+      const targetLang = wordbooks.find((wb) => wb.id === id)?.language
+      const conflict = targetLang
+        ? [...selectedIds]
+            .filter((sid) => sid !== 'review')
+            .map((sid) => wordbooks.find((wb) => wb.id === sid)?.language)
+            .find((lang) => lang && lang !== targetLang)
+        : null
+      if (conflict) {
+        setSelectError('언어가 다른 단어장은 함께 선택할 수 없습니다')
+        return
+      }
+    }
+    setSelectError('')
     setSelectedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
@@ -562,6 +580,10 @@ export default function WordbookListPage() {
           </div>
         ))}
       </div>
+
+      {selectError && (
+        <p className="px-4 py-1.5 text-xs text-red-500 bg-white border-t border-gray-100">{selectError}</p>
+      )}
 
       {/* 선택 시 하단 액션바 */}
       {selectedIds.size > 0 && (

@@ -12,3 +12,14 @@ const SOURCE_LANG: Record<string, string> = {
 export function sourceTTSLang(language: string | null | undefined): string {
   return (language && SOURCE_LANG[language]) || 'en-US'
 }
+
+// 화면에 보여줄 한글 라벨(HomePage.tsx "오늘의 복습" 언어별 분기, Quiz.tsx 단어 카드 라벨 등).
+const SOURCE_LABEL: Record<string, string> = {
+  'en-ko': '영어',
+  'ja-ko': '일본어',
+  'zh-ko': '중국어',
+}
+
+export function sourceLangLabel(language: string | null | undefined): string {
+  return (language && SOURCE_LABEL[language]) || '기타'
+}

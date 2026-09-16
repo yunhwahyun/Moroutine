@@ -55,6 +55,7 @@ export default function BookshelfListPage() {
   const [formLanguage, setFormLanguage] = useState('')
   const [formHashtags, setFormHashtags] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [selectError, setSelectError] = useState('')
   const [isActionLoading, setIsActionLoading] = useState(false)
   const [tagFilters, setTagFilters] = useState<Set<string>>(new Set())
 
@@ -155,7 +156,22 @@ export default function BookshelfListPage() {
     })
   }
 
+  // 서로 다른 언어의 책을 함께 선택하면 자동재생/발음이 어느 언어를 따라야 할지 애매해져서
+  // (사용자 확정) 선택 자체를 막는다.
   const toggleId = (id: string) => {
+    if (!selectedIds.has(id)) {
+      const targetLang = books.find((b) => b.id === id)?.language
+      const conflict = targetLang
+        ? [...selectedIds]
+            .map((sid) => books.find((b) => b.id === sid)?.language)
+            .find((lang) => lang && lang !== targetLang)
+        : null
+      if (conflict) {
+        setSelectError('언어가 다른 책은 함께 선택할 수 없습니다')
+        return
+      }
+    }
+    setSelectError('')
     setSelectedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
@@ -425,6 +441,10 @@ export default function BookshelfListPage() {
           </div>
         ))}
       </div>
+
+      {selectError && (
+        <p className="px-4 py-1.5 text-xs text-red-500 bg-white border-t border-gray-100">{selectError}</p>
+      )}
 
       {/* 선택 시 하단 액션바 — 학습/퀴즈가 없어 자동재생 + 삭제뿐 */}
       {selectedIds.size > 0 && (
