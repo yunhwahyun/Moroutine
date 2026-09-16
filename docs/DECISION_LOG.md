@@ -33,6 +33,18 @@ Spinner를 보여주고 있어서 Suspense fallback과 자연스럽게 이어진
 `LegalDocumentPage` 청크가 실제로 분리됐는지 확인. 브라우저 자동화 도구가 없어 실제 렌더링
 결과(표/굵게 등 시각적 확인)는 직접 못했다.
 
+**후속(사용자 수정)**: 마크다운이 실제로 렌더링되기 시작하자 사용자가 md 원문 구조를
+다듬었다 — ① `LegalDocumentPage.tsx`가 이미 헤더에 `<h1>{title}</h1>`("이용약관"/
+"개인정보처리방침")을 별도로 렌더링하므로 본문 첫 줄의 `# Moroutine ...(1차 출시용, 초안)`
+H1이 제목과 중복 노출되는 문제 — 4개 파일(`web/public/legal/{terms,privacy-policy}.md`,
+`docs/legal/{TERMS_PHASE1,PRIVACY_POLICY_PHASE1}.md`) 전부 HTML 주석(`<!-- -->`)으로
+감싸 숨김(react-markdown은 기본적으로 raw HTML을 렌더링하지 않아 주석 처리만으로 완전히
+안 보이게 된다, rehype-raw 등 별도 설정 불필요). ② 이용약관의 `**제N조(제목)**` 굵게
+표시가 실제로는 h3 제목에 해당한다고 지정 — `### 제N조(제목)`으로 변환(본문은 다음 줄로
+분리), 20개 조 전부 `web/public/legal/terms.md`/`docs/legal/TERMS_PHASE1.md` 두 파일에
+동일 적용. 개인정보처리방침은 이미 `## N. 제목`(h2) 형식이라 해당 없음. "수정 이력" 절의
+`- 제N조: ...` 목록 항목(다른 포맷)은 매칭 대상이 아니라 그대로 유지됨.
+
 ---
 
 ### 이용약관/개인정보처리방침 시행일 확정 — 2026-09-17
