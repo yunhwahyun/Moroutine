@@ -7,6 +7,7 @@ import { useAutoplayStore } from '@/stores/autoplayStore'
 import { buildChapterAutoPlaySegments, buildChapterAutoPlayCaption } from '@/lib/bookAutoplaySegments'
 import { BackIcon, EditIcon, PlayIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
+import ExpandableText from '@/components/ui/ExpandableText'
 import type { Book, BookChapter } from '@/types'
 
 const INPUT_CLASS = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400'
@@ -355,7 +356,7 @@ export default function BookDetailPage() {
                   </button>
                 </div>
               </div>
-              <p className="text-gray-600 text-sm mt-1.5 leading-relaxed whitespace-pre-wrap">{chapter.content}</p>
+              <ExpandableText text={chapter.content} />
             </div>
           ),
         )}

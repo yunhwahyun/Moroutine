@@ -13,6 +13,7 @@ import {
 } from '@/lib/publicBooks'
 import { BackIcon } from '@/components/icons'
 import Spinner from '@/components/ui/Spinner'
+import ExpandableText from '@/components/ui/ExpandableText'
 import type { PublicBookStatus } from '@/types'
 
 const INPUT_CLASS = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-gray-400'
@@ -355,7 +356,7 @@ export default function AdminBookDetailPage() {
                   삭제
                 </button>
               </div>
-              <p className="text-xs text-gray-600 mt-1 line-clamp-3 whitespace-pre-wrap">{chapter.content}</p>
+              <ExpandableText text={chapter.content} />
             </div>
           ))}
         </div>
