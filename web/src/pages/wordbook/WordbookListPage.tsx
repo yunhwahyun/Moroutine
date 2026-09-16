@@ -571,7 +571,7 @@ export default function WordbookListPage() {
             className="w-12 shrink-0 rounded-lg border border-gray-200 text-gray-900 flex items-center justify-center disabled:opacity-40"
             aria-label="자동재생 시작"
           >
-            <PlayIcon size={18} />
+            <PlayIcon size={20} />
           </button>
           <button
             onClick={handleMultiQuiz}
