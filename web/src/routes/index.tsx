@@ -1,4 +1,6 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import Spinner from '@/components/ui/Spinner'
 import AppLayout from '@/components/layout/AppLayout'
 import AdminLayout from '@/components/layout/AdminLayout'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
@@ -31,9 +33,23 @@ import PublicBookViewPage from '@/pages/public-book/PublicBookViewPage'
 import AdminBookListPage from '@/pages/admin/AdminBookListPage'
 import AdminBookFormPage from '@/pages/admin/AdminBookFormPage'
 import AdminBookDetailPage from '@/pages/admin/AdminBookDetailPage'
-import PrivacyPolicyPage from '@/pages/legal/PrivacyPolicyPage'
-import TermsPage from '@/pages/legal/TermsPage'
 import LicensesPage from '@/pages/legal/LicensesPage'
+
+// react-markdown(+remark-gfm)이 이 두 페이지에서만 쓰이는데 gzip 기준 약 49KB로 꽤 무거워서
+// (2026-09-16, LegalDocumentPage.tsx가 <pre> 원문 노출 대신 마크다운을 실제로 렌더링하도록
+// 바뀌며 추가됨) 이 앱에서 유일하게 지연 로딩한다 — 자주 안 들어가는 화면이라 초기 로딩에서
+// 빼는 이득이 크다. LegalDocumentPage 자체도 fetch(src) 응답을 기다리는 동안 항상 Spinner를
+// 보여주므로, 코드 자체를 기다리는 이 Suspense fallback과 자연스럽게 이어진다.
+const PrivacyPolicyPage = lazy(() => import('@/pages/legal/PrivacyPolicyPage'))
+const TermsPage = lazy(() => import('@/pages/legal/TermsPage'))
+
+function LazyPageFallback() {
+  return (
+    <div className="flex justify-center py-16">
+      <Spinner />
+    </div>
+  )
+}
 
 export default function AppRoutes() {
   return (
@@ -81,8 +97,22 @@ export default function AppRoutes() {
       </Route>
 
       {/* 개인정보처리방침/이용약관/오픈소스 라이선스 — 비로그인 포함 누구나 열람 가능(가입 전 열람 필요, docs/launch/PHASE1_POLICY.md §5). */}
-      <Route path="/privacy" element={<PrivacyPolicyPage />} />
-      <Route path="/terms" element={<TermsPage />} />
+      <Route
+        path="/privacy"
+        element={
+          <Suspense fallback={<LazyPageFallback />}>
+            <PrivacyPolicyPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/terms"
+        element={
+          <Suspense fallback={<LazyPageFallback />}>
+            <TermsPage />
+          </Suspense>
+        }
+      />
       <Route path="/licenses" element={<LicensesPage />} />
 
       <Route path="/master/accept" element={<MasterAcceptPage />} />

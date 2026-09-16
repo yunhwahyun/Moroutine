@@ -2,6 +2,12 @@
 
 > 최종 업데이트: 2026-09-16
 
+**이용약관/개인정보처리방침 마크다운 실제 렌더링(2026-09-16):** `LegalDocumentPage.tsx`가
+원문을 `<pre>`로 그대로 찍어서 마크다운 기호(`**`, `#`, 표 등)가 그대로 보이던 문제 —
+`react-markdown`+`remark-gfm`으로 실제 렌더링. 두 패키지가 무거워(gzip 48KB) `/terms`·
+`/privacy`만 `React.lazy()`로 지연 로딩(이 앱에서 유일한 코드 스플리팅 지점) — 메인
+번들 크기는 기존과 동일하게 유지. 상세는 `docs/DECISION_LOG.md` 2026-09-16 참고.
+
 **이용약관/개인정보처리방침 시행일 확정(2026-09-16):** 제20조(시행일)/개인정보처리방침
 §17 시행일을 `2026-09-17`로 확정(운영자 확인) — `docs/legal/TERMS_PHASE1.md`,
 `docs/legal/PRIVACY_POLICY_PHASE1.md`와 실제 게시본 `web/public/legal/terms.md`,
