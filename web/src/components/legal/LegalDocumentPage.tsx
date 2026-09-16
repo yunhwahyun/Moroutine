@@ -70,7 +70,10 @@ export default function LegalDocumentPage({ title, src }: { title: string; src: 
                 h1: ({ children }) => <h1 className="text-lg font-bold text-gray-900 mt-2">{children}</h1>,
                 h2: ({ children }) => <h2 className="text-base font-bold text-gray-900 mt-3">{children}</h2>,
                 h3: ({ children }) => <h3 className="text-sm font-bold text-gray-900 mt-2">{children}</h3>,
-                p: ({ children }) => <p>{children}</p>,
+                // 커먼마크 기본 규칙상 한 문단 안의 줄바꿈(개행 1개)은 공백으로 합쳐진다 —
+                // ①②③④ 항목을 줄마다 나눠 적어도(2026-09-16, 사용자 수정) whitespace-pre-line
+                // 없이는 화면에서 다시 한 줄로 붙어 보인다(직접 렌더링해 확인).
+                p: ({ children }) => <p className="whitespace-pre-line">{children}</p>,
                 strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
                 a: ({ href, children }) => (
                   <a href={href} target="_blank" rel="noreferrer" className="text-blue-600 underline">
