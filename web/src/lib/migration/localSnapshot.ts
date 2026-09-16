@@ -8,6 +8,11 @@ function withHashtags<T extends { hashtags?: string[] }>(row: T): T & { hashtags
   return { ...row, hashtags: row.hashtags ?? [] }
 }
 
+// alarm_mode 컬럼 추가(마이그레이션 52, 2026-09-16) 이전 레코드도 hashtags와 동일한 이유로 방어.
+function withAlarmMode<T extends { alarm_mode?: string }>(row: T): T & { alarm_mode: string } {
+  return { ...row, alarm_mode: row.alarm_mode ?? 'offset' }
+}
+
 // docs/MIGRATION_DESIGN.md — 이전 엔진 전용. 화면은 이 함수를 직접 쓰지 않고
 // useGuestMigration() 훅을 거친다. LocalDataRepository가 아니라 localDB를 직접 읽는 이유는
 // 이전에는 "로컬 ID를 보존한 전체 스냅샷"이 필요한데(개별 CRUD 인터페이스로는 로컬 ID를 노출하지 않음),
@@ -29,7 +34,7 @@ export async function readLocalSnapshot(): Promise<LocalSnapshot> {
     words,
     books: books.map(withHashtags),
     bookChapters,
-    schedules,
+    schedules: schedules.map(withAlarmMode),
     scheduleExceptions,
     studySessions,
     studyResults,

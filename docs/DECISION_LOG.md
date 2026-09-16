@@ -6,6 +6,32 @@
 
 ## 2026-09-16
 
+### 일정 알림에 "설정 알림 시간" 옵션 추가(alarm_mode)
+
+**배경**: "일정이 종일이면 알림은 언제 가냐"는 질문에 답하는 과정에서, 종일 일정은 `starts_at`이
+항상 자정이라 기존 "정시"/"N분 전"(alarm_minutes, 시작 시각 기준 오프셋) 알림이 전날 밤~자정
+근처에 와서 실질적으로 쓸모가 없다는 문제를 발견했다. 사용자가 알림 시간 셀렉트에 "설정 알림
+시간"(설정 페이지에서 정한 시각에 알림)을 추가해달라고 요청 — 별도의 "일정 전용 알림 시간"을
+새로 만들지 않고 기존 설정 페이지 "복습 알림"의 알림 시간(`UserSettings.reviewNotificationTime`)을
+그대로 공유하기로 확정(라벨도 변경 없음, 사용자 확정).
+
+**구현**: `schedules.alarm_mode`('offset'|'daily_time', NOT NULL DEFAULT 'offset'),
+`schedule_exceptions.alarm_mode`(동일 체크, nullable — NULL이면 원본 schedule 값을 따름)
+컬럼 신설(마이그레이션 52). `'daily_time'`을 고르면 `alarm_minutes`는 저장하지 않고(항상
+null), `refreshScheduleNotifications()`가 occurrence의 `occurrence_date` + 설정의
+`reviewNotificationTime`으로 알림 시각을 계산한다. 종일/시간 지정 일정 모두에 적용 가능한
+일반 옵션으로 추가했다(종일 전용으로 제한하지 않음).
+
+**주의(자체 발견)**: `refreshScheduleNotifications()`의 기존 가드(`alarm_minutes === null`이면
+알림 안 잡음)를 그대로 뒀다면 `alarm_mode='daily_time'` 일정은 `alarm_minutes`가 항상 null이라
+전부 "알림 없음"으로 걸러졌을 것 — `alarm_mode === 'offset' && alarm_minutes === null`로 수정.
+
+**검증**: `tsx`로 (1) 다중일자 종일 + daily_time → 09-15 중복 제거 로직과 함께 알림 1개만
+잡히는지, (2) 매일 반복 3회 + daily_time → 회차별로 다른 시각 3개가 잡히는지, (3) 기존
+offset 모드가 그대로 동작하는지 확인. `tsc --noEmit`/`eslint`/`npm run build` 통과.
+
+---
+
 ### 여러 날짜에 걸친 일정의 알림이 중복 예약되던 회귀 버그 수정
 
 **증상**: 사용자가 "종일 일정은 알림이 언제 오냐"고 물어 확인하는 과정에서 발견 — 09-15

@@ -25,7 +25,9 @@ export async function refreshScheduleNotifications(
 ): Promise<void> {
   await cancelScheduleNotifications(repository, schedule.id)
 
-  if (schedule.alarm_minutes === null) return
+  // alarm_mode='daily_time'은 alarm_minutes와 무관하게(보통 null) 항상 알림을 잡아야 한다 —
+  // alarm_minutes만으로 판정하면 daily_time 일정이 전부 "알림 없음"으로 취급돼 걸러지는 버그가 있었다.
+  if (schedule.alarm_mode === 'offset' && schedule.alarm_minutes === null) return
 
   const now = new Date()
   // expandScheduleOccurrences는 rangeStart를 "일(day)" 단위로 비교한다(반복 일정의 각 occurrence가
@@ -49,8 +51,16 @@ export async function refreshScheduleNotifications(
     return true
   })
 
+  // daily_time은 종일/시간 지정 일정 모두 starts_at과 무관하게 설정 페이지의 복습 알림 시간에
+  // 울린다(2026-09-16, docs/DECISION_LOG.md) — occurrence마다 매번 조회할 필요 없이 한 번만 가져온다.
+  const dailyTime =
+    schedule.alarm_mode === 'daily_time' ? (await repository.getSettings()).reviewNotificationTime : null
+
   const inputs = uniqueOccurrences.reduce<{ scheduleId: string; fireAt: string }[]>((acc, occ) => {
-    const fireAt = new Date(new Date(occ.starts_at).getTime() - schedule.alarm_minutes! * 60000)
+    const fireAt =
+      dailyTime !== null
+        ? new Date(`${occ.occurrence_date}T${dailyTime}:00`)
+        : new Date(new Date(occ.starts_at).getTime() - schedule.alarm_minutes! * 60000)
     if (fireAt > now) {
       acc.push({ scheduleId: schedule.id, fireAt: fireAt.toISOString() })
     }
@@ -62,9 +72,11 @@ export async function refreshScheduleNotifications(
   const created = await repository.createNotifications(inputs)
 
   const body =
-    schedule.alarm_minutes === 0
-      ? '일정이 시작됩니다'
-      : `${schedule.alarm_minutes}분 후 일정이 시작됩니다`
+    dailyTime !== null
+      ? '오늘 일정이 있습니다'
+      : schedule.alarm_minutes === 0
+        ? '일정이 시작됩니다'
+        : `${schedule.alarm_minutes}분 후 일정이 시작됩니다`
 
   for (const n of created) {
     bridge.scheduleNotification({ id: n.id, title: schedule.title, body, fireAt: n.fire_at })

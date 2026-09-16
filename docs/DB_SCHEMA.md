@@ -140,6 +140,9 @@ CREATE TABLE schedules (
   repeat_count        int,
   parent_schedule_id  uuid REFERENCES schedules(id) ON DELETE SET NULL,
   alarm_minutes       int,
+  alarm_mode          text NOT NULL DEFAULT 'offset',
+    -- 'offset'(시작 시각 - alarm_minutes) | 'daily_time'(설정 페이지 복습 알림 시간에 알림,
+    -- 마이그레이션 52, 2026-09-16 — 종일 일정은 시작 시각이 항상 자정이라 offset이 쓸모없어서 추가)
   created_at          timestamptz NOT NULL DEFAULT now(),
   updated_at          timestamptz NOT NULL DEFAULT now()
 );
@@ -173,6 +176,7 @@ CREATE TABLE schedule_exceptions (
   ends_at             timestamptz,
   is_all_day          boolean,
   alarm_minutes       int,
+  alarm_mode          text,  -- nullable(마이그레이션 52 이전 행만 NULL) — NULL이면 원본 schedule의 alarm_mode를 따름
   created_at          timestamptz NOT NULL DEFAULT now(),
   updated_at          timestamptz NOT NULL DEFAULT now()
 );
@@ -464,6 +468,7 @@ ALTER TABLE profiles
 | 49 | migration_books | `migrate_books`/`migrate_book_chapters` RPC 신설(마이그레이션 26/35와 동일한 existing/owned/new_items 3-way 패턴) — 책장(books/book_chapters, 마이그레이션 42)이 이전 엔진(마이그레이션 26, 2026-07-18)보다 나중에 생겨 Guest→Remote 계정 이전 대상에서 빠져 있던 공백을 메움 | `docs/MIGRATION_DESIGN.md` "Phase 15 후속", `docs/DECISION_LOG.md` 2026-09-11 |
 | 50 | master_invitation_token_check | `check_master_invitation(p_token text) RETURNS boolean`(SECURITY DEFINER, `anon`/`authenticated` 실행 권한) — Master 초대를 자체 토큰 방식으로 되돌리며(§ 아래 참고) `MasterAcceptPage`가 계정 생성 전에 토큰 유효성만 가볍게 확인하는 용도. `extensions.digest()`(pgcrypto)로 해시해 `master_invitations.token_hash`와 대조 | `docs/MASTER_INVITATION_DESIGN.md`, `docs/DECISION_LOG.md` 2026-09-12 |
 | 51 | wordbooks_books_hashtags | `wordbooks`/`books`(개인 단어장·책장 전용, 공용 `public_wordbooks`/`public_books`는 대상 아님)에 `hashtags text[] NOT NULL DEFAULT '{}'` 컬럼 추가. RLS 정책 변경 없음(컬럼 추가는 기존 4종 정책 그대로 적용). `migrate_wordbooks`/`migrate_books` RPC(마이그레이션 26/49)도 `hashtags` 파라미터를 받아 함께 복사하도록 재정의 | `docs/DECISION_LOG.md` 2026-09-15 |
+| 52 | schedule_alarm_mode | `schedules`에 `alarm_mode text NOT NULL DEFAULT 'offset' CHECK (IN ('offset','daily_time'))`, `schedule_exceptions`에 동일 체크의 nullable `alarm_mode` 컬럼 추가 — "설정 알림 시간"(설정 페이지의 복습 알림 시간을 공유) 알림 옵션 신설. RLS 정책 변경 없음. `migrate_schedules`/`migrate_schedule_exceptions` RPC(마이그레이션 35)도 `alarm_mode` 파라미터를 받아 함께 복사하도록 재정의 | `docs/DECISION_LOG.md` 2026-09-16 |
 
 > **참고(2026-09-10)**: 38번 마이그레이션의 `get_service_tier()` 정의는 44번이 즉시 대체했다 — 38번 파일 자체(과거 마이그레이션)는 수정하지 않고 `CREATE OR REPLACE FUNCTION`으로 다음 마이그레이션이 덮어쓰는 기존 관례를 그대로 따랐다.
 

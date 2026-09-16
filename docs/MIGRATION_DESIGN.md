@@ -59,6 +59,17 @@
 
 ---
 
+## Phase 15 후속 3 (2026-09-16) — 일정 알림 방식(alarm_mode) 컬럼 추가
+
+`schedules`/`schedule_exceptions`에 `alarm_mode` 컬럼이 추가되면서(마이그레이션 52, `docs/DECISION_LOG.md` 2026-09-16) 이전 RPC도 함께 넓혔다. 위 두 후속과 동일한 패턴.
+
+- `migrate_schedules`(마이그레이션 26/35)의 `p_schedules` jsonb 배열 원소에 `alarm_mode`(없으면 `'offset'`으로 대체 — `COALESCE(NULLIF(elem->>'alarm_mode', ''), 'offset')`) 추가, `INSERT INTO schedules (..., alarm_mode)` 컬럼 목록에 반영.
+- `migrate_schedule_exceptions`(마이그레이션 26/35)의 `p_exceptions` jsonb 배열 원소에도 `alarm_mode`(nullable, 없으면 NULL — 원본 schedule 값을 따르는 기존 의미 유지) 추가.
+- `existing`/`owned` 재사용 분기는 변경 없음(위와 동일한 이유).
+- 프런트: `guestToRemoteMigration.ts`의 `toSchedulePayload()`/`toScheduleExceptionPayload()`가 `alarm_mode`를 페이로드에 실어 보낸다. `localSnapshot.ts`의 `readLocalSnapshot()`은 마이그레이션 52 이전에 저장된 로컬 일정에 `alarm_mode` 필드 자체가 없을 수 있어(Dexie가 기존 레코드에 새 필드를 소급 적용하지 않음, hashtags와 동일한 문제) `withAlarmMode()`로 방어 후 읽는다.
+
+---
+
 ## 1. 범위
 
 | 방향 | 트리거 | 관련 정책 문서 |

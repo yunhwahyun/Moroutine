@@ -20,6 +20,7 @@ import type {
   ScheduleOccurrence,
   RepeatType,
   RepeatEndType,
+  AlarmMode,
 } from '@/types'
 
 // ─── helpers ───────────────────────────────────────────────
@@ -50,7 +51,8 @@ function minutesToTime(mins: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
-function formatAlarm(min: number | null) {
+function formatAlarm(min: number | null, mode: AlarmMode) {
+  if (mode === 'daily_time') return '설정 알림 시간'
   if (min === null) return null
   if (min === 0) return '정시'
   if (min < 60) return `${min}분 전`
@@ -87,6 +89,7 @@ function occurrenceToForm(occ: ScheduleOccurrence, s: Schedule): ScheduleForm {
     repeatUnit: s.repeat_unit ?? 'day',
     repeatValue: s.repeat_value !== null ? String(s.repeat_value) : '1',
     alarmMinutes: occ.alarm_minutes !== null ? String(occ.alarm_minutes) : '',
+    alarmMode: occ.alarm_mode,
   }
 }
 
@@ -127,6 +130,7 @@ const ALARM_OPTIONS = [
   { value: '10', label: '10분 전' },
   { value: '30', label: '30분 전' },
   { value: '60', label: '1시간 전' },
+  { value: 'daily_time', label: '설정 알림 시간' },
 ]
 
 // ─── types ────────────────────────────────────────────────
@@ -146,6 +150,7 @@ type ScheduleForm = {
   repeatUnit: string
   repeatValue: string
   alarmMinutes: string
+  alarmMode: AlarmMode
 }
 
 type RepeatEditScope = 'this' | 'future' | 'all'
@@ -161,7 +166,7 @@ function defaultForm(): ScheduleForm {
     isAllDay: false, location: '',
     repeatType: 'none', repeatEndType: 'none',
     repeatUntil: '', repeatCount: '', repeatUnit: 'day', repeatValue: '1',
-    alarmMinutes: '',
+    alarmMinutes: '', alarmMode: 'offset',
   }
 }
 
@@ -249,7 +254,9 @@ function formToScheduleFields(form: ScheduleForm, parentId?: string) {
     repeat_until: form.repeatEndType === 'until' ? form.repeatUntil || null : null,
     repeat_count: form.repeatEndType === 'count' ? Number(form.repeatCount) || null : null,
     parent_schedule_id: parentId ?? null,
-    alarm_minutes: form.alarmMinutes !== '' ? Number(form.alarmMinutes) : null,
+    // daily_time은 alarm_minutes(오프셋)를 쓰지 않는다 — 설정 페이지의 알림 시간을 그대로 쓴다.
+    alarm_minutes: form.alarmMode === 'offset' && form.alarmMinutes !== '' ? Number(form.alarmMinutes) : null,
+    alarm_mode: form.alarmMode,
   }
 }
 
@@ -408,8 +415,15 @@ function ScheduleFormPanel({
       {/* 그룹 3: 알림 */}
       {DIVIDER}
       <select
-        value={form.alarmMinutes}
-        onChange={(e) => onChange({ ...form, alarmMinutes: e.target.value })}
+        value={form.alarmMode === 'daily_time' ? 'daily_time' : form.alarmMinutes}
+        onChange={(e) => {
+          const v = e.target.value
+          if (v === 'daily_time') {
+            onChange({ ...form, alarmMode: 'daily_time', alarmMinutes: '' })
+          } else {
+            onChange({ ...form, alarmMode: 'offset', alarmMinutes: v })
+          }
+        }}
         className={SELECT}
       >
         {ALARM_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -460,7 +474,7 @@ function OccurrenceCard({
   occ: ScheduleOccurrence
   onEdit: (occ: ScheduleOccurrence) => void
 }) {
-  const alarm = formatAlarm(occ.alarm_minutes)
+  const alarm = formatAlarm(occ.alarm_minutes, occ.alarm_mode)
   const repeatLabel = occ.is_recurring ? REPEAT_LABEL[occ.repeat_type] : null
 
   return (
@@ -655,7 +669,8 @@ export default function ScheduleListPage() {
         startsAt: buildStartsAt(f),
         endsAt: buildEndsAt(f),
         isAllDay: f.isAllDay,
-        alarmMinutes: f.alarmMinutes !== '' ? Number(f.alarmMinutes) : null,
+        alarmMinutes: f.alarmMode === 'offset' && f.alarmMinutes !== '' ? Number(f.alarmMinutes) : null,
+        alarmMode: f.alarmMode,
       })
     },
     onSuccess: (_data, { occ }) => {

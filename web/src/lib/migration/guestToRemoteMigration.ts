@@ -152,6 +152,7 @@ function toSchedulePayload(s: LocalSnapshot['schedules'][number]) {
     repeat_until: s.repeat_until,
     repeat_count: s.repeat_count,
     alarm_minutes: s.alarm_minutes,
+    alarm_mode: s.alarm_mode ?? 'offset',
   }
 }
 
@@ -169,6 +170,7 @@ function toScheduleExceptionPayload(e: LocalSnapshot['scheduleExceptions'][numbe
     ends_at: e.ends_at,
     is_all_day: e.is_all_day,
     alarm_minutes: e.alarm_minutes,
+    alarm_mode: e.alarm_mode,
   }
 }
 

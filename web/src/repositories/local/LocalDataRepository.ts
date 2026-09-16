@@ -35,6 +35,12 @@ function withHashtags<T extends { hashtags?: string[] }>(row: T): T & { hashtags
   return { ...row, hashtags: row.hashtags ?? [] }
 }
 
+// alarm_mode 컬럼 추가(마이그레이션 52, 2026-09-16) 이전에 저장된 기존 일정 행에는 이 필드가
+// 없다 — hashtags와 동일한 이유로 읽을 때마다 기본값('offset', 기존 동작과 동일)을 채운다.
+function withAlarmMode<T extends { alarm_mode?: Schedule['alarm_mode'] }>(row: T): T & { alarm_mode: Schedule['alarm_mode'] } {
+  return { ...row, alarm_mode: row.alarm_mode ?? 'offset' }
+}
+
 // docs/DATA_STORAGE_DESIGN.md §6 — Guest 전용 구현. 서버 왕복 없이 IndexedDB(Dexie)에 정본을 저장한다.
 // Guest는 개인 단어 등록 수를 제한하지 않는다(docs/SUBSCRIPTION_DESIGN.md §1) — bulkCreateWords는
 // 항상 blocked=false, limitValue=null을 반환한다.
@@ -202,20 +208,21 @@ export class LocalDataRepository implements DataRepository {
   }
 
   async getSchedules(): Promise<Schedule[]> {
-    return localDB.schedules.orderBy('starts_at').toArray()
+    const rows = await localDB.schedules.orderBy('starts_at').toArray()
+    return rows.map(withAlarmMode)
   }
 
   async saveSchedule(input: ScheduleInput): Promise<Schedule> {
     const now = nowIso()
     if (input.id) {
       const existing = await localDB.schedules.get(input.id)
-      const merged: Schedule = {
+      const merged: Schedule = withAlarmMode({
         ...(existing as Schedule),
         ...input,
         id: input.id,
         user_id: GUEST_USER_ID,
         updated_at: now,
-      }
+      })
       await localDB.schedules.put(merged)
       return merged
     }
@@ -265,6 +272,7 @@ export class LocalDataRepository implements DataRepository {
       ends_at: input.endsAt ?? existing?.ends_at ?? null,
       is_all_day: input.isAllDay ?? existing?.is_all_day ?? null,
       alarm_minutes: input.alarmMinutes ?? existing?.alarm_minutes ?? null,
+      alarm_mode: input.alarmMode ?? existing?.alarm_mode ?? null,
       created_at: existing?.created_at ?? now,
       updated_at: now,
     }

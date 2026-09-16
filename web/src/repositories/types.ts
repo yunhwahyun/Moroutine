@@ -1,4 +1,5 @@
 import type {
+  AlarmMode,
   Book,
   BookChapter,
   NotificationRecord,
@@ -96,6 +97,7 @@ export type ScheduleExceptionInput = {
   endsAt?: string | null
   isAllDay?: boolean | null
   alarmMinutes?: number | null
+  alarmMode?: AlarmMode | null
 }
 
 export type CreateNotificationInput = { scheduleId: string; fireAt: string }

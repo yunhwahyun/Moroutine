@@ -100,6 +100,7 @@ function makeOccurrence(
     ends_at: endsAt,
     is_all_day: schedule.is_all_day,
     alarm_minutes: schedule.alarm_minutes,
+    alarm_mode: schedule.alarm_mode,
     repeat_type: schedule.repeat_type,
     is_recurring: isRecurring,
     is_exception: false,
@@ -222,6 +223,9 @@ export function applyScheduleExceptions(
         ends_at: ex.ends_at ?? occ.ends_at,
         is_all_day: ex.is_all_day ?? occ.is_all_day,
         alarm_minutes: ex.alarm_minutes !== undefined ? ex.alarm_minutes : occ.alarm_minutes,
+        // ex.alarm_mode는 이 컬럼 추가 이전에 만들어진 예외 행이면 null일 수 있다 — 그럴 땐
+        // 원본 schedule의 alarm_mode(occ.alarm_mode, 항상 'offset'|'daily_time')로 대체한다.
+        alarm_mode: ex.alarm_mode ?? occ.alarm_mode,
         is_exception: true,
         exception_id: ex.id,
       }

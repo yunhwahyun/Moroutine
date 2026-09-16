@@ -307,6 +307,7 @@ export class RemoteDataRepository implements DataRepository {
       ends_at: input.endsAt ?? existing?.ends_at ?? null,
       is_all_day: input.isAllDay ?? existing?.is_all_day ?? null,
       alarm_minutes: input.alarmMinutes ?? existing?.alarm_minutes ?? null,
+      alarm_mode: input.alarmMode ?? existing?.alarm_mode ?? null,
       updated_at: new Date().toISOString(),
     }
 

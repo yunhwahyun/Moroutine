@@ -138,6 +138,11 @@ export type PublicBookChapter = {
 
 export type RepeatType = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly' | 'custom'
 export type RepeatEndType = 'none' | 'until' | 'count'
+// 'offset': 시작 시각 - alarm_minutes(기존 방식). 'daily_time': 시작 시각과 무관하게 그날
+// 설정(SettingsPage.tsx "복습 알림"의 알림 시간, UserSettings.reviewNotificationTime)에 알림
+// (종일 일정은 시작 시각이 항상 자정이라 'offset'이 자정 근처에 알림을 줘서 실질적으로 쓸모가
+// 없었다 — 2026-09-16 사용자 리포트로 추가, docs/DECISION_LOG.md 참고).
+export type AlarmMode = 'offset' | 'daily_time'
 
 export type Schedule = {
   id: string
@@ -155,6 +160,7 @@ export type Schedule = {
   repeat_count: number | null
   parent_schedule_id: string | null
   alarm_minutes: number | null
+  alarm_mode: AlarmMode
   created_at: string
   updated_at: string
 }
@@ -173,6 +179,10 @@ export type ScheduleException = {
   ends_at: string | null
   is_all_day: boolean | null
   alarm_minutes: number | null
+  // null = 재정의 없음(원본 schedule의 alarm_mode를 그대로 씀) — "이 일정만 수정" 시엔 항상
+  // 폼의 현재 값을 명시적으로 채워 넣는다("이 일정만 수정" 매번 alarm_minutes도 항상 채우는
+  // 것과 동일한 패턴). 이 컬럼이 생기기 전에 만들어진 예외 행에서만 실제로 null로 남는다.
+  alarm_mode: AlarmMode | null
   created_at: string
   updated_at: string
 }
@@ -203,6 +213,7 @@ export type ScheduleOccurrence = {
   ends_at: string | null
   is_all_day: boolean
   alarm_minutes: number | null
+  alarm_mode: AlarmMode
   repeat_type: RepeatType
   is_recurring: boolean
   is_exception: boolean
